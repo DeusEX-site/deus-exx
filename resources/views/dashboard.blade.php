@@ -87,7 +87,7 @@
         }
         
         .chat-header {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
             color: white;
             padding: 1rem;
             display: flex;
@@ -151,7 +151,7 @@
         }
         
         .message.own {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
             color: white;
             align-self: flex-end;
             border-bottom-right-radius: 0.25rem;
@@ -198,12 +198,12 @@
         }
         
         .input-group input:focus {
-            border-color: #4facfe;
-            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.2);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
         }
         
         .send-btn {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
             color: white;
             border: none;
             border-radius: 50%;
@@ -218,7 +218,7 @@
         
         .send-btn:hover {
             transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
         }
         
         .online-indicator {
