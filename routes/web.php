@@ -18,6 +18,25 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Тестовый роут для отправки сообщений через веб-сокет
+Route::get('/send-message', function () {
+    $message = request('message', 'Тестовое сообщение');
+    $user = auth()->user() ? auth()->user()->name : 'Гость';
+    
+    // Отправляем событие через веб-сокет
+    event(new \App\Events\MessageSent($message, $user));
+    
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Сообщение отправлено!',
+        'data' => [
+            'message' => $message,
+            'user' => $user,
+            'timestamp' => now()->format('H:i:s')
+        ]
+    ]);
+});
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
