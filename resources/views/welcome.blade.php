@@ -18,6 +18,8 @@
 
             body {
                 font-family: 'Figtree', sans-serif;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+                color: #e2e8f0;
             }
 
             .relative {
@@ -29,7 +31,7 @@
             }
 
             .bg-dots-darker {
-                background-image: radial-gradient(rgb(87 87 87 / 0.4) 1px, transparent 1px);
+                background-image: radial-gradient(rgb(255 255 255 / 0.1) 1px, transparent 1px);
             }
 
             .bg-center {
@@ -37,8 +39,7 @@
             }
 
             .bg-gray-100 {
-                --tw-bg-opacity: 1;
-                background-color: rgb(243 244 246 / var(--tw-bg-opacity));
+                background: transparent;
             }
 
             .selection\:bg-red-500 *::selection {
@@ -103,12 +104,12 @@
 
             .text-gray-600 {
                 --tw-text-opacity: 1;
-                color: rgb(75 85 99 / var(--tw-text-opacity));
+                color: rgba(226, 232, 240, 0.8);
             }
 
             .hover\:text-gray-900:hover {
                 --tw-text-opacity: 1;
-                color: rgb(17 24 39 / var(--tw-text-opacity));
+                color: rgb(255 255 255 / var(--tw-text-opacity));
             }
 
             .ml-4 {
@@ -174,6 +175,14 @@
                 line-height: 1.75rem;
             }
 
+            .text-red-500 {
+                color: #60a5fa;
+            }
+
+            .text-gray-500 {
+                color: rgba(226, 232, 240, 0.6);
+            }
+
             .font-medium {
                 font-weight: 500;
             }
@@ -184,7 +193,7 @@
 
             .text-gray-900 {
                 --tw-text-opacity: 1;
-                color: rgb(17 24 39 / var(--tw-text-opacity));
+                color: rgb(255 255 255 / var(--tw-text-opacity));
             }
 
             .mt-6 {
@@ -193,7 +202,9 @@
 
             .bg-white {
                 --tw-bg-opacity: 1;
-                background-color: rgb(255 255 255 / var(--tw-bg-opacity));
+                background-color: rgba(30, 30, 60, 0.8);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
             }
 
             .overflow-hidden {
@@ -280,12 +291,12 @@
 
             .bg-red-50 {
                 --tw-bg-opacity: 1;
-                background-color: rgb(254 242 242 / var(--tw-bg-opacity));
+                background-color: rgba(59, 130, 246, 0.2);
             }
 
             .bg-red-500 {
                 --tw-bg-opacity: 1;
-                background-color: rgb(239 68 68 / var(--tw-bg-opacity));
+                background-color: rgb(59, 130, 246);
             }
 
             @media (min-width: 768px) {
