@@ -19,15 +19,15 @@
         
         body {
             font-family: 'Figtree', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
             min-height: 100vh;
-            color: #333;
+            color: #e2e8f0;
         }
         
         .header {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(15, 15, 35, 0.8);
             backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
@@ -75,11 +75,11 @@
         }
         
         .chat-window {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(30, 30, 60, 0.9);
             border-radius: 1rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             overflow: hidden;
             height: 400px;
             display: flex;
@@ -96,17 +96,17 @@
         }
         
         .chat-header:nth-child(2n) {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #2d3748;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
         }
         
         .chat-header:nth-child(3n) {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            color: #2d3748;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            color: white;
         }
         
         .chat-header:nth-child(4n) {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
         }
         
@@ -158,8 +158,8 @@
         }
         
         .message.other {
-            background: #f1f5f9;
-            color: #334155;
+            background: rgba(55, 65, 81, 0.8);
+            color: #e2e8f0;
             align-self: flex-start;
             border-bottom-left-radius: 0.25rem;
         }
@@ -172,8 +172,8 @@
         
         .chat-input {
             padding: 1rem;
-            border-top: 1px solid #e2e8f0;
-            background: white;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 15, 35, 0.8);
         }
         
         .input-group {
@@ -184,16 +184,22 @@
         .input-group input {
             flex: 1;
             padding: 0.75rem 1rem;
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 1.5rem;
             outline: none;
             font-size: 0.875rem;
+            background: rgba(30, 30, 60, 0.6);
+            color: #e2e8f0;
             transition: border-color 0.3s ease;
+        }
+        
+        .input-group input::placeholder {
+            color: rgba(226, 232, 240, 0.6);
         }
         
         .input-group input:focus {
             border-color: #4facfe;
-            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.2);
         }
         
         .send-btn {
@@ -268,7 +274,7 @@
             <a href="{{ url('/') }}">Главная</a>
             <form method="POST" action="{{ route('logout') }}" style="display: inline;">
                 @csrf
-                <button type="submit" style="background: none; border: none; color: rgba(255, 255, 255, 0.8); cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.3s ease;">
+                <button type="submit" style="background: rgba(255, 255, 255, 0.1); border: none; color: rgba(255, 255, 255, 0.8); cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
                     Выйти
                 </button>
             </form>
