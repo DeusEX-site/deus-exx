@@ -330,75 +330,63 @@
             </div>
         </div>
 
-        <!-- Pusher CDN -->
-        <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+            <!-- Pusher CDN убран - используем только polling -->
         
         <script>
-            // Инициализация переменных
-            let pusher;
-            let channel;
-            let messagesContainer = document.getElementById('messagesContainer');
-            let statusDot = document.getElementById('statusDot');
-            let connectionStatus = document.getElementById('connectionStatus');
-            let messageForm = document.getElementById('messageForm');
-            let sendStatus = document.getElementById('sendStatus');
+                    // Инициализация переменных (polling режим)
+        let messagesContainer = document.getElementById('messagesContainer');
+        let statusDot = document.getElementById('statusDot');
+        let connectionStatus = document.getElementById('connectionStatus');
+        let messageForm = document.getElementById('messageForm');
+        let sendStatus = document.getElementById('sendStatus');
             
-            // Инициализация Pusher (используем локальные настройки)
-            function initializePusher() {
-                try {
-                    pusher = new Pusher('local-key', {
-                        cluster: 'mt1',
-                        wsHost: '{{ request()->getHost() }}',
-                        wsPort: 6001,
-                        wssPort: 6001,
-                        forceTLS: false,
-                        enabledTransports: ['ws', 'wss'],
-                        disableStats: true,
-                        authEndpoint: '/broadcasting/auth'
-                    });
-                    
-                    // Подключение к каналу
-                    channel = pusher.subscribe('messages');
-                    
-                    // Обработчики событий Pusher
-                    pusher.connection.bind('connected', function() {
-                        statusDot.classList.add('connected');
-                        connectionStatus.textContent = 'Подключено к веб-сокету!';
-                        addSystemMessage('✅ Подключение к веб-сокету установлено!');
-                    });
-                    
-                    pusher.connection.bind('disconnected', function() {
-                        statusDot.classList.remove('connected');
-                        connectionStatus.textContent = 'Отключено';
-                        addSystemMessage('❌ Соединение разорвано');
-                    });
-                    
-                    pusher.connection.bind('error', function(err) {
-                        statusDot.classList.remove('connected');
-                        connectionStatus.textContent = 'Ошибка подключения';
-                        addSystemMessage('❌ Ошибка: ' + (err.message || 'Неизвестная ошибка'));
-                    });
-                    
-                    // Слушаем события сообщений
-                    channel.bind('message.sent', function(data) {
-                        addMessage(data.user, data.message, data.timestamp);
-                    });
-                    
-                } catch (error) {
-                    console.error('Ошибка инициализации Pusher:', error);
-                    statusDot.classList.remove('connected');
-                    connectionStatus.textContent = 'Ошибка инициализации';
-                    addSystemMessage('❌ Не удалось инициализировать веб-сокет');
-                    
-                    // Fallback - попробуем использовать polling
-                    startPolling();
-                }
-            }
+                            // Инициализация системы сообщений (только polling - без веб-сокетов)
+        function initializeMessaging() {
+            addSystemMessage('🔄 Использование polling режима (без веб-сокетов)');
+            addSystemMessage('📡 Сообщения обновляются каждые 2 секунды');
+            
+            // Сразу запускаем polling режим
+            startPolling();
+        }
             
             // Альтернативный метод - polling (если веб-сокеты не работают)
+            let pollingInterval;
+            let lastMessageId = 0;
+            
             function startPolling() {
-                addSystemMessage('🔄 Переключение на режим опроса...');
-                // Здесь можно добавить логику polling'а при необходимости
+                addSystemMessage('🔄 Переключение на режим опроса (polling)...');
+                connectionStatus.textContent = 'Режим опроса активен';
+                
+                // Очищаем предыдущий интервал если был
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                }
+                
+                // Запускаем опрос каждые 2 секунды
+                pollingInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch('/api/messages/latest?after=' + lastMessageId, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.messages && data.messages.length > 0) {
+                                data.messages.forEach(msg => {
+                                    addMessage(msg.user, msg.message, msg.timestamp);
+                                    lastMessageId = Math.max(lastMessageId, msg.id || 0);
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Polling error:', error);
+                    }
+                }, 2000);
+                
+                statusDot.classList.add('connected');
             }
             
             // Добавление сообщения в контейнер
@@ -483,15 +471,15 @@
                 }
             });
             
-            // Инициализация при загрузке страницы
-            document.addEventListener('DOMContentLoaded', function() {
-                initializePusher();
-                
-                // Добавляем приветственное сообщение
-                setTimeout(() => {
-                    addSystemMessage('🎉 Страница загружена! Попробуйте отправить сообщение.');
-                }, 1000);
-            });
+                    // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMessaging();
+            
+            // Добавляем приветственное сообщение
+            setTimeout(() => {
+                addSystemMessage('🎉 Страница загружена! Попробуйте отправить сообщение.');
+            }, 1000);
+        });
         </script>
     </body>
 </html>
