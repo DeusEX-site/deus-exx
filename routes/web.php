@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Models\Message;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,80 +19,57 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Тестовый роут для отправки сообщений через веб-сокет
+// Роут для отправки сообщений
 Route::get('/send-message', function () {
-    $message = request('message', 'Тестовое сообщение');
+    $messageText = request('message', 'Тестовое сообщение');
     $user = auth()->user() ? auth()->user()->name : 'Гость';
     
-    // Отправляем событие через веб-сокет
-    event(new \App\Events\MessageSent($message, $user));
+    // Сохраняем сообщение в базу данных
+    $message = Message::create([
+        'message' => $messageText,
+        'user' => $user,
+    ]);
+    
+    // Отправляем событие через веб-сокет (если работает)
+    try {
+        event(new \App\Events\MessageSent($messageText, $user));
+    } catch (Exception $e) {
+        // Веб-сокеты не работают, ничего страшного
+    }
     
     return response()->json([
         'status' => 'success',
         'message' => 'Сообщение отправлено!',
         'data' => [
-            'message' => $message,
+            'id' => $message->id,
+            'message' => $messageText,
             'user' => $user,
-            'timestamp' => now()->format('H:i:s')
+            'timestamp' => $message->created_at->format('H:i:s')
         ]
     ]);
 });
 
-// API для polling режима (когда веб-сокеты не работают)
+// API для polling режима - получение последних сообщений из БД
 Route::get('/api/messages/latest', function () {
-    // Простое хранилище в сессии (в продакшне лучше использовать Redis/Database)
-    $messages = session('broadcast_messages', []);
     $afterId = (int) request('after', 0);
     
-    // Фильтруем сообщения после указанного ID
-    $newMessages = array_filter($messages, function($msg) use ($afterId) {
-        return $msg['id'] > $afterId;
+    // Получаем сообщения из базы данных
+    $messages = Message::getLatest(50, $afterId);
+    
+    // Форматируем для фронтенда
+    $formattedMessages = $messages->map(function ($message) {
+        return [
+            'id' => $message->id,
+            'message' => $message->message,
+            'user' => $message->user,
+            'timestamp' => $message->created_at->format('H:i:s')
+        ];
     });
     
     return response()->json([
-        'messages' => array_values($newMessages),
-        'total' => count($newMessages)
+        'messages' => $formattedMessages,
+        'total' => count($formattedMessages)
     ]);
-});
-
-// Вспомогательный роут для добавления сообщения в сессию (для polling)
-Route::middleware('web')->group(function () {
-    Route::get('/send-message', function () {
-        $message = request('message', 'Тестовое сообщение');
-        $user = auth()->user() ? auth()->user()->name : 'Гость';
-        $timestamp = now()->format('H:i:s');
-        
-        // Отправляем событие через веб-сокет (если работает)
-        try {
-            event(new \App\Events\MessageSent($message, $user));
-        } catch (Exception $e) {
-            // Веб-сокеты не работают, ничего страшного
-        }
-        
-        // Также сохраняем в сессию для polling режима
-        $messages = session('broadcast_messages', []);
-        $newMessage = [
-            'id' => count($messages) + 1,
-            'message' => $message,
-            'user' => $user,
-            'timestamp' => $timestamp
-        ];
-        
-        $messages[] = $newMessage;
-        
-        // Ограничиваем количество сообщений в сессии (последние 50)
-        if (count($messages) > 50) {
-            $messages = array_slice($messages, -50);
-        }
-        
-        session(['broadcast_messages' => $messages]);
-        
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Сообщение отправлено!',
-            'data' => $newMessage
-        ]);
-    });
 });
 
 Route::get('/dashboard', function () {
