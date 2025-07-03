@@ -1090,7 +1090,7 @@
                                      maxlength="4000"
                                      rows="1"></textarea>
                             <button class="emoji-btn" onclick="showEmojiPanel(${chat.id}, event)" title="Добавить смайлик">
-                                👍
+                                😀
                             </button>
                             <button class="send-btn" 
                                     onclick="sendTelegramMessage(${chat.id}, ${chat.chat_id})"
