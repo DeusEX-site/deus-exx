@@ -621,7 +621,7 @@
         let isCheckingNewChats = false; // Флаг проверки новых чатов
         let isPageVisible = true; // Флаг видимости страницы
         let lastRequestTime = {}; // Время последних запросов для throttling
-        // Флаг isSwappingChats убран - позиции теперь определяются по времени
+        let isSwappingChats = false; // Флаг для предотвращения конкурентных анимаций
         
         // Загрузка чатов
         async function loadChats() {
@@ -666,17 +666,10 @@
                 return;
             }
             
-            // Сортируем чаты по времени последнего сообщения для отображения
-            const sortedChats = [...chats].sort((a, b) => {
-                const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
-                const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
-                return bTime - aTime; // Сортируем по убыванию (новые сверху)
-            });
+            // Сохраняем текущие позиции для анимации
+            updateChatPositions();
             
-            // Сохраняем текущие позиции для анимации (теперь по времени)
-            updateChatPositions(sortedChats);
-            
-            grid.innerHTML = sortedChats.map((chat, index) => createChatElement(chat, index)).join('');
+            grid.innerHTML = chats.map(chat => createChatElement(chat)).join('');
             
             // Загружаем сообщения для каждого чата
             chats.forEach(chat => {
@@ -686,23 +679,70 @@
         }
 
         // Обновление позиций чатов для отслеживания изменений
-        function updateChatPositions(sortedChats) {
+        function updateChatPositions() {
             const newPositions = {};
-            sortedChats.forEach((chat, index) => {
+            chats.forEach((chat, index) => {
                 newPositions[chat.id] = index;
             });
             
             // Проверяем изменения позиций
             const positionChanges = detectPositionChanges(chatPositions, newPositions);
             
-            if (positionChanges.length > 0) {
+            if (positionChanges.length > 0 && !isSwappingChats) {
                 animatePositionChanges(positionChanges);
             }
             
             chatPositions = newPositions;
         }
 
-        // Функции для проверки позиций удалены - теперь позиции определяются по времени в JS
+        // Проверка изменений позиций чатов
+        async function checkForPositionChanges() {
+            if (isSwappingChats) return;
+            
+            try {
+                const response = await fetch('/api/chats', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const newChats = data.chats;
+                    
+                    // Отладочное логирование (только при необходимости)
+                    // console.log('Old chats order:', chats.map(c => `${c.id}:${c.display_order}`));
+                    // console.log('New chats order:', newChats.map(c => `${c.id}:${c.display_order}`));
+                    
+                    // Проверяем изменился ли порядок чатов
+                    const orderChanged = hasOrderChanged(chats, newChats);
+                    
+                    if (orderChanged) {
+                        console.log('Chat order changed, updating...');
+                        chats = newChats;
+                        renderChats();
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking position changes:', error);
+            }
+        }
+
+        // Проверка изменения порядка чатов
+        function hasOrderChanged(oldChats, newChats) {
+            if (oldChats.length !== newChats.length) {
+                return true;
+            }
+            
+            for (let i = 0; i < oldChats.length; i++) {
+                if (oldChats[i].id !== newChats[i].id) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
 
         // Определение изменений позиций
         function detectPositionChanges(oldPositions, newPositions) {
@@ -731,7 +771,12 @@
 
         // Анимация изменений позиций
         function animatePositionChanges(changes) {
+            if (isSwappingChats) return;
+            
+            isSwappingChats = true;
+            
             const grid = document.getElementById('chats-grid');
+            const chatElements = Array.from(grid.children);
             
             // Применяем анимацию для каждого изменения
             changes.forEach(change => {
@@ -760,6 +805,8 @@
                         chatElement.style.boxShadow = '';
                     }
                 });
+                
+                isSwappingChats = false;
             }, 500);
         }
 
@@ -809,10 +856,11 @@
         }
         
         // Создание HTML элемента чата
-                function createChatElement(chat, chatIndex) {
-            const isTopChat = chatIndex >= 0 && chatIndex < 10;
-            const topChatClass = isTopChat ? 'top-chat' : '';
-            const topChatIndicator = isTopChat ? `<div class="top-chat-indicator">ТОП ${chatIndex + 1}</div>` : '';
+        function createChatElement(chat) {
+            const chatIndex = chats.findIndex(c => c.id === chat.id);
+                            const isTopChat = chatIndex >= 0 && chatIndex < 10;
+                const topChatClass = isTopChat ? 'top-chat' : '';
+                const topChatIndicator = isTopChat ? `<div class="top-chat-indicator">ТОП ${chatIndex + 1}</div>` : '';
             
             return `
                 <div class="chat-window ${topChatClass}" id="chat-window-${chat.id}">
@@ -904,13 +952,13 @@
                             appendNewMessages(chatId, data.messages);
                             updateLastMessageId(chatId, data.messages);
                             
-                            // Обновляем время последнего сообщения в объекте чата
-                            updateChatLastMessageTime(chatId);
-                            
-                            // Пересортируем чаты по времени после нового сообщения
-                            setTimeout(() => {
-                                renderChats();
-                            }, 1000);
+                                            // Проверяем изменения позиций ТОЛЬКО для чатов НЕ в топ-10
+                const chatIndex = chats.findIndex(c => c.id === chatId);
+                if (chatIndex >= 10) {
+                                setTimeout(() => {
+                                    checkForPositionChanges();
+                                }, 1000);
+                            }
                         }
                     }
                 }
@@ -1014,14 +1062,6 @@
                 if (lastMessage && lastMessage.id) {
                     lastMessageIds[chatId] = lastMessage.id;
                 }
-            }
-        }
-        
-        // Обновление времени последнего сообщения в объекте чата
-        function updateChatLastMessageTime(chatId) {
-            const chatIndex = chats.findIndex(c => c.id == chatId);
-            if (chatIndex !== -1) {
-                chats[chatIndex].last_message_at = new Date().toISOString();
             }
         }
         
