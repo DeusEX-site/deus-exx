@@ -5,6 +5,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TelegramBotController;
 use App\Models\Message;
 use App\Models\Chat;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -107,6 +108,91 @@ Route::post('/api/chats/init-positions', function () {
         'success' => true,
         'message' => 'Chat positions initialized'
     ]);
+});
+
+// API для глобальной рассылки (только для авторизованных пользователей)
+Route::middleware('auth')->post('/api/broadcast', function (Request $request) {
+    try {
+        $message = $request->input('message');
+        
+        if (empty($message)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Сообщение не может быть пустым'
+            ], 400);
+        }
+
+        // Получаем все активные чаты
+        $chats = Chat::active()->get();
+        
+        if ($chats->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Нет активных чатов для рассылки'
+            ]);
+        }
+
+        $sentCount = 0;
+        $errors = [];
+
+        // Отправляем сообщение в каждый чат
+        foreach ($chats as $chat) {
+            try {
+                // Используем TelegramBotController для отправки
+                $botController = app(\App\Http\Controllers\TelegramBotController::class);
+                
+                $sendRequest = new Request([
+                    'chat_id' => $chat->chat_id,
+                    'text' => $message
+                ]);
+                
+                $response = $botController->sendMessage($sendRequest);
+                $responseData = json_decode($response->getContent(), true);
+                
+                if ($responseData['success']) {
+                    $sentCount++;
+                } else {
+                    $errors[] = "Чат {$chat->display_name}: {$responseData['message']}";
+                }
+                
+                // Небольшая задержка между отправками
+                usleep(100000); // 0.1 секунды
+                
+            } catch (\Exception $e) {
+                $errors[] = "Чат {$chat->display_name}: {$e->getMessage()}";
+                \Log::error('Broadcast error for chat ' . $chat->id, [
+                    'error' => $e->getMessage(),
+                    'chat' => $chat->toArray()
+                ]);
+            }
+        }
+
+        \Log::info('Broadcast completed', [
+            'sent_count' => $sentCount,
+            'total_chats' => $chats->count(),
+            'errors_count' => count($errors),
+            'message' => $message
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'sent_count' => $sentCount,
+            'total_chats' => $chats->count(),
+            'errors' => $errors,
+            'message' => $sentCount > 0 ? 'Рассылка выполнена' : 'Не удалось отправить ни одного сообщения'
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Broadcast failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Ошибка сервера: ' . $e->getMessage()
+        ], 500);
+    }
 });
 
 // API для получения сообщений чата

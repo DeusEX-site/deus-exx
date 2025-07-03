@@ -40,6 +40,12 @@
             font-weight: 600;
         }
         
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
         .header .user-info {
             color: rgba(255, 255, 255, 0.9);
             display: flex;
@@ -56,11 +62,26 @@
             transition: all 0.3s ease;
             border: none;
             cursor: pointer;
+            font-size: 0.875rem;
         }
         
         .header a:hover, .header button:hover {
             background: rgba(255, 255, 255, 0.2);
             color: white;
+        }
+        
+        .broadcast-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%) !important;
+            color: white !important;
+            font-weight: 600;
+            font-size: 0.9rem !important;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+        
+        .broadcast-btn:hover {
+            background: linear-gradient(135deg, #d97706 0%, #dc2626 100%) !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
         }
         
         .container {
@@ -584,21 +605,204 @@
                 flex-direction: column;
             }
         }
+        
+        /* Broadcast Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background: rgba(30, 30, 60, 0.95);
+            margin: 10% auto;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .modal-header h2 {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .close {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            background: none;
+            transition: color 0.3s ease;
+        }
+        
+        .close:hover {
+            color: white;
+        }
+        
+        .broadcast-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .broadcast-textarea {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.5rem;
+            background: rgba(15, 15, 35, 0.8);
+            color: #e2e8f0;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 120px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        
+        .broadcast-textarea:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+        }
+        
+        .broadcast-textarea::placeholder {
+            color: rgba(226, 232, 240, 0.5);
+        }
+        
+        .broadcast-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        
+        .btn-cancel {
+            padding: 0.75rem 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 0.5rem;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-cancel:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .btn-send {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-send:hover {
+            background: linear-gradient(135deg, #d97706 0%, #dc2626 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+        
+        .btn-send:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .broadcast-status {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            display: none;
+        }
+        
+        .broadcast-status.success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        
+        .broadcast-status.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .broadcast-status.sending {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>📱 Telegram Dashboard <span class="real-time-indicator" title="Обновление в реальном времени"></span></h1>
-        <div class="user-info">
-            <span>{{ auth()->user()->name }}</span>
-            <a href="{{ url('/') }}">Главная</a>
-            <form method="POST" action="{{ route('logout') }}" style="display: inline;">
-                @csrf
-                <button type="submit">Выйти</button>
-            </form>
+        <div class="header-controls">
+            <button id="broadcast-btn" class="broadcast-btn" title="Глобальная рассылка офферов">
+                📢 Рассылка
+            </button>
+            <div class="user-info">
+                <span>{{ auth()->user()->name }}</span>
+                <a href="{{ url('/') }}">Главная</a>
+                <form method="POST" action="{{ route('logout') }}" style="display: inline;">
+                    @csrf
+                    <button type="submit">Выйти</button>
+                </form>
+            </div>
         </div>
     </div>
     
+    <!-- Broadcast Modal -->
+    <div id="broadcast-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📢 Глобальная рассылка офферов</h2>
+                <button class="close" id="modal-close">&times;</button>
+            </div>
+            <form class="broadcast-form" id="broadcast-form">
+                <textarea 
+                    class="broadcast-textarea" 
+                    id="broadcast-message" 
+                    placeholder="Введите сообщение для отправки во все чаты...&#10;&#10;Пример:&#10;🔥 НОВЫЙ ОФФЕР!&#10;💰 Высокая конверсия&#10;🚀 Начинай зарабатывать сейчас!"
+                    required
+                ></textarea>
+                <div class="broadcast-actions">
+                    <button type="button" class="btn-cancel" id="cancel-broadcast">Отмена</button>
+                    <button type="submit" class="btn-send" id="send-broadcast">
+                        📤 Отправить во все чаты
+                    </button>
+                </div>
+                <div class="broadcast-status" id="broadcast-status"></div>
+            </form>
+        </div>
+    </div>
+
     <div class="container">
         <!-- Chats Grid -->
         <div class="chat-grid" id="chats-grid">
@@ -1483,6 +1687,105 @@
             });
         }
         
+        // Broadcast Modal Functionality
+        const broadcastModal = document.getElementById('broadcast-modal');
+        const broadcastBtn = document.getElementById('broadcast-btn');
+        const modalClose = document.getElementById('modal-close');
+        const cancelBroadcast = document.getElementById('cancel-broadcast');
+        const broadcastForm = document.getElementById('broadcast-form');
+        const broadcastMessage = document.getElementById('broadcast-message');
+        const sendBroadcast = document.getElementById('send-broadcast');
+        const broadcastStatus = document.getElementById('broadcast-status');
+
+        // Открытие модального окна
+        broadcastBtn.addEventListener('click', function() {
+            broadcastModal.style.display = 'block';
+            broadcastMessage.focus();
+        });
+
+        // Закрытие модального окна
+        function closeBroadcastModal() {
+            broadcastModal.style.display = 'none';
+            broadcastMessage.value = '';
+            hideBroadcastStatus();
+        }
+
+        modalClose.addEventListener('click', closeBroadcastModal);
+        cancelBroadcast.addEventListener('click', closeBroadcastModal);
+
+        // Закрытие по клику вне модала
+        window.addEventListener('click', function(event) {
+            if (event.target === broadcastModal) {
+                closeBroadcastModal();
+            }
+        });
+
+        // Отправка рассылки
+        broadcastForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const message = broadcastMessage.value.trim();
+            if (!message) {
+                showBroadcastStatus('error', '❌ Введите сообщение для рассылки');
+                return;
+            }
+
+            // Блокируем интерфейс
+            sendBroadcast.disabled = true;
+            broadcastMessage.disabled = true;
+            
+            showBroadcastStatus('sending', '📤 Отправка рассылки...');
+
+            try {
+                const response = await fetch('/api/broadcast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showBroadcastStatus('success', `✅ Рассылка отправлена в ${data.sent_count} чатов`);
+                    
+                    // Закрываем модал через 2 секунды
+                    setTimeout(() => {
+                        closeBroadcastModal();
+                    }, 2000);
+                } else {
+                    showBroadcastStatus('error', `❌ ${data.message || 'Ошибка рассылки'}`);
+                }
+
+            } catch (error) {
+                console.error('Ошибка рассылки:', error);
+                showBroadcastStatus('error', '❌ Ошибка соединения');
+            } finally {
+                // Разблокируем интерфейс
+                sendBroadcast.disabled = false;
+                broadcastMessage.disabled = false;
+            }
+        });
+
+        // Показать статус рассылки
+        function showBroadcastStatus(type, message) {
+            broadcastStatus.className = `broadcast-status ${type}`;
+            broadcastStatus.textContent = message;
+            broadcastStatus.style.display = 'block';
+        }
+
+        // Скрыть статус рассылки
+        function hideBroadcastStatus() {
+            broadcastStatus.style.display = 'none';
+            broadcastStatus.className = 'broadcast-status';
+            broadcastStatus.textContent = '';
+        }
+
         // Загрузка при старте
         document.addEventListener('DOMContentLoaded', function() {
             loadChats();
