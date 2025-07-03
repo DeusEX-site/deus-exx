@@ -119,12 +119,15 @@ class TestOneMinuteRule extends Command
     private function showDetailedPositions(ChatPositionService $chatPositionService)
     {
         $positions = $chatPositionService->getCurrentPositions();
+        $oneMinuteAgo = Carbon::now()->subMinute();
         
         $this->line('TOP-3 chats:');
         foreach ($positions['top_three'] as $chat) {
             $lastMessageTime = $chat['last_message_at'] ? Carbon::parse($chat['last_message_at']) : null;
             $minutesAgo = $lastMessageTime ? $lastMessageTime->diffInMinutes(Carbon::now()) : null;
-            $isOlderThanMinute = $minutesAgo && $minutesAgo > 1;
+            
+            // Use the same logic as ChatPositionService
+            $isOlderThanMinute = $lastMessageTime && $lastMessageTime->lt($oneMinuteAgo);
             
             $status = $isOlderThanMinute ? '🔴 OLD' : '🟢 FRESH';
             
