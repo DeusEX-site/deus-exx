@@ -689,7 +689,6 @@
             const positionChanges = detectPositionChanges(chatPositions, newPositions);
             
             if (positionChanges.length > 0 && !isSwappingChats) {
-                console.log('Detected position changes:', positionChanges);
                 animatePositionChanges(positionChanges);
             }
             
@@ -712,9 +711,9 @@
                     const data = await response.json();
                     const newChats = data.chats;
                     
-                    // Отладочное логирование
-                    console.log('Old chats order:', chats.map(c => `${c.id}:${c.display_order}`));
-                    console.log('New chats order:', newChats.map(c => `${c.id}:${c.display_order}`));
+                    // Отладочное логирование (только при необходимости)
+                    // console.log('Old chats order:', chats.map(c => `${c.id}:${c.display_order}`));
+                    // console.log('New chats order:', newChats.map(c => `${c.id}:${c.display_order}`));
                     
                     // Проверяем изменился ли порядок чатов
                     const orderChanged = hasOrderChanged(chats, newChats);
@@ -755,19 +754,14 @@
                     const wasInTopThree = oldPos < 3;
                     const isInTopThree = newPos < 3;
                     
-                    console.log(`Chat ${chatId} position change: ${oldPos} -> ${newPos} (wasTop3: ${wasInTopThree}, isTop3: ${isInTopThree})`);
-                    
                     // Показываем анимацию только при входе/выходе из топ-3
                     if (wasInTopThree !== isInTopThree) {
-                        console.log(`Chat ${chatId}: significant position change detected`);
                         changes.push({
                             chatId: parseInt(chatId),
                             oldPosition: oldPos,
                             newPosition: newPos,
                             type: isInTopThree ? 'promoted' : 'demoted'
                         });
-                    } else {
-                        console.log(`Chat ${chatId}: position change within same tier, ignoring animation`);
                     }
                 }
             }
@@ -961,12 +955,9 @@
                             // Проверяем изменения позиций ТОЛЬКО для чатов НЕ в топ-3
                             const chatIndex = chats.findIndex(c => c.id === chatId);
                             if (chatIndex >= 3) {
-                                console.log(`New message in non-top chat (index: ${chatIndex}), checking position changes...`);
                                 setTimeout(() => {
                                     checkForPositionChanges();
                                 }, 1000);
-                            } else {
-                                console.log(`New message in TOP-3 chat (index: ${chatIndex}), NO position changes needed`);
                             }
                         }
                     }
@@ -1105,8 +1096,8 @@
         function startChatChecking() {
             chatCheckInterval = setInterval(async () => {
                 await checkNewChats();
-                await checkForPositionChanges(); // Проверяем изменения позиций
-            }, 2000); // Проверяем каждые 2 секунды
+                // НЕ проверяем позиции автоматически, только по событиям
+            }, 3000); // Проверяем новые чаты каждые 3 секунды
         }
         
         // Проверка новых чатов

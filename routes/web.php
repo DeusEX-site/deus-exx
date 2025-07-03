@@ -82,20 +82,8 @@ Route::get('/api/chats', function () {
         ->withCount('messages')
         ->get();
     
-    // Дополнительная проверка: топ-3 чаты должны быть стабильными
-    $topThreeChats = $chats->where('display_order', '>', 0)->sortByDesc('display_order')->values();
-    $otherChats = $chats->where('display_order', 0)->sortByDesc('last_message_at')->values();
-    
-    // Объединяем: сначала топ-3, потом остальные
-    $finalChats = $topThreeChats->concat($otherChats);
-    
-    \Log::info('API: Chat order', [
-        'top_three' => $topThreeChats->pluck('id', 'display_order')->toArray(),
-        'others_count' => $otherChats->count()
-    ]);
-    
     return response()->json([
-        'chats' => $finalChats
+        'chats' => $chats
     ]);
 });
 

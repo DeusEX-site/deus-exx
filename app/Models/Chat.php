@@ -59,8 +59,13 @@ class Chat extends Model
 
     public function scopeOrderByActivity($query)
     {
-        return $query->orderBy('display_order', 'desc')
-                     ->orderBy('last_message_at', 'desc');
+        return $query->orderByRaw('
+            display_order DESC,
+            CASE 
+                WHEN display_order = 0 THEN last_message_at 
+                ELSE "1970-01-01" 
+            END DESC
+        ');
     }
 
     public function scopeTopThree($query)

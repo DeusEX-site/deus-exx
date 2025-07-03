@@ -41,13 +41,21 @@ class TelegramWebhookController extends Controller
             // Создаем сообщение
             $messageModel = $this->createMessage($message, $chatModel);
             
-            // Обрабатываем позиции чатов ПЕРЕД обновлением статистики
-            $positionResult = $this->chatPositionService->handleNewMessage($chatModel->id);
-            if ($positionResult['status'] === 'swapped') {
-                Log::info('Chat positions changed', $positionResult);
+            // Обрабатываем позиции чатов ТОЛЬКО если чат НЕ в топ-3
+            if (!$chatModel->isInTopThree()) {
+                $positionResult = $this->chatPositionService->handleNewMessage($chatModel->id);
+                if ($positionResult['status'] === 'swapped') {
+                    Log::info('Chat positions changed', $positionResult);
+                }
+            } else {
+                Log::info('Message in TOP-3 chat, no position changes', [
+                    'chat_id' => $chatModel->id,
+                    'chat_title' => $chatModel->display_name,
+                    'display_order' => $chatModel->display_order
+                ]);
             }
             
-            // Обновляем статистику чата ПОСЛЕ обработки позиций
+            // Обновляем ТОЛЬКО статистику чата (счетчик сообщений и время)
             $this->updateChatStats($chatModel);
             
             // Отправляем событие через веб-сокет (если работает)
