@@ -24,28 +24,28 @@ class ChatPositionService
                 return ['status' => 'error', 'message' => 'Chat not found'];
             }
 
-            // Проверяем, находится ли чат в топ-3
-            if ($chat->isInTopThree()) {
-                // Если чат уже в топ-3, позиция не изменяется вообще
-                Log::info('Chat already in top 3, no position change', [
+            // Проверяем, находится ли чат в топ-10
+            if ($chat->isInTopTen()) {
+                // Если чат уже в топ-10, позиция не изменяется вообще
+                Log::info('Chat already in top 10, no position change', [
                     'chat_id' => $chat->id,
                     'chat_title' => $chat->display_name,
                     'display_order' => $chat->display_order
                 ]);
-                return ['status' => 'no_change', 'message' => 'Chat already in top 3, no position change needed'];
+                return ['status' => 'no_change', 'message' => 'Chat already in top 10, no position change needed'];
             }
 
-            // Чат не в топ-3, проверяем нужно ли менять позиции
-            $topThreeChats = Chat::active()->topThree()->get();
+            // Чат не в топ-10, проверяем нужно ли менять позиции
+            $topTenChats = Chat::active()->topTen()->get();
             
-            if ($topThreeChats->count() < 3) {
-                // Если в топ-3 меньше 3 чатов, просто добавляем этот чат
-                $this->promoteChatToTopThree($chat);
-                return ['status' => 'promoted', 'message' => 'Chat promoted to top 3'];
+            if ($topTenChats->count() < 10) {
+                // Если в топ-10 меньше 10 чатов, просто добавляем этот чат
+                $this->promoteChatToTopTen($chat);
+                return ['status' => 'promoted', 'message' => 'Chat promoted to top 10'];
             }
 
-            // Ищем чат в топ-3 у которого последнее сообщение дольше минуты назад
-            $chatToReplace = $this->findChatToReplace($topThreeChats);
+            // Ищем чат в топ-10 у которого последнее сообщение дольше минуты назад
+            $chatToReplace = $this->findChatToReplace($topTenChats);
             
             if ($chatToReplace) {
                 // Меняем чаты местами
@@ -82,19 +82,19 @@ class ChatPositionService
     }
 
     /**
-     * Находит чат в топ-3 для замены
+     * Находит чат в топ-10 для замены
      * 
-     * @param \Illuminate\Database\Eloquent\Collection $topThreeChats
+     * @param \Illuminate\Database\Eloquent\Collection $topTenChats
      * @return Chat|null
      */
-    private function findChatToReplace($topThreeChats): ?Chat
+    private function findChatToReplace($topTenChats): ?Chat
     {
         $oneMinuteAgo = Carbon::now()->subMinute();
         
         Log::info('Looking for chat to replace', [
             'current_time' => Carbon::now()->toDateTimeString(),
             'one_minute_ago' => $oneMinuteAgo->toDateTimeString(),
-            'top_three_chats' => $topThreeChats->map(function ($chat) use ($oneMinuteAgo) {
+            'top_ten_chats' => $topTenChats->map(function ($chat) use ($oneMinuteAgo) {
                 $lastMessageTime = $chat->last_message_at;
                 $minutesAgo = $lastMessageTime ? $lastMessageTime->diffInMinutes(Carbon::now()) : null;
                 $isOld = $lastMessageTime && $lastMessageTime->lt($oneMinuteAgo);
@@ -110,7 +110,7 @@ class ChatPositionService
         ]);
         
         // Ищем чат с последним сообщением дольше минуты назад
-        $chatToReplace = $topThreeChats->first(function ($chat) use ($oneMinuteAgo) {
+        $chatToReplace = $topTenChats->first(function ($chat) use ($oneMinuteAgo) {
             $isOld = $chat->last_message_at && $chat->last_message_at->lt($oneMinuteAgo);
             return $isOld;
         });
@@ -130,15 +130,15 @@ class ChatPositionService
     }
 
     /**
-     * Повышает чат в топ-3
+     * Повышает чат в топ-10
      * 
      * @param Chat $chat
      * @return void
      */
-    private function promoteChatToTopThree(Chat $chat): void
+    private function promoteChatToTopTen(Chat $chat): void
     {
         DB::transaction(function () use ($chat) {
-            // Получаем максимальный display_order среди топ-3
+            // Получаем максимальный display_order среди топ-10
             $maxOrder = Chat::active()->max('display_order') ?? 0;
             
             // Присваиваем новый display_order
@@ -186,17 +186,17 @@ class ChatPositionService
                                     ->orderBy('last_message_at', 'desc')
                                     ->get();
             
-            // Получаем текущие топ-3 чаты
-            $topThreeChats = Chat::active()
+            // Получаем текущие топ-10 чаты
+            $topTenChats = Chat::active()
                                ->where('display_order', '>', 0)
                                ->orderBy('display_order', 'desc')
                                ->get();
             
-            // Если топ-3 не заполнен, добавляем чаты из неинициализированных
-            $availableSlots = 3 - $topThreeChats->count();
+            // Если топ-10 не заполнен, добавляем чаты из неинициализированных
+            $availableSlots = 10 - $topTenChats->count();
             
             if ($availableSlots > 0) {
-                $maxOrder = $topThreeChats->max('display_order') ?? 0;
+                $maxOrder = $topTenChats->max('display_order') ?? 0;
                 
                 foreach ($uninitializedChats->take($availableSlots) as $chat) {
                     $maxOrder++;
@@ -205,7 +205,7 @@ class ChatPositionService
             }
         });
         
-        Log::info('Chat positions initialized (preserving existing top-3)');
+        Log::info('Chat positions initialized (preserving existing top-10)');
     }
 
     /**
@@ -215,17 +215,17 @@ class ChatPositionService
      */
     public function getCurrentPositions(): array
     {
-        $topThree = Chat::active()->topThree()->get();
-        $others = Chat::active()->withoutTopThree()->get();
+        $topTen = Chat::active()->topTen()->get();
+        $others = Chat::active()->withoutTopTen()->get();
         
         return [
-            'top_three' => $topThree->map(function ($chat) {
+            'top_ten' => $topTen->map(function ($chat) {
                 return [
                     'id' => $chat->id,
                     'title' => $chat->display_name,
                     'display_order' => $chat->display_order,
                     'last_message_at' => $chat->last_message_at,
-                    'position' => $chat->getTopThreePosition()
+                    'position' => $chat->getTopTenPosition()
                 ];
             }),
             'others' => $others->map(function ($chat) {

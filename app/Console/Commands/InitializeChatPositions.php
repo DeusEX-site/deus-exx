@@ -35,8 +35,8 @@ class InitializeChatPositions extends Command
         // Показываем текущие позиции
         $positions = $chatPositionService->getCurrentPositions();
         
-        $this->info('Current top 3 chats:');
-        foreach ($positions['top_three'] as $chat) {
+        $this->info('Current top 10 chats:');
+        foreach ($positions['top_ten'] as $chat) {
             $this->line("Position {$chat['position']}: {$chat['title']} (Order: {$chat['display_order']})");
         }
         

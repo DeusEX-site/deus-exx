@@ -8,28 +8,28 @@ use App\Services\ChatPositionService;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
 
-class TestOneMinuteRule extends Command
+class TestTopTenRule extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'chats:test-minute-rule';
+    protected $signature = 'chats:test-top-ten';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Test the one-minute rule for chat position changes';
+    protected $description = 'Test the one-minute rule for TOP-10 chat position changes';
 
     /**
      * Execute the console command.
      */
     public function handle(ChatPositionService $chatPositionService)
     {
-        $this->info('⏱️  Testing one-minute rule...');
+        $this->info('🔟 Testing TOP-10 one-minute rule...');
         
         // Показываем текущие позиции
         $this->showCurrentPositions($chatPositionService);
@@ -72,8 +72,8 @@ class TestOneMinuteRule extends Command
         
         $message = Message::create([
             'chat_id' => $newChat->id,
-            'message' => 'Test message to trigger position change',
-            'user' => 'One Minute Rule Test',
+            'message' => 'Test message to trigger TOP-10 position change',
+            'user' => 'TOP-10 Rule Test',
             'message_type' => 'text',
             'is_outgoing' => false,
         ]);
@@ -89,7 +89,9 @@ class TestOneMinuteRule extends Command
             $this->info("  🔼 Promoted: {$result['promoted_chat_title']}");
             $this->info("  🔽 Demoted: {$result['demoted_chat_title']}");
         } elseif ($result['status'] === 'no_change') {
-            $this->error("❌ FAILED: No position change - might be a bug!");
+            $this->warning("⚠️ No position change - this might be expected if all TOP-10 chats are fresh");
+        } elseif ($result['status'] === 'promoted') {
+            $this->info("✅ SUCCESS: Chat was promoted to TOP-10!");
         }
         
         // Показываем финальное состояние

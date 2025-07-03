@@ -21,29 +21,29 @@ class TestTopThreeStability extends Command
      *
      * @var string
      */
-    protected $description = 'Test that TOP-3 chats do not change positions when receiving new messages';
+    protected $description = 'Test that TOP-10 chats do not change positions when receiving new messages';
 
     /**
      * Execute the console command.
      */
     public function handle(ChatPositionService $chatPositionService)
     {
-        $this->info('🔒 Testing TOP-3 chats stability...');
+        $this->info('🔒 Testing TOP-10 chats stability...');
         
         // Показываем текущие позиции
         $this->showCurrentPositions($chatPositionService);
         
-        // Получаем топ-3 чаты
-        $topThreeChats = Chat::active()->topThree()->get();
+        // Получаем топ-10 чаты
+        $topTenChats = Chat::active()->topTen()->get();
         
-        if ($topThreeChats->count() < 3) {
-            $this->error('Need at least 3 chats in TOP-3 for testing!');
+        if ($topTenChats->count() < 10) {
+            $this->error('Need at least 10 chats in TOP-10 for testing!');
             return;
         }
         
-        $this->info('📊 Testing each TOP-3 chat...');
+        $this->info('📊 Testing each TOP-10 chat...');
         
-        foreach ($topThreeChats as $index => $chat) {
+        foreach ($topTenChats as $index => $chat) {
             $this->info("🎯 Testing TOP-" . ($index + 1) . " chat: {$chat->display_name}");
             
             // Запоминаем текущие позиции
@@ -52,7 +52,7 @@ class TestTopThreeStability extends Command
             // Создаем тестовое сообщение
             $message = Message::create([
                 'chat_id' => $chat->id,
-                'message' => 'Test stability message for TOP-3 chat',
+                'message' => 'Test stability message for TOP-10 chat',
                 'user' => 'Stability Test',
                 'message_type' => 'text',
                 'is_outgoing' => false,
@@ -71,7 +71,7 @@ class TestTopThreeStability extends Command
             $positionsChanged = $this->comparePositions($beforePositions, $afterPositions);
             
             if ($positionsChanged) {
-                $this->error("❌ FAIL: Positions changed for TOP-3 chat!");
+                $this->error("❌ FAIL: Positions changed for TOP-10 chat!");
                 $this->showPositionDiff($beforePositions, $afterPositions);
             } else {
                 $this->info("✅ PASS: No position changes (expected)");
@@ -96,8 +96,8 @@ class TestTopThreeStability extends Command
     {
         $positions = $chatPositionService->getCurrentPositions();
         
-        $this->info('Current TOP-3:');
-        foreach ($positions['top_three'] as $chat) {
+        $this->info('Current TOP-10:');
+        foreach ($positions['top_ten'] as $chat) {
             $lastMessage = $chat['last_message_at'] ? 
                 \Carbon\Carbon::parse($chat['last_message_at'])->diffForHumans() : 
                 'No messages';

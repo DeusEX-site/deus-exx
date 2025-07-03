@@ -751,16 +751,16 @@
             for (const [chatId, newPos] of Object.entries(newPositions)) {
                 const oldPos = oldPositions[chatId];
                 if (oldPos !== undefined && oldPos !== newPos) {
-                    const wasInTopThree = oldPos < 3;
-                    const isInTopThree = newPos < 3;
-                    
-                    // Показываем анимацию только при входе/выходе из топ-3
-                    if (wasInTopThree !== isInTopThree) {
+                                    const wasInTopTen = oldPos < 10;
+                const isInTopTen = newPos < 10;
+                
+                // Показываем анимацию только при входе/выходе из топ-10
+                if (wasInTopTen !== isInTopTen) {
                         changes.push({
                             chatId: parseInt(chatId),
                             oldPosition: oldPos,
                             newPosition: newPos,
-                            type: isInTopThree ? 'promoted' : 'demoted'
+                            type: isInTopTen ? 'promoted' : 'demoted'
                         });
                     }
                 }
@@ -858,9 +858,9 @@
         // Создание HTML элемента чата
         function createChatElement(chat) {
             const chatIndex = chats.findIndex(c => c.id === chat.id);
-            const isTopChat = chatIndex >= 0 && chatIndex < 3;
-            const topChatClass = isTopChat ? 'top-chat' : '';
-            const topChatIndicator = isTopChat ? `<div class="top-chat-indicator">ТОП ${chatIndex + 1}</div>` : '';
+                            const isTopChat = chatIndex >= 0 && chatIndex < 10;
+                const topChatClass = isTopChat ? 'top-chat' : '';
+                const topChatIndicator = isTopChat ? `<div class="top-chat-indicator">ТОП ${chatIndex + 1}</div>` : '';
             
             return `
                 <div class="chat-window ${topChatClass}" id="chat-window-${chat.id}">
@@ -952,9 +952,9 @@
                             appendNewMessages(chatId, data.messages);
                             updateLastMessageId(chatId, data.messages);
                             
-                            // Проверяем изменения позиций ТОЛЬКО для чатов НЕ в топ-3
-                            const chatIndex = chats.findIndex(c => c.id === chatId);
-                            if (chatIndex >= 3) {
+                                            // Проверяем изменения позиций ТОЛЬКО для чатов НЕ в топ-10
+                const chatIndex = chats.findIndex(c => c.id === chatId);
+                if (chatIndex >= 10) {
                                 setTimeout(() => {
                                     checkForPositionChanges();
                                 }, 1000);

@@ -68,43 +68,43 @@ class Chat extends Model
         ');
     }
 
-    public function scopeTopThree($query)
+    public function scopeTopTen($query)
     {
         return $query->orderBy('display_order', 'desc')
                      ->orderBy('last_message_at', 'desc')
-                     ->limit(3);
+                     ->limit(10);
     }
 
-    public function scopeWithoutTopThree($query)
+    public function scopeWithoutTopTen($query)
     {
-        $topThreeIds = static::active()
+        $topTenIds = static::active()
                           ->orderBy('display_order', 'desc')
                           ->orderBy('last_message_at', 'desc')
-                          ->limit(3)
+                          ->limit(10)
                           ->pluck('id');
         
-        return $query->whereNotIn('id', $topThreeIds);
+        return $query->whereNotIn('id', $topTenIds);
     }
 
-    public function isInTopThree()
+    public function isInTopTen()
     {
-        $topThreeIds = static::active()
+        $topTenIds = static::active()
                           ->orderBy('display_order', 'desc')
                           ->orderBy('last_message_at', 'desc')
-                          ->limit(3)
+                          ->limit(10)
                           ->pluck('id');
         
-        return $topThreeIds->contains($this->id);
+        return $topTenIds->contains($this->id);
     }
 
-    public function getTopThreePosition()
+    public function getTopTenPosition()
     {
-        $topThreeIds = static::active()
+        $topTenIds = static::active()
                           ->orderBy('display_order', 'desc')
                           ->orderBy('last_message_at', 'desc')
-                          ->limit(3)
+                          ->limit(10)
                           ->pluck('id');
         
-        return $topThreeIds->search($this->id);
+        return $topTenIds->search($this->id);
     }
 } 

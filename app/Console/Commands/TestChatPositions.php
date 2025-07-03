@@ -49,9 +49,9 @@ class TestChatPositions extends Command
         $positions = $chatPositionService->getCurrentPositions();
         
         $this->info('📊 Current positions:');
-        $this->info('Top 3 chats:');
+        $this->info('Top 10 chats:');
         
-        foreach ($positions['top_three'] as $chat) {
+        foreach ($positions['top_ten'] as $chat) {
             $lastMessage = $chat['last_message_at'] ? 
                 Carbon::parse($chat['last_message_at'])->diffForHumans() : 
                 'No messages';
@@ -110,14 +110,14 @@ class TestChatPositions extends Command
     {
         $chats = Chat::active()->get();
         
-        if ($chats->count() < 4) {
-            $this->error('Need at least 4 chats to test position swapping!');
+        if ($chats->count() < 11) {
+            $this->error('Need at least 11 chats to test position swapping!');
             return;
         }
 
-        // Находим чат не в топ-3
-        $topThreeIds = Chat::active()->topThree()->pluck('id');
-        $testChat = $chats->whereNotIn('id', $topThreeIds)->first();
+        // Находим чат не в топ-10
+        $topTenIds = Chat::active()->topTen()->pluck('id');
+        $testChat = $chats->whereNotIn('id', $topTenIds)->first();
         
         if (!$testChat) {
             $this->error('No suitable chat found for testing!');
@@ -126,9 +126,9 @@ class TestChatPositions extends Command
 
         $this->info("🤖 Auto-testing with chat: {$testChat->display_name}");
         
-        // Устанавливаем старое время для одного из топ-3 чатов
-        $topThreeChats = Chat::active()->topThree()->get();
-        $chatToAge = $topThreeChats->random();
+        // Устанавливаем старое время для одного из топ-10 чатов
+        $topTenChats = Chat::active()->topTen()->get();
+        $chatToAge = $topTenChats->random();
         
         $this->info("🕰️ Setting old timestamp for: {$chatToAge->display_name}");
         $chatToAge->update(['last_message_at' => now()->subMinutes(2)]);
