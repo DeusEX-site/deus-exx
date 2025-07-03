@@ -229,6 +229,26 @@
             border-bottom-left-radius: 0.25rem;
         }
         
+        .message.outgoing {
+            background: rgba(16, 185, 129, 0.8);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 0.25rem;
+            border-left: 3px solid #10b981;
+        }
+        
+        .message.outgoing .user {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 0.25rem;
+        }
+        
+        .message.outgoing .time {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 0.25rem;
+        }
+        
         .message.telegram {
             background: rgba(0, 136, 204, 0.2);
             border-left: 3px solid #0088cc;
@@ -765,8 +785,8 @@
             }
             
             container.innerHTML = messages.map(msg => `
-                <div class="message ${msg.is_telegram ? 'telegram' : 'other'}" data-message-id="${msg.id}">
-                    ${msg.is_telegram ? '<div class="user">' + msg.user + '</div>' : ''}
+                <div class="message ${msg.is_outgoing ? 'outgoing' : (msg.is_telegram ? 'telegram' : 'other')}" data-message-id="${msg.id}">
+                    ${(msg.is_telegram || msg.is_outgoing) ? '<div class="user">' + msg.user + '</div>' : ''}
                     <div>${msg.message}</div>
                     <div class="time">${msg.timestamp}${msg.message_type && msg.message_type !== 'text' ? '<span class="message-type">' + getMessageTypeDisplay(msg.message_type) + '</span>' : ''}</div>
                 </div>
@@ -792,10 +812,10 @@
             // Добавляем новые сообщения
             messages.forEach((msg, index) => {
                 const messageEl = document.createElement('div');
-                messageEl.className = `message ${msg.is_telegram ? 'telegram' : 'other'}`;
+                messageEl.className = `message ${msg.is_outgoing ? 'outgoing' : (msg.is_telegram ? 'telegram' : 'other')}`;
                 messageEl.setAttribute('data-message-id', msg.id);
                 messageEl.innerHTML = `
-                    ${msg.is_telegram ? '<div class="user">' + msg.user + '</div>' : ''}
+                    ${(msg.is_telegram || msg.is_outgoing) ? '<div class="user">' + msg.user + '</div>' : ''}
                     <div>${msg.message}</div>
                     <div class="time">${msg.timestamp}${msg.message_type && msg.message_type !== 'text' ? '<span class="message-type">' + getMessageTypeDisplay(msg.message_type) + '</span>' : ''}</div>
                 `;

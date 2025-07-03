@@ -7,6 +7,7 @@ use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class TelegramBotController extends Controller
 {
@@ -172,6 +173,9 @@ class TelegramBotController extends Controller
             $result = $response->json();
             
             if ($result['ok']) {
+                // Сохраняем отправленное сообщение в базу данных
+                $this->saveOutgoingMessage($request->chat_id, $request->text, $result['result']);
+                
                 return response()->json([
                     'success' => true,
                     'message' => 'Сообщение отправлено успешно',
@@ -193,6 +197,59 @@ class TelegramBotController extends Controller
                 'message' => 'Ошибка соединения с Telegram API',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+    
+    /**
+     * Сохраняем исходящее сообщение от бота в базу данных
+     */
+    private function saveOutgoingMessage($telegramChatId, $messageText, $telegramResult)
+    {
+        try {
+            // Находим чат в базе данных по telegram chat_id
+            $chat = Chat::where('chat_id', $telegramChatId)->first();
+            
+            if (!$chat) {
+                Log::warning('Chat not found for outgoing message', ['chat_id' => $telegramChatId]);
+                return;
+            }
+            
+            // Получаем информацию о текущем пользователе
+            $user = auth()->user();
+            $senderName = $user ? $user->name : 'Bot Admin';
+            
+            // Создаем запись сообщения
+            $message = Message::create([
+                'chat_id' => $chat->id,
+                'message' => $messageText,
+                'user' => '🤖 ' . $senderName, // Префикс бота для различия
+                'telegram_message_id' => $telegramResult['message_id'],
+                'telegram_user_id' => $telegramResult['from']['id'], // ID бота
+                'telegram_username' => $telegramResult['from']['username'] ?? null,
+                'telegram_first_name' => $telegramResult['from']['first_name'] ?? 'Bot',
+                'telegram_last_name' => $telegramResult['from']['last_name'] ?? null,
+                'telegram_date' => Carbon::createFromTimestamp($telegramResult['date']),
+                'message_type' => 'text',
+                'telegram_raw_data' => $telegramResult,
+                'is_outgoing' => true, // Помечаем как исходящее сообщение
+            ]);
+            
+            // Обновляем статистику чата
+            $chat->increment('message_count');
+            $chat->update(['last_message_at' => now()]);
+            
+            Log::info('Outgoing message saved', [
+                'message_id' => $message->id,
+                'chat_id' => $chat->id,
+                'telegram_message_id' => $telegramResult['message_id']
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to save outgoing message:', [
+                'error' => $e->getMessage(),
+                'chat_id' => $telegramChatId,
+                'message' => $messageText
+            ]);
         }
     }
 } 

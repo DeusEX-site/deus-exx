@@ -21,6 +21,7 @@ class Message extends Model
         'telegram_date',
         'message_type',
         'telegram_raw_data',
+        'is_outgoing',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Message extends Model
         'telegram_user_id' => 'integer',
         'telegram_date' => 'datetime',
         'telegram_raw_data' => 'array',
+        'is_outgoing' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -98,5 +100,15 @@ class Message extends Model
     public function scopeByMessageType($query, $type)
     {
         return $query->where('message_type', $type);
+    }
+    
+    public function scopeOutgoing($query)
+    {
+        return $query->where('is_outgoing', true);
+    }
+    
+    public function scopeIncoming($query)
+    {
+        return $query->where('is_outgoing', false);
     }
 } 

@@ -99,7 +99,8 @@ Route::get('/api/chats/{chatId}/messages', function ($chatId) {
             'timestamp' => $message->created_at->format('H:i:s'),
             'message_type' => $message->message_type,
             'telegram_user_id' => $message->telegram_user_id,
-            'is_telegram' => !is_null($message->telegram_message_id)
+            'is_telegram' => !is_null($message->telegram_message_id),
+            'is_outgoing' => $message->is_outgoing ?? false
         ];
     });
     
