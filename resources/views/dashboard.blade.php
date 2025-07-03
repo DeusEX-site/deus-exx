@@ -63,13 +63,13 @@
         
         .container {
             padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
+            width: 100%;
+            margin: 0;
         }
         
         .chat-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
@@ -292,6 +292,18 @@
             
             .header {
                 padding: 1rem;
+            }
+        }
+        
+        @media (min-width: 1920px) {
+            .chat-grid {
+                grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            }
+        }
+        
+        @media (min-width: 2560px) {
+            .chat-grid {
+                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
             }
         }
     </style>
