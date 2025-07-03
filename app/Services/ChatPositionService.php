@@ -27,6 +27,11 @@ class ChatPositionService
             // Проверяем, находится ли чат в топ-3
             if ($chat->isInTopThree()) {
                 // Если чат уже в топ-3, позиция не изменяется вообще
+                Log::info('Chat already in top 3, no position change', [
+                    'chat_id' => $chat->id,
+                    'chat_title' => $chat->display_name,
+                    'display_order' => $chat->display_order
+                ]);
                 return ['status' => 'no_change', 'message' => 'Chat already in top 3, no position change needed'];
             }
 
@@ -143,17 +148,32 @@ class ChatPositionService
     public function initializePositions(): void
     {
         DB::transaction(function () {
-            $chats = Chat::active()
-                        ->orderBy('last_message_at', 'desc')
-                        ->get();
+            // Получаем чаты, у которых display_order = 0 (не инициализированы)
+            $uninitializedChats = Chat::active()
+                                    ->where('display_order', 0)
+                                    ->orderBy('last_message_at', 'desc')
+                                    ->get();
             
-            foreach ($chats as $index => $chat) {
-                $order = $index < 3 ? (3 - $index) : 0;
-                $chat->update(['display_order' => $order]);
+            // Получаем текущие топ-3 чаты
+            $topThreeChats = Chat::active()
+                               ->where('display_order', '>', 0)
+                               ->orderBy('display_order', 'desc')
+                               ->get();
+            
+            // Если топ-3 не заполнен, добавляем чаты из неинициализированных
+            $availableSlots = 3 - $topThreeChats->count();
+            
+            if ($availableSlots > 0) {
+                $maxOrder = $topThreeChats->max('display_order') ?? 0;
+                
+                foreach ($uninitializedChats->take($availableSlots) as $chat) {
+                    $maxOrder++;
+                    $chat->update(['display_order' => $maxOrder]);
+                }
             }
         });
         
-        Log::info('Chat positions initialized');
+        Log::info('Chat positions initialized (preserving existing top-3)');
     }
 
     /**

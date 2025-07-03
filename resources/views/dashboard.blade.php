@@ -755,14 +755,19 @@
                     const wasInTopThree = oldPos < 3;
                     const isInTopThree = newPos < 3;
                     
+                    console.log(`Chat ${chatId} position change: ${oldPos} -> ${newPos} (wasTop3: ${wasInTopThree}, isTop3: ${isInTopThree})`);
+                    
                     // Показываем анимацию только при входе/выходе из топ-3
                     if (wasInTopThree !== isInTopThree) {
+                        console.log(`Chat ${chatId}: significant position change detected`);
                         changes.push({
                             chatId: parseInt(chatId),
                             oldPosition: oldPos,
                             newPosition: newPos,
                             type: isInTopThree ? 'promoted' : 'demoted'
                         });
+                    } else {
+                        console.log(`Chat ${chatId}: position change within same tier, ignoring animation`);
                     }
                 }
             }
@@ -953,14 +958,15 @@
                             appendNewMessages(chatId, data.messages);
                             updateLastMessageId(chatId, data.messages);
                             
-                            // Проверяем изменения позиций после добавления новых сообщений
-                            // Только если чат не в топ-3
-                            const chat = chats.find(c => c.id === chatId);
+                            // Проверяем изменения позиций ТОЛЬКО для чатов НЕ в топ-3
                             const chatIndex = chats.findIndex(c => c.id === chatId);
                             if (chatIndex >= 3) {
+                                console.log(`New message in non-top chat (index: ${chatIndex}), checking position changes...`);
                                 setTimeout(() => {
                                     checkForPositionChanges();
                                 }, 1000);
+                            } else {
+                                console.log(`New message in TOP-3 chat (index: ${chatIndex}), NO position changes needed`);
                             }
                         }
                     }

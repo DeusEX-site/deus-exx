@@ -18,6 +18,11 @@ php artisan chats:test-positions
 php artisan chats:test-positions
 ```
 
+### 4. Тест стабильности топ-3 (гарантия что топ-3 НЕ меняется)
+```bash
+php artisan chats:test-stability
+```
+
 ## Ручное тестирование
 
 ### Шаг 1: Подготовка
@@ -98,4 +103,7 @@ php artisan chats:init-positions
 
 # Тест конкретного чата
 php artisan chats:test-positions --chat-id=1
+
+# Тест стабильности топ-3 (проверка что позиции НЕ меняются)
+php artisan chats:test-stability
 ``` 
