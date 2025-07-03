@@ -23,6 +23,11 @@ php artisan chats:test-positions
 php artisan chats:test-stability
 ```
 
+### 5. Тест правила одной минуты (проверка что система ждет минуту)
+```bash
+php artisan chats:test-minute-rule
+```
+
 ## Ручное тестирование
 
 ### Шаг 1: Подготовка

@@ -91,10 +91,42 @@ class ChatPositionService
     {
         $oneMinuteAgo = Carbon::now()->subMinute();
         
+        Log::info('Looking for chat to replace', [
+            'current_time' => Carbon::now()->toDateTimeString(),
+            'one_minute_ago' => $oneMinuteAgo->toDateTimeString(),
+            'top_three_chats' => $topThreeChats->map(function ($chat) use ($oneMinuteAgo) {
+                $lastMessageTime = $chat->last_message_at;
+                $minutesAgo = $lastMessageTime ? $lastMessageTime->diffInMinutes(Carbon::now()) : null;
+                $isOld = $lastMessageTime && $lastMessageTime->lt($oneMinuteAgo);
+                
+                return [
+                    'id' => $chat->id,
+                    'title' => $chat->display_name,
+                    'last_message_at' => $lastMessageTime ? $lastMessageTime->toDateTimeString() : 'null',
+                    'minutes_ago' => $minutesAgo,
+                    'is_older_than_minute' => $isOld
+                ];
+            })
+        ]);
+        
         // Ищем чат с последним сообщением дольше минуты назад
-        return $topThreeChats->first(function ($chat) use ($oneMinuteAgo) {
-            return $chat->last_message_at && $chat->last_message_at->lt($oneMinuteAgo);
+        $chatToReplace = $topThreeChats->first(function ($chat) use ($oneMinuteAgo) {
+            $isOld = $chat->last_message_at && $chat->last_message_at->lt($oneMinuteAgo);
+            return $isOld;
         });
+        
+        if ($chatToReplace) {
+            Log::info('Found chat to replace', [
+                'chat_id' => $chatToReplace->id,
+                'chat_title' => $chatToReplace->display_name,
+                'last_message_at' => $chatToReplace->last_message_at->toDateTimeString(),
+                'minutes_ago' => $chatToReplace->last_message_at->diffInMinutes(Carbon::now())
+            ]);
+        } else {
+            Log::info('No chat found for replacement - all chats have recent messages (less than 1 minute old)');
+        }
+        
+        return $chatToReplace;
     }
 
     /**
