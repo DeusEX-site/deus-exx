@@ -462,10 +462,6 @@
             }
         }
         
-        .message.new-message {
-            animation: fadeInUp 0.5s ease-out forwards;
-        }
-        
         .chat-loading {
             position: absolute;
             top: 10px;
@@ -796,7 +792,7 @@
             // Добавляем новые сообщения
             messages.forEach((msg, index) => {
                 const messageEl = document.createElement('div');
-                messageEl.className = `message ${msg.is_telegram ? 'telegram' : 'other'} new-message`;
+                messageEl.className = `message ${msg.is_telegram ? 'telegram' : 'other'}`;
                 messageEl.setAttribute('data-message-id', msg.id);
                 messageEl.innerHTML = `
                     ${msg.is_telegram ? '<div class="user">' + msg.user + '</div>' : ''}
@@ -804,14 +800,24 @@
                     <div class="time">${msg.timestamp}${msg.message_type && msg.message_type !== 'text' ? '<span class="message-type">' + getMessageTypeDisplay(msg.message_type) + '</span>' : ''}</div>
                 `;
                 
-                // Добавляем задержку для каждого сообщения чтобы они появлялись по очереди
-                messageEl.style.animationDelay = `${index * 0.1}s`;
+                // Устанавливаем начальное состояние для анимации
+                messageEl.style.opacity = '0';
+                messageEl.style.transform = 'translateY(20px)';
+                messageEl.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
                 
                 container.appendChild(messageEl);
                 
-                // Убираем класс анимации после завершения
+                // Запускаем анимацию с задержкой
                 setTimeout(() => {
-                    messageEl.classList.remove('new-message');
+                    messageEl.style.opacity = '1';
+                    messageEl.style.transform = 'translateY(0)';
+                }, 10 + (index * 100));
+                
+                // Убираем inline стили после завершения анимации
+                setTimeout(() => {
+                    messageEl.style.removeProperty('opacity');
+                    messageEl.style.removeProperty('transform');
+                    messageEl.style.removeProperty('transition');
                 }, 600 + (index * 100));
             });
             
