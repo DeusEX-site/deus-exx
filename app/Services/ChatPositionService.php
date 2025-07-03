@@ -95,10 +95,9 @@ class ChatPositionService
             'current_time' => Carbon::now()->toDateTimeString(),
             'one_minute_ago' => $oneMinuteAgo->toDateTimeString(),
             'top_ten_chats' => $topTenChats->map(function ($chat) use ($oneMinuteAgo) {
-                $lastMessageTime = $chat->last_message_at;
+                $lastMessageTime = $this->getLastNonBroadcastMessageTime($chat);
                 $minutesAgo = $lastMessageTime ? $lastMessageTime->diffInMinutes(Carbon::now()) : null;
                 $isOld = $lastMessageTime && $lastMessageTime->lt($oneMinuteAgo);
-                
                 return [
                     'id' => $chat->id,
                     'title' => $chat->display_name,
@@ -109,18 +108,20 @@ class ChatPositionService
             })
         ]);
         
-        // Ищем чат с последним сообщением дольше минуты назад
+        // Ищем чат с последним НЕ-рассылочным сообщением дольше минуты назад
         $chatToReplace = $topTenChats->first(function ($chat) use ($oneMinuteAgo) {
-            $isOld = $chat->last_message_at && $chat->last_message_at->lt($oneMinuteAgo);
+            $lastMessageTime = $this->getLastNonBroadcastMessageTime($chat);
+            $isOld = $lastMessageTime && $lastMessageTime->lt($oneMinuteAgo);
             return $isOld;
         });
         
         if ($chatToReplace) {
+            $lastMessageTime = $this->getLastNonBroadcastMessageTime($chatToReplace);
             Log::info('Found chat to replace', [
                 'chat_id' => $chatToReplace->id,
                 'chat_title' => $chatToReplace->display_name,
-                'last_message_at' => $chatToReplace->last_message_at->toDateTimeString(),
-                'minutes_ago' => $chatToReplace->last_message_at->diffInMinutes(Carbon::now())
+                'last_message_at' => $lastMessageTime ? $lastMessageTime->toDateTimeString() : 'null',
+                'minutes_ago' => $lastMessageTime ? $lastMessageTime->diffInMinutes(Carbon::now()) : null
             ]);
         } else {
             Log::info('No chat found for replacement - all chats have recent messages (less than 1 minute old)');
@@ -220,22 +221,30 @@ class ChatPositionService
         
         return [
             'top_ten' => $topTen->map(function ($chat) {
+                $lastMessageTime = $this->getLastNonBroadcastMessageTime($chat);
                 return [
                     'id' => $chat->id,
                     'title' => $chat->display_name,
                     'display_order' => $chat->display_order,
-                    'last_message_at' => $chat->last_message_at,
+                    'last_message_at' => $lastMessageTime,
                     'position' => $chat->getTopTenPosition()
                 ];
             }),
             'others' => $others->map(function ($chat) {
+                $lastMessageTime = $this->getLastNonBroadcastMessageTime($chat);
                 return [
                     'id' => $chat->id,
                     'title' => $chat->display_name,
                     'display_order' => $chat->display_order,
-                    'last_message_at' => $chat->last_message_at
+                    'last_message_at' => $lastMessageTime
                 ];
             })
         ];
+    }
+
+    private function getLastNonBroadcastMessageTime(Chat $chat)
+    {
+        $msg = $chat->messages()->where('message_type', '!=', 'broadcast')->latest('created_at')->first();
+        return $msg ? $msg->created_at : null;
     }
 } 
