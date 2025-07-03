@@ -136,9 +136,7 @@ Route::middleware('auth')->post('/api/broadcast', function (Request $request) {
         $errors = [];
 
         // Отправляем сообщение в каждый чат
-        foreach (
-            $chats as $chat
-        ) {
+        foreach ($chats as $chat) {
             try {
                 // Используем TelegramBotController для отправки
                 $botController = app(\App\Http\Controllers\TelegramBotController::class);
@@ -153,14 +151,6 @@ Route::middleware('auth')->post('/api/broadcast', function (Request $request) {
                 
                 if ($responseData['success']) {
                     $sentCount++;
-                    // Сохраняем сообщение в БД как broadcast
-                    Message::create([
-                        'chat_id' => $chat->id,
-                        'message' => $message,
-                        'user' => 'Broadcast',
-                        'message_type' => 'broadcast',
-                        'is_outgoing' => true,
-                    ]);
                 } else {
                     $errors[] = "Чат {$chat->display_name}: {$responseData['message']}";
                 }
