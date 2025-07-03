@@ -484,20 +484,21 @@
         
         .chat-loading {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(16, 185, 129, 0.8);
-            color: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
+            top: 12px;
+            right: 32px;
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
+            z-index: 10;
         }
         
         .chat-loading.show {
             opacity: 1;
+            animation: pulse 1s infinite;
         }
         
         .chat-window {
@@ -603,7 +604,7 @@
         <div class="telegram-controls">
             <h3>🤖 Управление Telegram Ботом</h3>
             <p style="color: #9ca3af; font-size: 0.875rem; margin-bottom: 1rem;">
-                📡 Сообщения обновляются каждую секунду • 🔄 Новые чаты проверяются каждые 10 секунд<br>
+                📡 Сообщения и новые чаты обновляются каждую секунду<br>
                 💬 Отправляйте сообщения через бота прямо из каждого чата
             </p>
             <div class="control-buttons">
@@ -696,7 +697,7 @@
         function createChatElement(chat) {
             return `
                 <div class="chat-window" id="chat-window-${chat.id}">
-                    <div class="chat-loading" id="loading-${chat.id}">⟳ Обновление...</div>
+                    <div class="chat-loading" id="loading-${chat.id}"></div>
                     <div class="chat-header ${chat.type}">
                         <div class="chat-avatar">${getAvatarText(chat.title || chat.username)}</div>
                         <div class="chat-info">
@@ -711,7 +712,7 @@
                     <div class="chat-input">
                         <div class="input-group">
                             <textarea id="input-${chat.id}" 
-                                     placeholder="Отправить сообщение" 
+                                     placeholder="Отправить сообщение через бота..." 
                                      onkeydown="handleChatKeyDown(event, ${chat.id}, ${chat.chat_id})"
                                      oninput="autoResizeTextarea(this)"
                                      maxlength="4000"
@@ -889,7 +890,7 @@
         function startChatChecking() {
             chatCheckInterval = setInterval(async () => {
                 await checkNewChats();
-            }, 10000); // Проверяем новые чаты каждые 10 секунд
+            }, 1000); // Проверяем новые чаты каждую секунду
         }
         
         // Проверка новых чатов
@@ -1294,7 +1295,6 @@
         // Загрузка при старте
         document.addEventListener('DOMContentLoaded', function() {
             loadChats();
-            startNewChatPolling();
         });
         
         // Инициализация полей ввода для существующих чатов
@@ -1318,31 +1318,7 @@
             }
         }
         
-        // Начать проверку новых чатов
-        function startNewChatPolling() {
-            // Проверяем новые чаты каждые 10 секунд
-            chatCheckInterval = setInterval(checkNewChats, 10000);
-        }
-        
-        // Проверка новых чатов
-        async function checkNewChats() {
-            try {
-                const response = await fetch('/api/telegram/chats');
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Проверяем новые чаты
-                    for (const chat of data.chats) {
-                        if (!existingChatIds.has(chat.id)) {
-                            existingChatIds.add(chat.id);
-                            addNewChat(chat);
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Ошибка проверки новых чатов:', error);
-            }
-        }
+
         
         // Очистка интервалов при закрытии страницы
         window.addEventListener('beforeunload', function() {
