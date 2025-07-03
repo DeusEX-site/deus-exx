@@ -26,8 +26,7 @@ class ChatPositionService
 
             // Проверяем, находится ли чат в топ-3
             if ($chat->isInTopThree()) {
-                // Если чат уже в топ-3, просто обновляем время последнего сообщения
-                $chat->update(['last_message_at' => now()]);
+                // Если чат уже в топ-3, позиция не изменяется
                 return ['status' => 'updated', 'message' => 'Chat already in top 3'];
             }
 
@@ -107,8 +106,7 @@ class ChatPositionService
             
             // Присваиваем новый display_order
             $chat->update([
-                'display_order' => $maxOrder + 1,
-                'last_message_at' => now()
+                'display_order' => $maxOrder + 1
             ]);
         });
     }
@@ -128,8 +126,7 @@ class ChatPositionService
             
             // Меняем display_order местами
             $promotedChat->update([
-                'display_order' => $oldDemotedOrder,
-                'last_message_at' => now()
+                'display_order' => $oldDemotedOrder
             ]);
             
             $demotedChat->update([

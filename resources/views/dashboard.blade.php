@@ -696,6 +696,51 @@
             chatPositions = newPositions;
         }
 
+        // Проверка изменений позиций чатов
+        async function checkForPositionChanges() {
+            if (isSwappingChats) return;
+            
+            try {
+                const response = await fetch('/api/chats', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const newChats = data.chats;
+                    
+                    // Проверяем изменился ли порядок чатов
+                    const orderChanged = hasOrderChanged(chats, newChats);
+                    
+                    if (orderChanged) {
+                        console.log('Chat order changed, updating...');
+                        chats = newChats;
+                        renderChats();
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking position changes:', error);
+            }
+        }
+
+        // Проверка изменения порядка чатов
+        function hasOrderChanged(oldChats, newChats) {
+            if (oldChats.length !== newChats.length) {
+                return true;
+            }
+            
+            for (let i = 0; i < oldChats.length; i++) {
+                if (oldChats[i].id !== newChats[i].id) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
         // Определение изменений позиций
         function detectPositionChanges(oldPositions, newPositions) {
             const changes = [];
@@ -795,7 +840,7 @@
         // Создание HTML элемента чата
         function createChatElement(chat) {
             const chatIndex = chats.findIndex(c => c.id === chat.id);
-            const isTopChat = chatIndex < 3;
+            const isTopChat = chatIndex >= 0 && chatIndex < 3;
             const topChatClass = isTopChat ? 'top-chat' : '';
             const topChatIndicator = isTopChat ? `<div class="top-chat-indicator">ТОП ${chatIndex + 1}</div>` : '';
             
@@ -888,6 +933,11 @@
                         if (data.messages && data.messages.length > 0) {
                             appendNewMessages(chatId, data.messages);
                             updateLastMessageId(chatId, data.messages);
+                            
+                            // Проверяем изменения позиций после добавления новых сообщений
+                            setTimeout(() => {
+                                checkForPositionChanges();
+                            }, 1000);
                         }
                     }
                 }
@@ -1025,7 +1075,8 @@
         function startChatChecking() {
             chatCheckInterval = setInterval(async () => {
                 await checkNewChats();
-            }, 1000); // Проверяем новые чаты каждую секунду
+                await checkForPositionChanges(); // Проверяем изменения позиций
+            }, 2000); // Проверяем каждые 2 секунды
         }
         
         // Проверка новых чатов

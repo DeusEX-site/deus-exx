@@ -41,14 +41,14 @@ class TelegramWebhookController extends Controller
             // Создаем сообщение
             $messageModel = $this->createMessage($message, $chatModel);
             
-            // Обновляем статистику чата
-            $this->updateChatStats($chatModel);
-            
-            // Обрабатываем позиции чатов
+            // Обрабатываем позиции чатов ПЕРЕД обновлением статистики
             $positionResult = $this->chatPositionService->handleNewMessage($chatModel->id);
             if ($positionResult['status'] === 'swapped') {
                 Log::info('Chat positions changed', $positionResult);
             }
+            
+            // Обновляем статистику чата ПОСЛЕ обработки позиций
+            $this->updateChatStats($chatModel);
             
             // Отправляем событие через веб-сокет (если работает)
             try {
