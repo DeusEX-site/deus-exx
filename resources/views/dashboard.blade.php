@@ -1550,7 +1550,8 @@
                     textarea.style.height = '40px'; // Сбрасываем высоту
                     showSendStatus(chatId, 'success', '✅ Отправлено');
                     
-                    // Не нужно дополнительно загружать сообщения - polling сделает это автоматически
+                    // Принудительно обновляем чаты после рассылки
+                    refreshChats();
                 } else {
                     // Ошибка отправки
                     showSendStatus(chatId, 'error', `❌ ${data.message || 'Ошибка отправки'}`);
@@ -1754,6 +1755,8 @@
                 if (data.success) {
                     showBroadcastStatus('success', `✅ Рассылка отправлена в ${data.sent_count} чатов`);
                     
+                    // Принудительно обновляем чаты после рассылки
+                    refreshChats();
                     // Закрываем модал через 2 секунды
                     setTimeout(() => {
                         closeBroadcastModal();
