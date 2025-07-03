@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TelegramBotController;
 use App\Models\Message;
+use App\Models\Chat;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -72,6 +74,41 @@ Route::get('/api/messages/latest', function () {
     ]);
 });
 
+// API для получения чатов
+Route::get('/api/chats', function () {
+    $chats = Chat::active()
+        ->orderByActivity()
+        ->withCount('messages')
+        ->get();
+    
+    return response()->json([
+        'chats' => $chats
+    ]);
+});
+
+// API для получения сообщений чата
+Route::get('/api/chats/{chatId}/messages', function ($chatId) {
+    $afterId = (int) request('after', 0);
+    $messages = Message::getLatestForChat($chatId, 50, $afterId);
+    
+    $formattedMessages = $messages->map(function ($message) {
+        return [
+            'id' => $message->id,
+            'message' => $message->message,
+            'user' => $message->display_name,
+            'timestamp' => $message->created_at->format('H:i:s'),
+            'message_type' => $message->message_type,
+            'telegram_user_id' => $message->telegram_user_id,
+            'is_telegram' => !is_null($message->telegram_message_id)
+        ];
+    });
+    
+    return response()->json([
+        'messages' => $formattedMessages,
+        'total' => count($formattedMessages)
+    ]);
+});
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('dashboard');
@@ -80,6 +117,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    
+    // Telegram Bot Management Routes
+    Route::prefix('telegram')->group(function () {
+        Route::post('/webhook/set', [TelegramBotController::class, 'setWebhook'])->name('telegram.webhook.set');
+        Route::get('/webhook/info', [TelegramBotController::class, 'getWebhookInfo'])->name('telegram.webhook.info');
+        Route::delete('/webhook', [TelegramBotController::class, 'deleteWebhook'])->name('telegram.webhook.delete');
+        Route::get('/bot/info', [TelegramBotController::class, 'getBotInfo'])->name('telegram.bot.info');
+        Route::get('/chats', [TelegramBotController::class, 'getChats'])->name('telegram.chats');
+        Route::get('/chats/{chatId}/messages', [TelegramBotController::class, 'getChatMessages'])->name('telegram.chat.messages');
+        Route::post('/send-message', [TelegramBotController::class, 'sendMessage'])->name('telegram.send.message');
+    });
 });
 
 require __DIR__.'/auth.php';
