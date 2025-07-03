@@ -1116,10 +1116,7 @@
                     textarea.style.height = '40px'; // Сбрасываем высоту
                     showSendStatus(chatId, 'success', '✅ Отправлено');
                     
-                    // Сразу обновляем сообщения чата для быстрого отображения
-                    setTimeout(() => {
-                        loadChatMessages(chatId, false);
-                    }, 500);
+                    // Не нужно дополнительно загружать сообщения - polling сделает это автоматически
                 } else {
                     // Ошибка отправки
                     showSendStatus(chatId, 'error', `❌ ${data.message || 'Ошибка отправки'}`);
