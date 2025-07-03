@@ -641,6 +641,12 @@
         let chatCheckInterval = null; // Интервал для проверки новых чатов
         let existingChatIds = new Set(); // Отслеживаем существующие чаты
         
+        // Флаги для предотвращения конкурентных запросов
+        let isLoadingMessages = {}; // Флаги загрузки сообщений для каждого чата
+        let isCheckingNewChats = false; // Флаг проверки новых чатов
+        let isPageVisible = true; // Флаг видимости страницы
+        let lastRequestTime = {}; // Время последних запросов для throttling
+        
         // Загрузка чатов
         async function loadChats() {
             try {
@@ -737,6 +743,26 @@
         
         // Загрузка сообщений чата
         async function loadChatMessages(chatId, isInitialLoad = false) {
+            // Предотвращаем конкурентные запросы
+            if (isLoadingMessages[chatId]) {
+                return;
+            }
+            
+            // Не загружаем если страница скрыта (кроме первоначальной загрузки)
+            if (!isPageVisible && !isInitialLoad) {
+                return;
+            }
+            
+            // Throttling: не делаем запросы чаще чем раз в 800мс (кроме первоначальной загрузки)
+            const now = Date.now();
+            const lastTime = lastRequestTime[`messages_${chatId}`] || 0;
+            if (!isInitialLoad && (now - lastTime) < 800) {
+                return;
+            }
+            lastRequestTime[`messages_${chatId}`] = now;
+            
+            isLoadingMessages[chatId] = true;
+            
             try {
                 // Показываем индикатор загрузки только для обновлений (не для первоначальной загрузки)
                 if (!isInitialLoad) {
@@ -773,6 +799,9 @@
                 if (!isInitialLoad) {
                     hideLoadingIndicator(chatId);
                 }
+                
+                // Освобождаем флаг загрузки
+                isLoadingMessages[chatId] = false;
             }
         }
         
@@ -812,6 +841,13 @@
             
             // Добавляем новые сообщения
             messages.forEach((msg, index) => {
+                // Проверяем, не существует ли уже это сообщение
+                const existingMessage = container.querySelector(`[data-message-id="${msg.id}"]`);
+                if (existingMessage) {
+                    console.log(`Сообщение ${msg.id} уже существует, пропускаем`);
+                    return; // Пропускаем дублирующее сообщение
+                }
+                
                 const messageEl = document.createElement('div');
                 messageEl.className = `message ${msg.is_outgoing ? 'outgoing' : (msg.is_telegram ? 'telegram' : 'other')}`;
                 messageEl.setAttribute('data-message-id', msg.id);
@@ -895,6 +931,26 @@
         
         // Проверка новых чатов
         async function checkNewChats() {
+            // Предотвращаем конкурентные запросы
+            if (isCheckingNewChats) {
+                return;
+            }
+            
+            // Не проверяем если страница скрыта
+            if (!isPageVisible) {
+                return;
+            }
+            
+            // Throttling: не делаем запросы чаще чем раз в 800мс
+            const now = Date.now();
+            const lastTime = lastRequestTime['newChats'] || 0;
+            if ((now - lastTime) < 800) {
+                return;
+            }
+            lastRequestTime['newChats'] = now;
+            
+            isCheckingNewChats = true;
+            
             try {
                 const response = await fetch('/api/chats', {
                     headers: {
@@ -917,6 +973,9 @@
                 }
             } catch (error) {
                 console.error('Ошибка проверки новых чатов:', error);
+            } finally {
+                // Освобождаем флаг проверки
+                isCheckingNewChats = false;
             }
         }
         
@@ -1254,6 +1313,11 @@
             existingChatIds.clear();
             lastMessageIds = {};
             
+            // Очищаем флаги загрузки
+            isLoadingMessages = {};
+            isCheckingNewChats = false;
+            lastRequestTime = {};
+            
             // Перезагружаем чаты
             loadChats();
         }
@@ -1289,6 +1353,43 @@
             return types[type] || 'Неизвестно';
         }
         
+        // Обработка видимости страницы для предотвращения проблем на мобильных
+        let resumeTimeout = null;
+        document.addEventListener('visibilitychange', function() {
+            isPageVisible = !document.hidden;
+            
+            if (isPageVisible) {
+                console.log('Страница стала видимой - возобновляем обновления');
+                // Debounce возобновления на 1 секунду для стабильности
+                if (resumeTimeout) clearTimeout(resumeTimeout);
+                resumeTimeout = setTimeout(() => {
+                    resumePolling();
+                }, 1000);
+            } else {
+                console.log('Страница скрыта - приостанавливаем обновления');
+                // Отменяем запланированное возобновление
+                if (resumeTimeout) {
+                    clearTimeout(resumeTimeout);
+                    resumeTimeout = null;
+                }
+            }
+        });
+        
+        // Возобновление polling после возвращения видимости
+        function resumePolling() {
+            // Если интервалы не работают - перезапускаем
+            if (!chatCheckInterval) {
+                startChatChecking();
+            }
+            
+            // Проверяем интервалы сообщений для каждого чата
+            chats.forEach(chat => {
+                if (!messageIntervals[chat.id]) {
+                    startMessagePolling(chat.id);
+                }
+            });
+        }
+        
         // Загрузка при старте
         document.addEventListener('DOMContentLoaded', function() {
             loadChats();
@@ -1313,6 +1414,11 @@
             if (chatCheckInterval) {
                 clearInterval(chatCheckInterval);
             }
+            
+            // Очищаем флаги
+            isLoadingMessages = {};
+            isCheckingNewChats = false;
+            lastRequestTime = {};
         }
         
 
