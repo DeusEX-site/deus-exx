@@ -5,12 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\Chat;
 use App\Models\Message;
 use App\Events\MessageSent;
+use App\Services\ChatPositionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class TelegramWebhookController extends Controller
 {
+    protected $chatPositionService;
+
+    public function __construct(ChatPositionService $chatPositionService)
+    {
+        $this->chatPositionService = $chatPositionService;
+    }
+
     public function handle(Request $request)
     {
         try {
@@ -35,6 +43,12 @@ class TelegramWebhookController extends Controller
             
             // Обновляем статистику чата
             $this->updateChatStats($chatModel);
+            
+            // Обрабатываем позиции чатов
+            $positionResult = $this->chatPositionService->handleNewMessage($chatModel->id);
+            if ($positionResult['status'] === 'swapped') {
+                Log::info('Chat positions changed', $positionResult);
+            }
             
             // Отправляем событие через веб-сокет (если работает)
             try {

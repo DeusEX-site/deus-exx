@@ -87,6 +87,28 @@ Route::get('/api/chats', function () {
     ]);
 });
 
+// API для получения позиций чатов
+Route::get('/api/chats/positions', function () {
+    $chatPositionService = app(\App\Services\ChatPositionService::class);
+    $positions = $chatPositionService->getCurrentPositions();
+    
+    return response()->json([
+        'success' => true,
+        'positions' => $positions
+    ]);
+});
+
+// API для инициализации позиций чатов
+Route::post('/api/chats/init-positions', function () {
+    $chatPositionService = app(\App\Services\ChatPositionService::class);
+    $chatPositionService->initializePositions();
+    
+    return response()->json([
+        'success' => true,
+        'message' => 'Chat positions initialized'
+    ]);
+});
+
 // API для получения сообщений чата
 Route::get('/api/chats/{chatId}/messages', function ($chatId) {
     $afterId = (int) request('after', 0);

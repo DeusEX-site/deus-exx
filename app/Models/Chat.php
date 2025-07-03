@@ -18,6 +18,7 @@ class Chat extends Model
         'is_active',
         'last_message_at',
         'message_count',
+        'display_order',
     ];
 
     protected $casts = [
@@ -25,6 +26,7 @@ class Chat extends Model
         'is_active' => 'boolean',
         'last_message_at' => 'datetime',
         'message_count' => 'integer',
+        'display_order' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -57,6 +59,47 @@ class Chat extends Model
 
     public function scopeOrderByActivity($query)
     {
-        return $query->orderBy('last_message_at', 'desc');
+        return $query->orderBy('display_order', 'desc')
+                     ->orderBy('last_message_at', 'desc');
+    }
+
+    public function scopeTopThree($query)
+    {
+        return $query->orderBy('display_order', 'desc')
+                     ->orderBy('last_message_at', 'desc')
+                     ->limit(3);
+    }
+
+    public function scopeWithoutTopThree($query)
+    {
+        $topThreeIds = static::active()
+                          ->orderBy('display_order', 'desc')
+                          ->orderBy('last_message_at', 'desc')
+                          ->limit(3)
+                          ->pluck('id');
+        
+        return $query->whereNotIn('id', $topThreeIds);
+    }
+
+    public function isInTopThree()
+    {
+        $topThreeIds = static::active()
+                          ->orderBy('display_order', 'desc')
+                          ->orderBy('last_message_at', 'desc')
+                          ->limit(3)
+                          ->pluck('id');
+        
+        return $topThreeIds->contains($this->id);
+    }
+
+    public function getTopThreePosition()
+    {
+        $topThreeIds = static::active()
+                          ->orderBy('display_order', 'desc')
+                          ->orderBy('last_message_at', 'desc')
+                          ->limit(3)
+                          ->pluck('id');
+        
+        return $topThreeIds->search($this->id);
     }
 } 

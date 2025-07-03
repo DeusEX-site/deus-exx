@@ -478,6 +478,63 @@
                 opacity: 0.5;
             }
         }
+
+        @keyframes positionIndicator {
+            0% { 
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            20% { 
+                opacity: 1;
+                transform: scale(1.2);
+            }
+            40% { 
+                transform: scale(1);
+            }
+            100% { 
+                opacity: 0;
+                transform: scale(0.8);
+            }
+        }
+
+        .position-changing {
+            position: relative;
+            z-index: 5;
+        }
+
+        .chat-window.position-changing {
+            border: 2px solid rgba(59, 130, 246, 0.5);
+        }
+
+        .chat-window.top-chat {
+            border-left: 4px solid rgba(34, 197, 94, 0.8);
+        }
+
+        .chat-window.top-chat .chat-header {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+        }
+
+        .chat-window.top-chat .chat-header::before {
+            content: "🔥";
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .top-chat-indicator {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 10;
+        }
         
         /* Красивые скроллбары */
         ::-webkit-scrollbar {
@@ -557,12 +614,14 @@
         let lastMessageIds = {}; // Отслеживаем последние ID сообщений для каждого чата
         let chatCheckInterval = null; // Интервал для проверки новых чатов
         let existingChatIds = new Set(); // Отслеживаем существующие чаты
+        let chatPositions = {}; // Отслеживаем позиции чатов для анимации
         
         // Флаги для предотвращения конкурентных запросов
         let isLoadingMessages = {}; // Флаги загрузки сообщений для каждого чата
         let isCheckingNewChats = false; // Флаг проверки новых чатов
         let isPageVisible = true; // Флаг видимости страницы
         let lastRequestTime = {}; // Время последних запросов для throttling
+        let isSwappingChats = false; // Флаг для предотвращения конкурентных анимаций
         
         // Загрузка чатов
         async function loadChats() {
@@ -607,6 +666,9 @@
                 return;
             }
             
+            // Сохраняем текущие позиции для анимации
+            updateChatPositions();
+            
             grid.innerHTML = chats.map(chat => createChatElement(chat)).join('');
             
             // Загружаем сообщения для каждого чата
@@ -615,11 +677,131 @@
                 startMessagePolling(chat.id);
             });
         }
+
+        // Обновление позиций чатов для отслеживания изменений
+        function updateChatPositions() {
+            const newPositions = {};
+            chats.forEach((chat, index) => {
+                newPositions[chat.id] = index;
+            });
+            
+            // Проверяем изменения позиций
+            const positionChanges = detectPositionChanges(chatPositions, newPositions);
+            
+            if (positionChanges.length > 0 && !isSwappingChats) {
+                console.log('Detected position changes:', positionChanges);
+                animatePositionChanges(positionChanges);
+            }
+            
+            chatPositions = newPositions;
+        }
+
+        // Определение изменений позиций
+        function detectPositionChanges(oldPositions, newPositions) {
+            const changes = [];
+            
+            for (const [chatId, newPos] of Object.entries(newPositions)) {
+                const oldPos = oldPositions[chatId];
+                if (oldPos !== undefined && oldPos !== newPos) {
+                    changes.push({
+                        chatId: parseInt(chatId),
+                        oldPosition: oldPos,
+                        newPosition: newPos
+                    });
+                }
+            }
+            
+            return changes;
+        }
+
+        // Анимация изменений позиций
+        function animatePositionChanges(changes) {
+            if (isSwappingChats) return;
+            
+            isSwappingChats = true;
+            
+            const grid = document.getElementById('chats-grid');
+            const chatElements = Array.from(grid.children);
+            
+            // Применяем анимацию для каждого изменения
+            changes.forEach(change => {
+                const chatElement = document.getElementById(`chat-window-${change.chatId}`);
+                if (chatElement) {
+                    // Добавляем класс для анимации
+                    chatElement.classList.add('position-changing');
+                    
+                    // Анимация масштабирования
+                    chatElement.style.transform = 'scale(0.95)';
+                    chatElement.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
+                    chatElement.style.boxShadow = '0 8px 25px rgba(59, 130, 246, 0.3)';
+                    
+                    // Показываем индикатор изменения позиции
+                    showPositionChangeIndicator(change);
+                }
+            });
+            
+            // Снимаем анимацию через время
+            setTimeout(() => {
+                changes.forEach(change => {
+                    const chatElement = document.getElementById(`chat-window-${change.chatId}`);
+                    if (chatElement) {
+                        chatElement.classList.remove('position-changing');
+                        chatElement.style.transform = 'scale(1)';
+                        chatElement.style.boxShadow = '';
+                    }
+                });
+                
+                isSwappingChats = false;
+            }, 500);
+        }
+
+        // Показ индикатора изменения позиции
+        function showPositionChangeIndicator(change) {
+            const chatElement = document.getElementById(`chat-window-${change.chatId}`);
+            if (!chatElement) return;
+            
+            const indicator = document.createElement('div');
+            indicator.className = 'position-change-indicator';
+            indicator.innerHTML = change.newPosition < change.oldPosition ? '↑' : '↓';
+            indicator.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(59, 130, 246, 0.9);
+                color: white;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 12px;
+                z-index: 10;
+                animation: positionIndicator 2s ease-out forwards;
+            `;
+            
+            chatElement.style.position = 'relative';
+            chatElement.appendChild(indicator);
+            
+            // Удаляем индикатор через время
+            setTimeout(() => {
+                if (indicator.parentNode) {
+                    indicator.parentNode.removeChild(indicator);
+                }
+            }, 2000);
+        }
         
         // Создание HTML элемента чата
         function createChatElement(chat) {
+            const chatIndex = chats.findIndex(c => c.id === chat.id);
+            const isTopChat = chatIndex < 3;
+            const topChatClass = isTopChat ? 'top-chat' : '';
+            const topChatIndicator = isTopChat ? `<div class="top-chat-indicator">ТОП ${chatIndex + 1}</div>` : '';
+            
             return `
-                <div class="chat-window" id="chat-window-${chat.id}">
+                <div class="chat-window ${topChatClass}" id="chat-window-${chat.id}">
+                    ${topChatIndicator}
                     <div class="chat-loading" id="loading-${chat.id}"></div>
                     <div class="chat-header ${chat.type}">
                         <div class="chat-avatar">${getAvatarText(chat.title || chat.username)}</div>
