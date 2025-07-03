@@ -691,7 +691,7 @@
                     <div class="chat-input">
                         <div class="input-group">
                             <textarea id="input-${chat.id}" 
-                                     placeholder="Отправить сообщение через бота (Enter - отправить, Shift+Enter - новая строка)..." 
+                                     placeholder="Отправить сообщение" 
                                      onkeydown="handleChatKeyDown(event, ${chat.id}, ${chat.chat_id})"
                                      oninput="autoResizeTextarea(this)"
                                      maxlength="4000"
