@@ -860,7 +860,7 @@
             const chatIndex = chats.findIndex(c => c.id === chat.id);
                             const isTopChat = chatIndex >= 0 && chatIndex < 10;
                 const topChatClass = isTopChat ? 'top-chat' : '';
-                const topChatIndicator = isTopChat ? `<div class="top-chat-indicator">ТОП ${chatIndex + 1}</div>` : '';
+                const topChatIndicator = '';
             
             return `
                 <div class="chat-window ${topChatClass}" id="chat-window-${chat.id}">
