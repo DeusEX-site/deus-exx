@@ -39,8 +39,8 @@
             }
             
             input[type="email"]:focus, input[type="password"]:focus, input[type="text"]:focus {
-                border-color: #3b82f6 !important;
-                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+                border-color: #1e3a8a !important;
+                box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.3) !important;
             }
             
             input::placeholder {
@@ -53,13 +53,13 @@
             
             /* Button styling */
             .btn-primary {
-                background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%) !important;
+                background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%) !important;
                 border: none !important;
                 color: white !important;
             }
             
             .btn-primary:hover {
-                background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+                background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%) !important;
             }
             
             /* Links */
@@ -78,8 +78,8 @@
             }
             
             input[type="checkbox"]:checked {
-                background: #3b82f6 !important;
-                border-color: #3b82f6 !important;
+                background: #1e3a8a !important;
+                border-color: #1e3a8a !important;
             }
             
             /* Error messages */
@@ -90,6 +90,37 @@
             /* Status messages */
             .text-green-600 {
                 color: #34d399 !important;
+            }
+            
+            /* Красивые скроллбары */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            
+            ::-webkit-scrollbar-track {
+                background: rgba(15, 15, 35, 0.8);
+                border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            ::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+            }
+            
+            ::-webkit-scrollbar-corner {
+                background: rgba(15, 15, 35, 0.8);
+            }
+            
+            /* Firefox scrollbars */
+            * {
+                scrollbar-width: thin;
+                scrollbar-color: #1e3a8a rgba(15, 15, 35, 0.8);
             }
         </style>
 

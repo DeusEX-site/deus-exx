@@ -176,7 +176,7 @@
             }
 
             .text-red-500 {
-                color: #60a5fa;
+                color: #93c5fd;
             }
 
             .text-gray-500 {
@@ -291,12 +291,12 @@
 
             .bg-red-50 {
                 --tw-bg-opacity: 1;
-                background-color: rgba(59, 130, 246, 0.2);
+                background-color: rgba(30, 58, 138, 0.3);
             }
 
             .bg-red-500 {
                 --tw-bg-opacity: 1;
-                background-color: rgb(59, 130, 246);
+                background-color: rgb(30, 58, 138);
             }
 
             @media (min-width: 768px) {
@@ -339,6 +339,37 @@
                 .sm\:p-6 {
                     padding: 1.5rem;
                 }
+            }
+            
+            /* Красивые скроллбары */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            
+            ::-webkit-scrollbar-track {
+                background: rgba(15, 15, 35, 0.8);
+                border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            ::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+            }
+            
+            ::-webkit-scrollbar-corner {
+                background: rgba(15, 15, 35, 0.8);
+            }
+            
+            /* Firefox scrollbars */
+            * {
+                scrollbar-width: thin;
+                scrollbar-color: #1e3a8a rgba(15, 15, 35, 0.8);
             }
         </style>
     </head>

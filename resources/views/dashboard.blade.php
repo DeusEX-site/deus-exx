@@ -87,7 +87,7 @@
         }
         
         .chat-header {
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
             color: white;
             padding: 1rem;
             display: flex;
@@ -151,7 +151,7 @@
         }
         
         .message.own {
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
             color: white;
             align-self: flex-end;
             border-bottom-right-radius: 0.25rem;
@@ -198,12 +198,12 @@
         }
         
         .input-group input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            border-color: #1e3a8a;
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.3);
         }
         
         .send-btn {
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
             color: white;
             border: none;
             border-radius: 50%;
@@ -218,7 +218,7 @@
         
         .send-btn:hover {
             transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
         }
         
         .online-indicator {
@@ -250,6 +250,37 @@
             }
         }
         
+        /* Красивые скроллбары */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 15, 35, 0.8);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+        }
+        
+        ::-webkit-scrollbar-corner {
+            background: rgba(15, 15, 35, 0.8);
+        }
+        
+        /* Firefox scrollbars */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #1e3a8a rgba(15, 15, 35, 0.8);
+        }
+        
         @media (max-width: 768px) {
             .chat-grid {
                 grid-template-columns: 1fr;
@@ -270,7 +301,6 @@
         <h1>💬 Dashboard - Чат</h1>
         <div class="user-info">
             <span>{{ auth()->user()->name }}</span>
-            <a href="{{ route('profile.edit') }}">Профиль</a>
             <a href="{{ url('/') }}">Главная</a>
             <form method="POST" action="{{ route('logout') }}" style="display: inline;">
                 @csrf

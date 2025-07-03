@@ -54,7 +54,7 @@
             
             .nav-link.active {
                 color: #60a5fa !important;
-                background: rgba(59, 130, 246, 0.1) !important;
+                background: rgba(30, 58, 138, 0.2) !important;
             }
             
             /* Logo styling */
@@ -83,8 +83,8 @@
             }
             
             input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, textarea:focus, select:focus {
-                border-color: #3b82f6 !important;
-                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+                border-color: #1e3a8a !important;
+                box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.3) !important;
             }
             
             label {
@@ -93,13 +93,13 @@
             
             /* Buttons */
             .btn-primary {
-                background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%) !important;
+                background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%) !important;
                 border: none !important;
                 color: white !important;
             }
             
             .btn-primary:hover {
-                background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+                background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%) !important;
             }
             
             .btn-secondary {
@@ -125,8 +125,39 @@
             }
             
             .dropdown-item:hover {
-                background: rgba(59, 130, 246, 0.1) !important;
+                background: rgba(30, 58, 138, 0.2) !important;
                 color: #60a5fa !important;
+            }
+            
+            /* Красивые скроллбары */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            
+            ::-webkit-scrollbar-track {
+                background: rgba(15, 15, 35, 0.8);
+                border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            
+            ::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+            }
+            
+            ::-webkit-scrollbar-corner {
+                background: rgba(15, 15, 35, 0.8);
+            }
+            
+            /* Firefox scrollbars */
+            * {
+                scrollbar-width: thin;
+                scrollbar-color: #1e3a8a rgba(15, 15, 35, 0.8);
             }
         </style>
 
