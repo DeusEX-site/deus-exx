@@ -69,63 +69,6 @@
             margin: 0;
         }
         
-        .telegram-controls {
-            margin-bottom: 2rem;
-            padding: 1.5rem;
-            background: rgba(30, 30, 60, 0.9);
-            border-radius: 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .telegram-controls h3 {
-            color: #e2e8f0;
-            margin-bottom: 1rem;
-            font-size: 1.2rem;
-        }
-        
-        .control-buttons {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        .control-btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            border: none;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .control-btn.primary {
-            background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
-            color: white;
-        }
-        
-        .control-btn.success {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-        }
-        
-        .control-btn.warning {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-        }
-        
-        .control-btn.danger {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
-        }
-        
-        .control-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
         .chat-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
@@ -600,32 +543,6 @@
     </div>
     
     <div class="container">
-        <!-- Telegram Bot Controls -->
-        <div class="telegram-controls">
-            <h3>🤖 Управление Telegram Ботом</h3>
-            <p style="color: #9ca3af; font-size: 0.875rem; margin-bottom: 1rem;">
-                📡 Сообщения и новые чаты обновляются каждую секунду<br>
-                💬 Отправляйте сообщения через бота прямо из каждого чата
-            </p>
-            <div class="control-buttons">
-                <button class="control-btn success" onclick="setWebhook()">
-                    ⚡ Установить Webhook
-                </button>
-                <button class="control-btn primary" onclick="getWebhookInfo()">
-                    ℹ️ Инфо Webhook
-                </button>
-                <button class="control-btn warning" onclick="getBotInfo()">
-                    🤖 Инфо Бота
-                </button>
-                <button class="control-btn danger" onclick="deleteWebhook()">
-                    🗑️ Удалить Webhook
-                </button>
-                <button class="control-btn primary" onclick="refreshChats()">
-                    🔄 Обновить Чаты
-                </button>
-            </div>
-        </div>
-        
         <!-- Chats Grid -->
         <div class="chat-grid" id="chats-grid">
             <div class="loading">
@@ -1215,84 +1132,6 @@
             if (status) {
                 status.className = 'send-status';
                 status.textContent = '';
-            }
-        }
-        
-        // Управление ботом
-        async function setWebhook() {
-            const webhookUrl = prompt('Введите URL для webhook:', 'https://www.deus-ex.site/api/telegram/webhook');
-            if (!webhookUrl) return;
-            
-            try {
-                const response = await fetch('/telegram/webhook/set', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    },
-                    body: JSON.stringify({ url: webhookUrl })
-                });
-                
-                const data = await response.json();
-                alert(data.message);
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка установки webhook');
-            }
-        }
-        
-        async function getWebhookInfo() {
-            try {
-                const response = await fetch('/telegram/webhook/info', {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    }
-                });
-                
-                const data = await response.json();
-                alert(JSON.stringify(data.webhook_info, null, 2));
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка получения информации о webhook');
-            }
-        }
-        
-        async function getBotInfo() {
-            try {
-                const response = await fetch('/telegram/bot/info', {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    }
-                });
-                
-                const data = await response.json();
-                alert(JSON.stringify(data.bot_info, null, 2));
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка получения информации о боте');
-            }
-        }
-        
-        async function deleteWebhook() {
-            if (!confirm('Удалить webhook?')) return;
-            
-            try {
-                const response = await fetch('/telegram/webhook', {
-                    method: 'DELETE',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    }
-                });
-                
-                const data = await response.json();
-                alert(data.message);
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка удаления webhook');
             }
         }
         

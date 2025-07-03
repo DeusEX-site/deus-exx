@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TelegramBotController;
 use App\Models\Message;
 use App\Models\Chat;
@@ -118,6 +119,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    
+    // Settings page
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     
     // Telegram Bot Management Routes
     Route::prefix('telegram')->group(function () {
