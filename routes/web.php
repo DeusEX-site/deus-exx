@@ -78,11 +78,17 @@ Route::get('/api/messages/latest', function () {
 
 // API для получения чатов
 Route::get('/api/chats', function () {
-    $chats = Chat::active()
-        ->orderByActivity()
+    $topTen = Chat::active()
+        ->where('display_order', '>', 0)
+        ->orderBy('display_order', 'desc')
         ->withCount('messages')
         ->get();
-    
+    $others = Chat::active()
+        ->where('display_order', 0)
+        ->orderBy('last_message_at', 'desc')
+        ->withCount('messages')
+        ->get();
+    $chats = $topTen->concat($others)->values();
     return response()->json([
         'chats' => $chats
     ]);
