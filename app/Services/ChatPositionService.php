@@ -26,8 +26,8 @@ class ChatPositionService
 
             // Проверяем, находится ли чат в топ-3
             if ($chat->isInTopThree()) {
-                // Если чат уже в топ-3, позиция не изменяется
-                return ['status' => 'updated', 'message' => 'Chat already in top 3'];
+                // Если чат уже в топ-3, позиция не изменяется вообще
+                return ['status' => 'no_change', 'message' => 'Chat already in top 3, no position change needed'];
             }
 
             // Чат не в топ-3, проверяем нужно ли менять позиции

@@ -712,6 +712,10 @@
                     const data = await response.json();
                     const newChats = data.chats;
                     
+                    // Отладочное логирование
+                    console.log('Old chats order:', chats.map(c => `${c.id}:${c.display_order}`));
+                    console.log('New chats order:', newChats.map(c => `${c.id}:${c.display_order}`));
+                    
                     // Проверяем изменился ли порядок чатов
                     const orderChanged = hasOrderChanged(chats, newChats);
                     
@@ -748,11 +752,18 @@
             for (const [chatId, newPos] of Object.entries(newPositions)) {
                 const oldPos = oldPositions[chatId];
                 if (oldPos !== undefined && oldPos !== newPos) {
-                    changes.push({
-                        chatId: parseInt(chatId),
-                        oldPosition: oldPos,
-                        newPosition: newPos
-                    });
+                    const wasInTopThree = oldPos < 3;
+                    const isInTopThree = newPos < 3;
+                    
+                    // Показываем анимацию только при входе/выходе из топ-3
+                    if (wasInTopThree !== isInTopThree) {
+                        changes.push({
+                            chatId: parseInt(chatId),
+                            oldPosition: oldPos,
+                            newPosition: newPos,
+                            type: isInTopThree ? 'promoted' : 'demoted'
+                        });
+                    }
                 }
             }
             
@@ -807,23 +818,31 @@
             
             const indicator = document.createElement('div');
             indicator.className = 'position-change-indicator';
-            indicator.innerHTML = change.newPosition < change.oldPosition ? '↑' : '↓';
-            indicator.style.cssText = `
+            
+            // Определяем содержимое и цвет индикатора
+            if (change.type === 'promoted') {
+                indicator.innerHTML = '⬆️ ТОП';
+                indicator.style.background = 'rgba(34, 197, 94, 0.9)'; // Зеленый для повышения
+            } else {
+                indicator.innerHTML = '⬇️';
+                indicator.style.background = 'rgba(239, 68, 68, 0.9)'; // Красный для понижения
+            }
+            
+            indicator.style.cssText += `
                 position: absolute;
                 top: 10px;
                 right: 10px;
-                background: rgba(59, 130, 246, 0.9);
                 color: white;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
+                padding: 4px 8px;
+                border-radius: 12px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-weight: bold;
-                font-size: 12px;
+                font-size: 10px;
                 z-index: 10;
                 animation: positionIndicator 2s ease-out forwards;
+                white-space: nowrap;
             `;
             
             chatElement.style.position = 'relative';
@@ -935,9 +954,14 @@
                             updateLastMessageId(chatId, data.messages);
                             
                             // Проверяем изменения позиций после добавления новых сообщений
-                            setTimeout(() => {
-                                checkForPositionChanges();
-                            }, 1000);
+                            // Только если чат не в топ-3
+                            const chat = chats.find(c => c.id === chatId);
+                            const chatIndex = chats.findIndex(c => c.id === chatId);
+                            if (chatIndex >= 3) {
+                                setTimeout(() => {
+                                    checkForPositionChanges();
+                                }, 1000);
+                            }
                         }
                     }
                 }
