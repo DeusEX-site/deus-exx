@@ -449,14 +449,18 @@
                     chats = data.chats;
                     
                     const chatSelect = document.getElementById('chat-select');
-                    chatSelect.innerHTML = '<option value="">Все чаты</option>';
-                    
-                    chats.forEach(chat => {
-                        const option = document.createElement('option');
-                        option.value = chat.id;
-                        option.textContent = chat.title || chat.username || `Чат #${chat.chat_id}`;
-                        chatSelect.appendChild(option);
-                    });
+                    if (chatSelect) {
+                        chatSelect.innerHTML = '<option value="">Все чаты</option>';
+                        
+                        chats.forEach(chat => {
+                            const option = document.createElement('option');
+                            option.value = chat.id;
+                            option.textContent = chat.title || chat.username || `Чат #${chat.chat_id}`;
+                            chatSelect.appendChild(option);
+                        });
+                    } else {
+                        console.error('Элемент chat-select не найден');
+                    }
                 }
             } catch (error) {
                 console.error('Ошибка загрузки чатов:', error);
@@ -473,9 +477,9 @@
             const search = document.getElementById('search').value;
             const chatId = document.getElementById('chat-select').value;
             
-            // Проверяем что все элементы существуют
+            // Все элементы должны существовать, так как мы проверили их при инициализации
             if (!searchBtn || !loading || !messageList || !statsSection) {
-                console.error('Не найдены необходимые элементы DOM');
+                console.error('Критическая ошибка: элементы DOM исчезли после инициализации');
                 return;
             }
             
@@ -522,15 +526,18 @@
             } finally {
                 searchBtn.disabled = false;
                 searchBtn.textContent = '🔍 Найти';
-                if (loading) {
-                    loading.style.display = 'none';
-                }
+                loading.style.display = 'none';
             }
         }
         
         // Отрисовка результатов
         function renderResults(messages) {
             const messageList = document.getElementById('message-list');
+            
+            if (!messageList) {
+                console.error('Элемент message-list не найден для отрисовки результатов');
+                return;
+            }
             
             if (messages.length === 0) {
                 messageList.innerHTML = '<div class="no-results">📭 Сообщения не найдены</div>';
@@ -619,10 +626,15 @@
             const scheduleMessages = messages.filter(msg => msg.analysis.schedule).length;
             const geoMessages = messages.filter(msg => msg.analysis.geos.length > 0).length;
             
-            document.getElementById('total-messages').textContent = totalMessages;
-            document.getElementById('cap-messages').textContent = capMessages;
-            document.getElementById('schedule-messages').textContent = scheduleMessages;
-            document.getElementById('geo-messages').textContent = geoMessages;
+            const totalEl = document.getElementById('total-messages');
+            const capEl = document.getElementById('cap-messages');
+            const scheduleEl = document.getElementById('schedule-messages');
+            const geoEl = document.getElementById('geo-messages');
+            
+            if (totalEl) totalEl.textContent = totalMessages;
+            if (capEl) capEl.textContent = capMessages;
+            if (scheduleEl) scheduleEl.textContent = scheduleMessages;
+            if (geoEl) geoEl.textContent = geoMessages;
         }
         
         // Показать ошибку
@@ -689,16 +701,44 @@
             document.body.removeChild(link);
         }
         
-        // Обработчики событий
-        document.getElementById('search-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            searchMessages();
-        });
-        
-        document.getElementById('export-btn').addEventListener('click', exportToCSV);
-        
-        // Инициализация
+        // Инициализация после загрузки DOM
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing cap analysis...');
+            
+            // Проверяем наличие всех необходимых элементов
+            const searchForm = document.getElementById('search-form');
+            const exportBtn = document.getElementById('export-btn');
+            const searchBtn = document.getElementById('search-btn');
+            const loading = document.getElementById('loading');
+            const messageList = document.getElementById('message-list');
+            const statsSection = document.getElementById('stats-section');
+            
+            console.log('Elements found:', {
+                searchForm: !!searchForm,
+                exportBtn: !!exportBtn,
+                searchBtn: !!searchBtn,
+                loading: !!loading,
+                messageList: !!messageList,
+                statsSection: !!statsSection
+            });
+            
+            // Устанавливаем обработчики событий только если элементы найдены
+            if (searchForm) {
+                searchForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    searchMessages();
+                });
+            } else {
+                console.error('Элемент search-form не найден');
+            }
+            
+            if (exportBtn) {
+                exportBtn.addEventListener('click', exportToCSV);
+            } else {
+                console.error('Элемент export-btn не найден');
+            }
+            
+            // Загружаем чаты
             loadChats();
         });
     </script>
