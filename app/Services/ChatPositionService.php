@@ -215,6 +215,19 @@ class ChatPositionService
      */
     private function swapChats(Chat $promotedChat, Chat $demotedChat): void
     {
+        Log::info('📊 BEFORE SWAP - Chat positions', [
+            'promoted_chat' => [
+                'id' => $promotedChat->id,
+                'title' => $promotedChat->display_name,
+                'old_display_order' => $promotedChat->display_order
+            ],
+            'demoted_chat' => [
+                'id' => $demotedChat->id,
+                'title' => $demotedChat->display_name,
+                'old_display_order' => $demotedChat->display_order
+            ]
+        ]);
+        
         DB::transaction(function () use ($promotedChat, $demotedChat) {
             $oldPromotedOrder = $promotedChat->display_order;
             $oldDemotedOrder = $demotedChat->display_order;
@@ -227,7 +240,33 @@ class ChatPositionService
             $demotedChat->update([
                 'display_order' => $oldPromotedOrder
             ]);
+            
+            Log::info('💾 DATABASE UPDATED - Chat positions swapped', [
+                'promoted_chat' => [
+                    'id' => $promotedChat->id,
+                    'title' => $promotedChat->display_name,
+                    'new_display_order' => $promotedChat->display_order
+                ],
+                'demoted_chat' => [
+                    'id' => $demotedChat->id,
+                    'title' => $demotedChat->display_name,
+                    'new_display_order' => $demotedChat->display_order
+                ]
+            ]);
         });
+        
+        Log::info('✅ SWAP COMPLETED - Final verification', [
+            'promoted_chat' => [
+                'id' => $promotedChat->id,
+                'title' => $promotedChat->display_name,
+                'final_display_order' => $promotedChat->fresh()->display_order
+            ],
+            'demoted_chat' => [
+                'id' => $demotedChat->id,
+                'title' => $demotedChat->display_name,
+                'final_display_order' => $demotedChat->fresh()->display_order
+            ]
+        ]);
     }
 
     /**

@@ -903,6 +903,8 @@
         async function checkForPositionChanges() {
             if (isSwappingChats) return;
             
+            console.log('🔍 Checking position changes...');
+            
             try {
                 const response = await fetch('/api/chats', {
                     headers: {
@@ -915,19 +917,33 @@
                     const data = await response.json();
                     const newChats = data.chats;
                     
+                    console.log('📊 Current chats (TOP-10):', chats.slice(0, 10).map(c => ({
+                        id: c.id,
+                        title: c.title,
+                        display_order: c.display_order
+                    })));
+                    
+                    console.log('📊 New chats (TOP-10):', newChats.slice(0, 10).map(c => ({
+                        id: c.id,
+                        title: c.title,
+                        display_order: c.display_order
+                    })));
+                    
                     // Ищем изменения: только swap между топ-10 и не-топ-10
                     const swapInfo = findSwapBetweenTopAndOthers(chats, newChats);
                     
                     if (swapInfo) {
-                        console.log('Swap detected:', swapInfo);
+                        console.log('🔄 Swap detected:', swapInfo);
                         // Выполняем swap контента между двумя HTML элементами
                         swapChatContent(swapInfo.chatIn, swapInfo.chatOut);
                         // Обновляем массив чатов
                         chats = newChats;
+                    } else {
+                        console.log('✅ No position changes detected');
                     }
                 }
             } catch (error) {
-                console.error('Error checking position changes:', error);
+                console.error('❌ Error checking position changes:', error);
             }
         }
 
@@ -1472,12 +1488,13 @@
             }, 1000); // Обновляем каждую секунду
         }
         
-        // Запуск проверки новых чатов
+        // Запуск проверки новых чатов и позиций
         function startChatChecking() {
             chatCheckInterval = setInterval(async () => {
                 await checkNewChats();
-                // НЕ проверяем позиции автоматически, только по событиям
-            }, 3000); // Проверяем новые чаты каждые 3 секунды
+                // Проверяем изменения позиций каждые 3 секунды
+                await checkForPositionChanges();
+            }, 3000); // Проверяем каждые 3 секунды
         }
         
         // Проверка новых чатов
