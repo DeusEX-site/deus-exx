@@ -935,7 +935,7 @@
                     if (swapInfo) {
                         console.log('🔄 Swap detected:', swapInfo);
                         // Выполняем swap контента между двумя HTML элементами
-                        swapChatContent(swapInfo.chatIn, swapInfo.chatOut);
+                        swapChatContent(swapInfo);
                         // Обновляем массив чатов
                         chats = newChats;
                     } else {
@@ -953,20 +953,42 @@
             const oldTop10 = oldChats.slice(0, 10).map(c => c.id);
             const newTop10 = newChats.slice(0, 10).map(c => c.id);
             
+            console.log('🔍 Swap detection:', {
+                oldTop10: oldTop10,
+                newTop10: newTop10
+            });
+            
             // Находим чат, который вошел в топ-10
             const chatInId = newTop10.find(id => !oldTop10.includes(id));
             // Находим чат, который вышел из топ-10
             const chatOutId = oldTop10.find(id => !newTop10.includes(id));
             
+            console.log('🔍 Found changes:', {
+                chatInId: chatInId,
+                chatOutId: chatOutId
+            });
+            
             if (chatInId && chatOutId) {
                 const chatIn = newChats.find(c => c.id === chatInId);
                 const chatOut = oldChats.find(c => c.id === chatOutId);
+                
+                // Найдем позицию chatOut в старом топ-10
+                const chatOutPosition = oldTop10.indexOf(chatOutId);
+                // Найдем позицию chatIn в новом топ-10
+                const chatInPosition = newTop10.indexOf(chatInId);
+                
+                console.log('🔍 Chat positions:', {
+                    chatOut: { id: chatOutId, title: chatOut?.title, oldPosition: chatOutPosition },
+                    chatIn: { id: chatInId, title: chatIn?.title, newPosition: chatInPosition }
+                });
                 
                 return {
                     chatIn: chatIn,
                     chatOut: chatOut,
                     chatInId: chatInId,
-                    chatOutId: chatOutId
+                    chatOutId: chatOutId,
+                    chatOutPosition: chatOutPosition,
+                    chatInPosition: chatInPosition
                 };
             }
             
@@ -974,19 +996,107 @@
         }
 
         // Swap контента между двумя HTML элементами чатов
-        function swapChatContent(chatIn, chatOut) {
+        function swapChatContent(swapInfo) {
             if (isSwappingChats) return;
             
             isSwappingChats = true;
             
-            const elementIn = document.getElementById(`chat-window-${chatIn.id}`);
-            const elementOut = document.getElementById(`chat-window-${chatOut.id}`);
+            console.log('🔄 Starting swap with info:', swapInfo);
             
-            if (!elementIn || !elementOut) {
-                console.error('Chat elements not found for swap');
+            // Найти элементы по позициям, а не по ID
+            const chatContainer = document.querySelector('.dashboard-container');
+            const allChatElements = chatContainer.querySelectorAll('[id^="chat-window-"]');
+            
+            console.log('📊 Found chat elements:', allChatElements.length);
+            
+            // Найти элемент, который сейчас показывает chatOut (он в топ-10)
+            let elementOut = null;
+            for (let element of allChatElements) {
+                const titleElement = element.querySelector('.chat-header h3');
+                if (titleElement && titleElement.textContent.trim() === swapInfo.chatOut.title) {
+                    elementOut = element;
+                    break;
+                }
+            }
+            
+            // Найти элемент, который сейчас показывает chatIn (может быть вне топ-10)
+            let elementIn = null;
+            for (let element of allChatElements) {
+                const titleElement = element.querySelector('.chat-header h3');
+                if (titleElement && titleElement.textContent.trim() === swapInfo.chatIn.title) {
+                    elementIn = element;
+                    break;
+                }
+            }
+            
+            console.log('🔍 Found elements:', {
+                elementOut: elementOut ? elementOut.id : 'NOT FOUND',
+                elementIn: elementIn ? elementIn.id : 'NOT FOUND',
+                chatOutTitle: swapInfo.chatOut.title,
+                chatInTitle: swapInfo.chatIn.title
+            });
+            
+            if (!elementOut) {
+                console.error('❌ Element for chatOut not found:', swapInfo.chatOut.title);
                 isSwappingChats = false;
                 return;
             }
+            
+            if (!elementIn) {
+                console.log('⚠️ Element for chatIn not found, will replace elementOut:', swapInfo.chatIn.title);
+                // Если элемент chatIn не найден, просто обновим elementOut
+                replaceChatContent(elementOut, swapInfo.chatIn);
+                isSwappingChats = false;
+                return;
+            }
+            
+            // Если оба элемента найдены, меняем их местами
+            performSwap(elementIn, elementOut, swapInfo.chatIn, swapInfo.chatOut);
+        }
+        
+        // Замена контента одного элемента
+        function replaceChatContent(element, newChat) {
+            console.log('🔄 Replacing content of element:', element.id, 'with chat:', newChat.title);
+            
+            // Анимация
+            element.style.transform = 'scale(0.95)';
+            element.style.transition = 'transform 0.3s ease';
+            
+            setTimeout(() => {
+                // Обновляем ID элемента
+                element.id = `chat-window-${newChat.id}`;
+                
+                // Обновляем заголовок
+                updateChatTitleOnly(element, newChat);
+                
+                // Обновляем ID внутренних элементов
+                updateInternalIds(element, newChat);
+                
+                // Загружаем сообщения для нового чата
+                const messagesContainer = element.querySelector('.chat-messages');
+                if (messagesContainer) {
+                    messagesContainer.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
+                    loadChatMessages(newChat.id, true);
+                }
+                
+                // Перезапускаем polling
+                startMessagePolling(newChat.id);
+                
+                // Показываем индикатор
+                showPromotionIndicator(element);
+                
+                // Возвращаем нормальный размер
+                element.style.transform = 'scale(1)';
+                
+                setTimeout(() => {
+                    isSwappingChats = false;
+                }, 500);
+            }, 300);
+        }
+        
+        // Полный swap двух элементов
+        function performSwap(elementIn, elementOut, chatIn, chatOut) {
+            console.log('🔄 Performing full swap between:', elementIn.id, 'and', elementOut.id);
             
             // Анимация начала swap-а
             elementIn.style.transform = 'scale(0.95)';
@@ -1170,6 +1280,36 @@
                     <div class="send-status" id="send-status-${chat.id}"></div>
                 `;
             }
+        }
+
+        // Показ индикатора для одного элемента (вошел в топ-10)
+        function showPromotionIndicator(element) {
+            const indicator = document.createElement('div');
+            indicator.className = 'promotion-indicator';
+            indicator.innerHTML = '⬆️ ТОП';
+            indicator.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(34, 197, 94, 0.9);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 10px;
+                z-index: 10;
+                animation: positionIndicator 2s ease-out forwards;
+            `;
+            
+            element.style.position = 'relative';
+            element.appendChild(indicator);
+            
+            // Удаляем индикатор через время
+            setTimeout(() => {
+                if (indicator.parentNode) {
+                    indicator.parentNode.removeChild(indicator);
+                }
+            }, 2000);
         }
 
         // Показ индикаторов swap-а
