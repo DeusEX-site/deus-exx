@@ -37,6 +37,7 @@ class ChatPositionService
             // Проверяем, находится ли чат в топ-10
             if ($chat->isInTopTen()) {
                 // Если чат уже в топ-10, позиция не изменяется вообще
+                // Обновляем только время последнего сообщения, но НЕ меняем позиции
                 Log::info('Chat already in top 10, no position change', [
                     'chat_id' => $chat->id,
                     'chat_title' => $chat->display_name,

@@ -104,6 +104,17 @@ Route::get('/api/chats/positions', function () {
     ]);
 });
 
+// API для проверки swap-а чатов (без полной перезагрузки)
+Route::get('/api/chats/check-swap', function () {
+    // Возвращаем только информацию о необходимости swap-а
+    // Фронтенд будет вызывать этот endpoint для проверки изменений
+    return response()->json([
+        'success' => true,
+        'swap_needed' => false, // Пока просто заглушка
+        'message' => 'No swap needed'
+    ]);
+});
+
 // API для инициализации позиций чатов
 Route::post('/api/chats/init-positions', function () {
     $chatPositionService = app(\App\Services\ChatPositionService::class);

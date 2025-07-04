@@ -899,7 +899,7 @@
             chatPositions = newPositions;
         }
 
-        // Проверка изменений позиций чатов
+        // Проверка изменений позиций чатов (БЕЗ полной перезагрузки)
         async function checkForPositionChanges() {
             if (isSwappingChats) return;
             
@@ -915,17 +915,15 @@
                     const data = await response.json();
                     const newChats = data.chats;
                     
-                    // Отладочное логирование (только при необходимости)
-                    // console.log('Old chats order:', chats.map(c => `${c.id}:${c.display_order}`));
-                    // console.log('New chats order:', newChats.map(c => `${c.id}:${c.display_order}`));
+                    // Ищем изменения: только swap между топ-10 и не-топ-10
+                    const swapInfo = findSwapBetweenTopAndOthers(chats, newChats);
                     
-                    // Проверяем изменился ли порядок чатов
-                    const orderChanged = hasOrderChanged(chats, newChats);
-                    
-                    if (orderChanged) {
-                        console.log('Chat order changed, updating...');
+                    if (swapInfo) {
+                        console.log('Swap detected:', swapInfo);
+                        // Выполняем swap контента между двумя HTML элементами
+                        swapChatContent(swapInfo.chatIn, swapInfo.chatOut);
+                        // Обновляем массив чатов
                         chats = newChats;
-                        renderChats();
                     }
                 }
             } catch (error) {
@@ -933,19 +931,199 @@
             }
         }
 
-        // Проверка изменения порядка чатов
-        function hasOrderChanged(oldChats, newChats) {
-            if (oldChats.length !== newChats.length) {
-                return true;
+        // Поиск swap-а между топ-10 и остальными чатами
+        function findSwapBetweenTopAndOthers(oldChats, newChats) {
+            // Находим чаты, которые поменялись местами между топ-10 и остальными
+            const oldTop10 = oldChats.slice(0, 10).map(c => c.id);
+            const newTop10 = newChats.slice(0, 10).map(c => c.id);
+            
+            // Находим чат, который вошел в топ-10
+            const chatInId = newTop10.find(id => !oldTop10.includes(id));
+            // Находим чат, который вышел из топ-10
+            const chatOutId = oldTop10.find(id => !newTop10.includes(id));
+            
+            if (chatInId && chatOutId) {
+                const chatIn = newChats.find(c => c.id === chatInId);
+                const chatOut = oldChats.find(c => c.id === chatOutId);
+                
+                return {
+                    chatIn: chatIn,
+                    chatOut: chatOut,
+                    chatInId: chatInId,
+                    chatOutId: chatOutId
+                };
             }
             
-            for (let i = 0; i < oldChats.length; i++) {
-                if (oldChats[i].id !== newChats[i].id) {
-                    return true;
-                }
+            return null;
+        }
+
+        // Swap контента между двумя HTML элементами чатов
+        function swapChatContent(chatIn, chatOut) {
+            if (isSwappingChats) return;
+            
+            isSwappingChats = true;
+            
+            const elementIn = document.getElementById(`chat-window-${chatIn.id}`);
+            const elementOut = document.getElementById(`chat-window-${chatOut.id}`);
+            
+            if (!elementIn || !elementOut) {
+                console.error('Chat elements not found for swap');
+                isSwappingChats = false;
+                return;
             }
             
-            return false;
+            // Анимация начала swap-а
+            elementIn.style.transform = 'scale(0.95)';
+            elementOut.style.transform = 'scale(0.95)';
+            elementIn.style.transition = 'transform 0.3s ease';
+            elementOut.style.transition = 'transform 0.3s ease';
+            
+            setTimeout(() => {
+                // Меняем только контент (header + messages + input), но не сами HTML элементы
+                swapChatElementContent(elementIn, elementOut, chatIn, chatOut);
+                
+                // Показываем индикаторы
+                showSwapIndicators(elementIn, elementOut);
+                
+                // Возвращаем нормальный размер
+                elementIn.style.transform = 'scale(1)';
+                elementOut.style.transform = 'scale(1)';
+                
+                setTimeout(() => {
+                    isSwappingChats = false;
+                }, 500);
+            }, 300);
+        }
+
+        // Обмен контентом между элементами чатов
+        function swapChatElementContent(elementIn, elementOut, chatIn, chatOut) {
+            // Обновляем ID элементов
+            elementIn.id = `chat-window-${chatIn.id}`;
+            elementOut.id = `chat-window-${chatOut.id}`;
+            
+            // Обновляем заголовки
+            updateChatHeader(elementIn, chatIn);
+            updateChatHeader(elementOut, chatOut);
+            
+            // Обновляем контейнеры сообщений
+            updateChatMessages(elementIn, chatIn);
+            updateChatMessages(elementOut, chatOut);
+            
+            // Обновляем поля ввода
+            updateChatInput(elementIn, chatIn);
+            updateChatInput(elementOut, chatOut);
+            
+            // Перезапускаем polling для новых чатов
+            startMessagePolling(chatIn.id);
+            startMessagePolling(chatOut.id);
+        }
+
+        // Обновление заголовка чата
+        function updateChatHeader(element, chat) {
+            const header = element.querySelector('.chat-header');
+            if (header) {
+                header.className = `chat-header ${chat.type}`;
+                header.innerHTML = `
+                    <div class="chat-avatar">${getAvatarText(chat.title || chat.username)}</div>
+                    <div class="chat-info">
+                        <h3>${chat.title || chat.username || 'Чат #' + chat.chat_id}</h3>
+                        <p>${getChatTypeDisplay(chat.type)} • ${chat.message_count || 0} сообщений</p>
+                    </div>
+                    <div class="online-indicator"></div>
+                `;
+            }
+        }
+
+        // Обновление контейнера сообщений
+        function updateChatMessages(element, chat) {
+            const messagesContainer = element.querySelector('.chat-messages');
+            if (messagesContainer) {
+                messagesContainer.id = `messages-${chat.id}`;
+                messagesContainer.setAttribute('onclick', `focusChatInput(${chat.id})`);
+                messagesContainer.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
+                
+                // Загружаем сообщения для этого чата
+                loadChatMessages(chat.id, true);
+            }
+        }
+
+        // Обновление поля ввода
+        function updateChatInput(element, chat) {
+            const inputContainer = element.querySelector('.chat-input');
+            if (inputContainer) {
+                inputContainer.innerHTML = `
+                    <div class="input-group">
+                        <textarea id="input-${chat.id}" 
+                                 placeholder="Отправить сообщение через бота..." 
+                                 onkeydown="handleChatKeyDown(event, ${chat.id}, ${chat.chat_id})"
+                                 oninput="autoResizeTextarea(this)"
+                                 maxlength="4000"
+                                 rows="1"></textarea>
+                        <button class="emoji-btn" onclick="showEmojiPanel(${chat.id}, event)" title="Добавить смайлик">
+                            😀
+                        </button>
+                        <button class="send-btn" 
+                                onclick="sendTelegramMessage(${chat.id}, ${chat.chat_id})"
+                                id="send-btn-${chat.id}"
+                                title="Отправить сообщение">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="send-status" id="send-status-${chat.id}"></div>
+                `;
+            }
+        }
+
+        // Показ индикаторов swap-а
+        function showSwapIndicators(elementIn, elementOut) {
+            // Индикатор для чата, который вошел в топ-10
+            const indicatorIn = document.createElement('div');
+            indicatorIn.className = 'swap-indicator';
+            indicatorIn.innerHTML = '⬆️ ТОП';
+            indicatorIn.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(34, 197, 94, 0.9);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 10px;
+                z-index: 10;
+                animation: positionIndicator 2s ease-out forwards;
+            `;
+            
+            // Индикатор для чата, который вышел из топ-10
+            const indicatorOut = document.createElement('div');
+            indicatorOut.className = 'swap-indicator';
+            indicatorOut.innerHTML = '⬇️';
+            indicatorOut.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(239, 68, 68, 0.9);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 10px;
+                z-index: 10;
+                animation: positionIndicator 2s ease-out forwards;
+            `;
+            
+            elementIn.style.position = 'relative';
+            elementOut.style.position = 'relative';
+            elementIn.appendChild(indicatorIn);
+            elementOut.appendChild(indicatorOut);
+            
+            // Удаляем индикаторы через время
+            setTimeout(() => {
+                if (indicatorIn.parentNode) indicatorIn.parentNode.removeChild(indicatorIn);
+                if (indicatorOut.parentNode) indicatorOut.parentNode.removeChild(indicatorOut);
+            }, 2000);
         }
 
         // Определение изменений позиций
@@ -1613,8 +1791,43 @@
             isCheckingNewChats = false;
             lastRequestTime = {};
             
-            // Перезагружаем чаты
-            loadChats();
+            // Обновляем только список чатов БЕЗ полной перезагрузки HTML
+            updateChatsList();
+            
+            // Запускаем проверку позиций и новых чатов
+            if (!chatCheckInterval) {
+                startChatChecking();
+            }
+        }
+
+        // Обновление списка чатов без перезагрузки HTML
+        async function updateChatsList() {
+            try {
+                const response = await fetch('/api/chats', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    chats = data.chats;
+                    
+                    // Обновляем список существующих чатов
+                    existingChatIds.clear();
+                    chats.forEach(chat => existingChatIds.add(chat.id));
+                    
+                    // Перезапускаем polling для существующих чатов
+                    chats.forEach(chat => {
+                        if (!messageIntervals[chat.id]) {
+                            startMessagePolling(chat.id);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Ошибка обновления списка чатов:', error);
+            }
         }
         
         // Вспомогательные функции
