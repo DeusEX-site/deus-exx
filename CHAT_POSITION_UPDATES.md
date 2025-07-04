@@ -8,29 +8,42 @@
 - Анимация показывалась для всех изменений позиций
 
 ### ✅ Стало (правильно):
-- **Если чат уже в топ-3** → позиция НЕ изменяется вообще
+- **Исходящие сообщения от бота** → НЕ влияют на позиции чатов вообще
+- **Только входящие сообщения** → учитываются при определении позиций
+- **Если чат уже в топ-10** → позиция НЕ изменяется вообще
 - **При замене** → меняются местами только 2 конкретных чата
-- **Остальные чаты топ-3** → остаются на своих позициях
-- **Анимация** → показывается только при входе/выходе из топ-3
+- **Остальные чаты топ-10** → остаются на своих позициях
+- **Анимация** → показывается только при входе/выходе из топ-10
 
 ## Изменения в коде
 
 ### Backend (`app/Services/ChatPositionService.php`):
 ```php
-// Если чат уже в топ-3, позиция не изменяется вообще
-if ($chat->isInTopThree()) {
-    return ['status' => 'no_change', 'message' => 'Chat already in top 3, no position change needed'];
+// Если сообщение исходящее (от бота), не обрабатываем позиции
+if ($isOutgoing) {
+    return ['status' => 'ignored', 'message' => 'Outgoing message ignored for position changes'];
 }
+
+// Если чат уже в топ-10, позиция не изменяется вообще
+if ($chat->isInTopTen()) {
+    return ['status' => 'no_change', 'message' => 'Chat already in top 10, no position change needed'];
+}
+```
+
+### Backend (`app/Http/Controllers/TelegramBotController.php`):
+```php
+// Обновляем только счетчик сообщений, НЕ обновляем last_message_at
+// так как исходящие сообщения не должны влиять на позиции чатов
+$chat->increment('message_count');
 ```
 
 ### Frontend (`resources/views/dashboard.blade.php`):
 ```javascript
-// Анимация только при входе/выходе из топ-3
-if (wasInTopThree !== isInTopThree) {
-    changes.push({
-        type: isInTopThree ? 'promoted' : 'demoted'
-    });
-}
+// Проверяем изменения позиций для всех чатов
+// (бекенд сам определит, нужно ли что-то менять)
+setTimeout(() => {
+    checkForPositionChanges();
+}, 1000);
 ```
 
 ## Визуальные индикаторы

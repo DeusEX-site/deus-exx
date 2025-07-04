@@ -13,11 +13,21 @@ class ChatPositionService
      * Проверяет и обновляет позиции чатов при получении нового сообщения
      * 
      * @param int $chatId ID чата, который получил новое сообщение
+     * @param bool $isOutgoing Является ли сообщение исходящим (от бота)
      * @return array Результат операции
      */
-    public function handleNewMessage(int $chatId): array
+    public function handleNewMessage(int $chatId, bool $isOutgoing = false): array
     {
         try {
+            // Если сообщение исходящее (от бота), не обрабатываем позиции
+            if ($isOutgoing) {
+                Log::info('Outgoing message ignored for position changes', [
+                    'chat_id' => $chatId,
+                    'message_is_outgoing' => true
+                ]);
+                return ['status' => 'ignored', 'message' => 'Outgoing message ignored for position changes'];
+            }
+
             $chat = Chat::active()->find($chatId);
             
             if (!$chat) {
@@ -82,7 +92,7 @@ class ChatPositionService
     }
 
     /**
-     * Находит чат в топ-10 для замены
+     * Находит чат в топ-10 для замены, учитывая только входящие сообщения
      * 
      * @param \Illuminate\Database\Eloquent\Collection $topTenChats
      * @return Chat|null
@@ -95,38 +105,57 @@ class ChatPositionService
             'current_time' => Carbon::now()->toDateTimeString(),
             'one_minute_ago' => $oneMinuteAgo->toDateTimeString(),
             'top_ten_chats' => $topTenChats->map(function ($chat) use ($oneMinuteAgo) {
-                $lastMessageTime = $chat->last_message_at;
-                $minutesAgo = $lastMessageTime ? $lastMessageTime->diffInMinutes(Carbon::now()) : null;
-                $isOld = $lastMessageTime && $lastMessageTime->lt($oneMinuteAgo);
+                // Получаем время последнего ВХОДЯЩЕГО сообщения
+                $lastIncomingMessageTime = $this->getLastIncomingMessageTime($chat);
+                $minutesAgo = $lastIncomingMessageTime ? $lastIncomingMessageTime->diffInMinutes(Carbon::now()) : null;
+                $isOld = $lastIncomingMessageTime && $lastIncomingMessageTime->lt($oneMinuteAgo);
                 
                 return [
                     'id' => $chat->id,
                     'title' => $chat->display_name,
-                    'last_message_at' => $lastMessageTime ? $lastMessageTime->toDateTimeString() : 'null',
+                    'last_incoming_message_at' => $lastIncomingMessageTime ? $lastIncomingMessageTime->toDateTimeString() : 'null',
                     'minutes_ago' => $minutesAgo,
                     'is_older_than_minute' => $isOld
                 ];
             })
         ]);
         
-        // Ищем чат с последним сообщением дольше минуты назад
+        // Ищем чат с последним входящим сообщением дольше минуты назад
         $chatToReplace = $topTenChats->first(function ($chat) use ($oneMinuteAgo) {
-            $isOld = $chat->last_message_at && $chat->last_message_at->lt($oneMinuteAgo);
+            $lastIncomingMessageTime = $this->getLastIncomingMessageTime($chat);
+            $isOld = $lastIncomingMessageTime && $lastIncomingMessageTime->lt($oneMinuteAgo);
             return $isOld;
         });
         
         if ($chatToReplace) {
+            $lastIncomingMessageTime = $this->getLastIncomingMessageTime($chatToReplace);
             Log::info('Found chat to replace', [
                 'chat_id' => $chatToReplace->id,
                 'chat_title' => $chatToReplace->display_name,
-                'last_message_at' => $chatToReplace->last_message_at->toDateTimeString(),
-                'minutes_ago' => $chatToReplace->last_message_at->diffInMinutes(Carbon::now())
+                'last_incoming_message_at' => $lastIncomingMessageTime ? $lastIncomingMessageTime->toDateTimeString() : 'null',
+                'minutes_ago' => $lastIncomingMessageTime ? $lastIncomingMessageTime->diffInMinutes(Carbon::now()) : null
             ]);
         } else {
-            Log::info('No chat found for replacement - all chats have recent messages (less than 1 minute old)');
+            Log::info('No chat found for replacement - all chats have recent incoming messages (less than 1 minute old)');
         }
         
         return $chatToReplace;
+    }
+
+    /**
+     * Получает время последнего входящего сообщения для чата
+     * 
+     * @param Chat $chat
+     * @return Carbon|null
+     */
+    private function getLastIncomingMessageTime(Chat $chat): ?Carbon
+    {
+        $lastIncomingMessage = $chat->messages()
+            ->where('is_outgoing', false)
+            ->orderBy('created_at', 'desc')
+            ->first();
+        
+        return $lastIncomingMessage ? $lastIncomingMessage->created_at : null;
     }
 
     /**

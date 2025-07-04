@@ -64,3 +64,14 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Project Documentation
+
+This project includes a sophisticated chat position management system for Telegram bots:
+
+- [CHAT_POSITION_CONTROL.md](CHAT_POSITION_CONTROL.md) - система контроля позиций чатов
+- [CHAT_POSITION_UPDATES.md](CHAT_POSITION_UPDATES.md) - обновления логики позиций
+- [BOT_MESSAGES_IGNORED.md](BOT_MESSAGES_IGNORED.md) - исключение сообщений бота из расчета позиций
+- [TEST_CHAT_POSITIONS.md](TEST_CHAT_POSITIONS.md) - инструкции по тестированию
+- [DATABASE_SETUP.md](DATABASE_SETUP.md) - настройка базы данных
+- [QUICKSTART.md](QUICKSTART.md) - быстрый старт проекта

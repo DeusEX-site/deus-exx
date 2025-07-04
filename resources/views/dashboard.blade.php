@@ -1151,18 +1151,16 @@
                         renderMessages(chatId, data.messages);
                         updateLastMessageId(chatId, data.messages);
                     } else {
-                        // Иначе только добавляем новые сообщения
+                                                // Иначе только добавляем новые сообщения
                         if (data.messages && data.messages.length > 0) {
                             appendNewMessages(chatId, data.messages);
                             updateLastMessageId(chatId, data.messages);
                             
-                                            // Проверяем изменения позиций ТОЛЬКО для чатов НЕ в топ-10
-                const chatIndex = chats.findIndex(c => c.id === chatId);
-                if (chatIndex >= 10) {
-                                setTimeout(() => {
-                                    checkForPositionChanges();
-                                }, 1000);
-                            }
+                            // Проверяем изменения позиций для всех чатов
+                            // (бекенд сам определит, нужно ли что-то менять)
+                            setTimeout(() => {
+                                checkForPositionChanges();
+                            }, 1000);
                         }
                     }
                 }

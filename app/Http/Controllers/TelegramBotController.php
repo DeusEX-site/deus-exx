@@ -234,14 +234,15 @@ class TelegramBotController extends Controller
                 'is_outgoing' => true, // Помечаем как исходящее сообщение
             ]);
             
-            // Обновляем статистику чата
+            // Обновляем только счетчик сообщений, НЕ обновляем last_message_at
+            // так как исходящие сообщения не должны влиять на позиции чатов
             $chat->increment('message_count');
-            $chat->update(['last_message_at' => now()]);
             
-            Log::info('Outgoing message saved', [
+            Log::info('Outgoing message saved (chat positions not affected)', [
                 'message_id' => $message->id,
                 'chat_id' => $chat->id,
-                'telegram_message_id' => $telegramResult['message_id']
+                'telegram_message_id' => $telegramResult['message_id'],
+                'note' => 'last_message_at not updated for outgoing message'
             ]);
             
         } catch (\Exception $e) {

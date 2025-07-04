@@ -28,6 +28,11 @@ php artisan chats:test-stability
 php artisan chats:test-minute-rule
 ```
 
+### 6. Тест исходящих сообщений (проверка что они не влияют на позиции)
+```bash
+php artisan chats:test-outgoing
+```
+
 ## Ручное тестирование
 
 ### Шаг 1: Подготовка
