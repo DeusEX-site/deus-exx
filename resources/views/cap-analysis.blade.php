@@ -524,20 +524,30 @@
 
         // Загрузка списков для фильтров
         async function loadFilterOptions() {
+            console.log('Загрузка опций фильтров...');
+            
             try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]');
+                if (!csrfToken) {
+                    console.warn('CSRF токен не найден');
+                    return;
+                }
+
                 const response = await fetch('/api/cap-analysis-filters', {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        'X-CSRF-TOKEN': csrfToken.getAttribute('content')
                     }
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('Данные фильтров получены:', data);
+                    
                     if (data.success) {
                         // Загрузка гео
                         const geoFilter = document.getElementById('geo-filter');
-                        if (geoFilter && data.geos) {
+                        if (geoFilter && data.geos && data.geos.length > 0) {
                             geoFilter.innerHTML = '<option value="">Все гео</option>';
                             data.geos.forEach(geo => {
                                 const option = document.createElement('option');
@@ -545,11 +555,14 @@
                                 option.textContent = geo;
                                 geoFilter.appendChild(option);
                             });
+                            console.log(`Загружено ${data.geos.length} гео`);
+                        } else if (!geoFilter) {
+                            console.warn('Элемент geo-filter не найден');
                         }
 
                         // Загрузка брокеров
                         const brokerFilter = document.getElementById('broker-filter');
-                        if (brokerFilter && data.brokers) {
+                        if (brokerFilter && data.brokers && data.brokers.length > 0) {
                             brokerFilter.innerHTML = '<option value="">Все брокеры</option>';
                             data.brokers.forEach(broker => {
                                 const option = document.createElement('option');
@@ -557,11 +570,14 @@
                                 option.textContent = broker;
                                 brokerFilter.appendChild(option);
                             });
+                            console.log(`Загружено ${data.brokers.length} брокеров`);
+                        } else if (!brokerFilter) {
+                            console.warn('Элемент broker-filter не найден');
                         }
 
                         // Загрузка аффилейтов
                         const affiliateFilter = document.getElementById('affiliate-filter');
-                        if (affiliateFilter && data.affiliates) {
+                        if (affiliateFilter && data.affiliates && data.affiliates.length > 0) {
                             affiliateFilter.innerHTML = '<option value="">Все аффилейты</option>';
                             data.affiliates.forEach(affiliate => {
                                 const option = document.createElement('option');
@@ -569,8 +585,17 @@
                                 option.textContent = affiliate;
                                 affiliateFilter.appendChild(option);
                             });
+                            console.log(`Загружено ${data.affiliates.length} аффилейтов`);
+                        } else if (!affiliateFilter) {
+                            console.warn('Элемент affiliate-filter не найден');
                         }
+                        
+                        console.log('Опции фильтров загружены успешно');
+                    } else {
+                        console.error('Ошибка в ответе сервера:', data.message);
                     }
+                } else {
+                    console.error('Ошибка HTTP:', response.status, response.statusText);
                 }
             } catch (error) {
                 console.error('Ошибка загрузки фильтров:', error);
@@ -579,14 +604,20 @@
 
         // Очистка всех фильтров
         function clearFilters() {
-            document.getElementById('search').value = '';
-            document.getElementById('chat-select').value = '';
-            document.getElementById('geo-filter').value = '';
-            document.getElementById('broker-filter').value = '';
-            document.getElementById('affiliate-filter').value = '';
-            document.getElementById('schedule-filter').value = '';
-            document.getElementById('total-filter').value = '';
-            document.getElementById('affiliate-presence-filter').value = '';
+            // Очищаем элементы безопасно
+            const elements = [
+                'search', 'chat-select', 'geo-filter', 'broker-filter', 
+                'affiliate-filter', 'schedule-filter', 'total-filter', 'affiliate-presence-filter'
+            ];
+            
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.value = '';
+                } else {
+                    console.warn(`Элемент ${id} не найден при очистке фильтров`);
+                }
+            });
             
             // Очистка результатов
             const messageList = document.getElementById('message-list');
@@ -595,27 +626,23 @@
             if (statsSection) statsSection.style.display = 'none';
             
             currentMessages = [];
+            
+            console.log('Фильтры очищены');
         }
         
         // Поиск сообщений
         async function searchMessages() {
-            // Получаем элементы заново каждый раз для надежности
+            // Получаем основные элементы (обязательные)
             const searchBtn = document.getElementById('search-btn');
             const loading = document.getElementById('loading');
             const messageList = document.getElementById('message-list');
             const statsSection = document.getElementById('stats-section');
             const searchInput = document.getElementById('search');
             const chatSelect = document.getElementById('chat-select');
-            const geoFilter = document.getElementById('geo-filter');
-            const brokerFilter = document.getElementById('broker-filter');
-            const affiliateFilter = document.getElementById('affiliate-filter');
-            const scheduleFilter = document.getElementById('schedule-filter');
-            const totalFilter = document.getElementById('total-filter');
-            const affiliatePresenceFilter = document.getElementById('affiliate-presence-filter');
             
-            // Проверяем наличие элементов
+            // Проверяем наличие основных элементов
             if (!searchBtn || !loading || !messageList || !statsSection || !searchInput || !chatSelect) {
-                console.error('Ошибка: не найдены элементы DOM', {
+                console.error('Ошибка: не найдены основные элементы DOM', {
                     searchBtn: !!searchBtn,
                     loading: !!loading,
                     messageList: !!messageList,
@@ -625,6 +652,14 @@
                 });
                 return;
             }
+
+            // Получаем элементы фильтров (необязательные)
+            const geoFilter = document.getElementById('geo-filter');
+            const brokerFilter = document.getElementById('broker-filter');
+            const affiliateFilter = document.getElementById('affiliate-filter');
+            const scheduleFilter = document.getElementById('schedule-filter');
+            const totalFilter = document.getElementById('total-filter');
+            const affiliatePresenceFilter = document.getElementById('affiliate-presence-filter');
             
             const search = searchInput.value;
             const chatId = chatSelect.value;
@@ -634,6 +669,10 @@
             const schedule = scheduleFilter?.value || '';
             const total = totalFilter?.value || '';
             const affiliatePresence = affiliatePresenceFilter?.value || '';
+
+            console.log('Параметры поиска:', {
+                search, chatId, geo, broker, affiliate, schedule, total, affiliatePresence
+            });
             
             searchBtn.disabled = true;
             searchBtn.textContent = '🔍 Поиск...';
@@ -682,9 +721,16 @@
                 console.error('Ошибка поиска:', error);
                 showError('Ошибка соединения');
             } finally {
-                searchBtn.disabled = false;
-                searchBtn.textContent = '🔍 Найти';
-                loading.style.display = 'none';
+                // Убеждаемся, что кнопка и loading сбрасываются корректно
+                if (searchBtn) {
+                    searchBtn.disabled = false;
+                    searchBtn.textContent = '🔍 Найти';
+                }
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+                
+                console.log('Поиск завершен');
             }
         }
         
