@@ -149,15 +149,42 @@ class TelegramBotController extends Controller
         ]);
     }
     
-    public function getChatMessages($chatId)
+    public function getChatMessages($chatId, Request $request)
     {
         $chat = Chat::findOrFail($chatId);
-        $messages = Message::getLatestForChat($chatId, 100);
+        
+        // Параметры для пагинации
+        $after = $request->get('after', 0);
+        $before = $request->get('before', null);
+        $limit = min($request->get('limit', 20), 20); // Максимум 20 сообщений
+        
+        // Если загружаем старые сообщения (скролл вверх)
+        if ($before && $before > 0) {
+            $messages = Message::getOlderForChat($chatId, $before, $limit);
+        } else {
+            // Обычная загрузка (новые сообщения)
+            $messages = Message::getLatestForChat($chatId, $limit, $after);
+        }
+        
+        // Форматируем сообщения для фронтенда
+        $formattedMessages = $messages->map(function ($message) {
+            return [
+                'id' => $message->id,
+                'message' => $message->message,
+                'user' => $message->display_name,
+                'timestamp' => $message->created_at->format('H:i:s'),
+                'message_type' => $message->message_type,
+                'telegram_user_id' => $message->telegram_user_id,
+                'is_telegram' => !is_null($message->telegram_message_id),
+                'is_outgoing' => $message->is_outgoing ?? false
+            ];
+        });
         
         return response()->json([
             'success' => true,
             'chat' => $chat,
-            'messages' => $messages
+            'messages' => $formattedMessages,
+            'has_older' => $before ? true : (count($messages) >= $limit)
         ]);
     }
     

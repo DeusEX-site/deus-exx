@@ -81,10 +81,22 @@ class Message extends Model
     }
 
     // Возвращаем последние сообщения для конкретного чата
-    public static function getLatestForChat($chatId, $limit = 50, $afterId = 0)
+    public static function getLatestForChat($chatId, $limit = 20, $afterId = 0)
     {
         return static::where('chat_id', $chatId)
             ->where('id', '>', $afterId)
+            ->orderBy('id', 'desc')
+            ->limit($limit)
+            ->get()
+            ->reverse()
+            ->values();
+    }
+
+    // Возвращаем старые сообщения для пагинации (при скролле вверх)
+    public static function getOlderForChat($chatId, $beforeId, $limit = 20)
+    {
+        return static::where('chat_id', $chatId)
+            ->where('id', '<', $beforeId)
             ->orderBy('id', 'desc')
             ->limit($limit)
             ->get()

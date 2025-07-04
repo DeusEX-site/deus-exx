@@ -212,28 +212,7 @@ Route::middleware('auth')->post('/api/broadcast', function (Request $request) {
 });
 
 // API для получения сообщений чата
-Route::get('/api/chats/{chatId}/messages', function ($chatId) {
-    $afterId = (int) request('after', 0);
-    $messages = Message::getLatestForChat($chatId, 50, $afterId);
-    
-    $formattedMessages = $messages->map(function ($message) {
-        return [
-            'id' => $message->id,
-            'message' => $message->message,
-            'user' => $message->display_name,
-            'timestamp' => $message->created_at->format('H:i:s'),
-            'message_type' => $message->message_type,
-            'telegram_user_id' => $message->telegram_user_id,
-            'is_telegram' => !is_null($message->telegram_message_id),
-            'is_outgoing' => $message->is_outgoing ?? false
-        ];
-    });
-    
-    return response()->json([
-        'messages' => $formattedMessages,
-        'total' => count($formattedMessages)
-    ]);
-});
+Route::get('/api/chats/{chatId}/messages', [TelegramBotController::class, 'getChatMessages']);
 
 Route::get('/dashboard', function () {
     return view('dashboard');
