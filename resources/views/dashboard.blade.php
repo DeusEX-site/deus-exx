@@ -1013,28 +1013,108 @@
 
         // Обмен контентом между элементами чатов
         function swapChatElementContent(elementIn, elementOut, chatIn, chatOut) {
-            // Обновляем ID элементов
+            console.log('🔄 Starting content swap:', {
+                elementIn: elementIn.id,
+                elementOut: elementOut.id,
+                chatIn: chatIn.title,
+                chatOut: chatOut.title
+            });
+            
+            // Сохраняем весь HTML контент обоих элементов
+            const contentIn = elementIn.innerHTML;
+            const contentOut = elementOut.innerHTML;
+            
+            console.log('💾 Content saved, swapping...');
+            
+            // Меняем местами весь контент
+            elementIn.innerHTML = contentOut;
+            elementOut.innerHTML = contentIn;
+            
+            // Обновляем только ID основных элементов
             elementIn.id = `chat-window-${chatIn.id}`;
             elementOut.id = `chat-window-${chatOut.id}`;
             
-            // Обновляем заголовки
-            updateChatHeader(elementIn, chatIn);
-            updateChatHeader(elementOut, chatOut);
+            // Обновляем ID внутренних элементов в elementIn (теперь содержит контент chatIn)
+            updateInternalIds(elementIn, chatIn);
             
-            // Обновляем контейнеры сообщений
-            updateChatMessages(elementIn, chatIn);
-            updateChatMessages(elementOut, chatOut);
+            // Обновляем ID внутренних элементов в elementOut (теперь содержит контент chatOut)
+            updateInternalIds(elementOut, chatOut);
             
-            // Обновляем поля ввода
-            updateChatInput(elementIn, chatIn);
-            updateChatInput(elementOut, chatOut);
+            // Обновляем только заголовки (названия чатов)
+            updateChatTitleOnly(elementIn, chatIn);
+            updateChatTitleOnly(elementOut, chatOut);
             
             // Перезапускаем polling для новых чатов
             startMessagePolling(chatIn.id);
             startMessagePolling(chatOut.id);
+            
+            console.log('✅ Content swap completed');
         }
 
-        // Обновление заголовка чата
+        // Обновление ID внутренних элементов после swap-а
+        function updateInternalIds(element, chat) {
+            // Обновляем ID контейнера сообщений
+            const messagesContainer = element.querySelector('.chat-messages');
+            if (messagesContainer) {
+                messagesContainer.id = `messages-${chat.id}`;
+                messagesContainer.setAttribute('onclick', `focusChatInput(${chat.id})`);
+            }
+            
+            // Обновляем ID поля ввода
+            const inputField = element.querySelector('textarea');
+            if (inputField) {
+                inputField.id = `input-${chat.id}`;
+                inputField.setAttribute('onkeydown', `handleChatKeyDown(event, ${chat.id}, ${chat.chat_id})`);
+            }
+            
+            // Обновляем ID кнопки отправки
+            const sendButton = element.querySelector('.send-btn');
+            if (sendButton) {
+                sendButton.id = `send-btn-${chat.id}`;
+                sendButton.setAttribute('onclick', `sendTelegramMessage(${chat.id}, ${chat.chat_id})`);
+            }
+            
+            // Обновляем ID кнопки эмодзи
+            const emojiButton = element.querySelector('.emoji-btn');
+            if (emojiButton) {
+                emojiButton.setAttribute('onclick', `showEmojiPanel(${chat.id}, event)`);
+            }
+            
+            // Обновляем ID статуса отправки
+            const sendStatus = element.querySelector('.send-status');
+            if (sendStatus) {
+                sendStatus.id = `send-status-${chat.id}`;
+            }
+        }
+        
+        // Обновление только заголовка чата (без замены всего контента)
+        function updateChatTitleOnly(element, chat) {
+            const header = element.querySelector('.chat-header');
+            if (header) {
+                // Обновляем только текст заголовка
+                const titleElement = header.querySelector('h3');
+                if (titleElement) {
+                    titleElement.textContent = chat.title || chat.username || 'Чат #' + chat.chat_id;
+                }
+                
+                // Обновляем аватар
+                const avatarElement = header.querySelector('.chat-avatar');
+                if (avatarElement) {
+                    avatarElement.textContent = getAvatarText(chat.title || chat.username);
+                }
+                
+                // Обновляем подпись
+                const infoElement = header.querySelector('.chat-info p');
+                if (infoElement) {
+                    infoElement.textContent = `${getChatTypeDisplay(chat.type)} • ${chat.message_count || 0} сообщений`;
+                }
+                
+                // Обновляем класс заголовка
+                header.className = `chat-header ${chat.type}`;
+            }
+        }
+
+        // Обновление заголовка чата (полная замена - используется для новых чатов)
         function updateChatHeader(element, chat) {
             const header = element.querySelector('.chat-header');
             if (header) {
