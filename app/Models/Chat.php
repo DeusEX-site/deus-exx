@@ -60,51 +60,40 @@ class Chat extends Model
     public function scopeOrderByActivity($query)
     {
         return $query->orderByRaw('
-            display_order DESC,
             CASE 
-                WHEN display_order = 0 THEN last_message_at 
-                ELSE "1970-01-01" 
+                WHEN display_order > 0 THEN display_order
+                ELSE 999999 + id  
             END DESC
         ');
     }
 
     public function scopeTopTen($query)
     {
-        return $query->orderBy('display_order', 'desc')
-                     ->orderBy('last_message_at', 'desc')
+        return $query->where('display_order', '>', 0)
+                     ->orderBy('display_order', 'desc')
                      ->limit(10);
     }
 
     public function scopeWithoutTopTen($query)
     {
-        $topTenIds = static::active()
-                          ->orderBy('display_order', 'desc')
-                          ->orderBy('last_message_at', 'desc')
-                          ->limit(10)
-                          ->pluck('id');
-        
-        return $query->whereNotIn('id', $topTenIds);
+        return $query->where('display_order', 0);
     }
 
     public function isInTopTen()
     {
-        $topTenIds = static::active()
-                          ->orderBy('display_order', 'desc')
-                          ->orderBy('last_message_at', 'desc')
-                          ->limit(10)
-                          ->pluck('id');
-        
-        return $topTenIds->contains($this->id);
+        return $this->display_order > 0;
     }
 
     public function getTopTenPosition()
     {
-        $topTenIds = static::active()
-                          ->orderBy('display_order', 'desc')
-                          ->orderBy('last_message_at', 'desc')
-                          ->limit(10)
-                          ->pluck('id');
+        if (!$this->isInTopTen()) {
+            return false;
+        }
         
-        return $topTenIds->search($this->id);
+        $position = static::active()
+                          ->where('display_order', '>', $this->display_order)
+                          ->count();
+        
+        return $position + 1;
     }
 } 

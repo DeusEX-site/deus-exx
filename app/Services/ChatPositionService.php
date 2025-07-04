@@ -204,9 +204,10 @@ class ChatPositionService
     {
         DB::transaction(function () {
             // Получаем чаты, у которых display_order = 0 (не инициализированы)
+            // БЕЗ сортировки по времени - просто в том порядке, в котором они есть
             $uninitializedChats = Chat::active()
                                     ->where('display_order', 0)
-                                    ->orderBy('last_message_at', 'desc')
+                                    ->orderBy('id', 'asc') // Сортировка по ID для стабильности
                                     ->get();
             
             // Получаем текущие топ-10 чаты
@@ -228,7 +229,7 @@ class ChatPositionService
             }
         });
         
-        Log::info('Chat positions initialized (preserving existing top-10)');
+        Log::info('Chat positions initialized (no sorting by last_message_at)');
     }
 
     /**
