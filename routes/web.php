@@ -83,7 +83,7 @@ Route::get('/api/chats', function () {
             CASE 
                 WHEN display_order > 0 THEN display_order
                 ELSE 999999 + id  
-            END DESC
+            END ASC
         ')
         ->withCount('messages')
         ->get();

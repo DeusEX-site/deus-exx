@@ -287,7 +287,7 @@ class ChatPositionService
             // Получаем текущие топ-10 чаты
             $topTenChats = Chat::active()
                                ->where('display_order', '>', 0)
-                               ->orderBy('display_order', 'desc')
+                               ->orderBy('display_order', 'asc')
                                ->get();
             
             // Если топ-10 не заполнен, добавляем чаты из неинициализированных

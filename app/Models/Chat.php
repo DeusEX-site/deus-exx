@@ -63,14 +63,14 @@ class Chat extends Model
             CASE 
                 WHEN display_order > 0 THEN display_order
                 ELSE 999999 + id  
-            END DESC
+            END ASC
         ');
     }
 
     public function scopeTopTen($query)
     {
         return $query->where('display_order', '>', 0)
-                     ->orderBy('display_order', 'desc')
+                     ->orderBy('display_order', 'asc')
                      ->limit(10);
     }
 
@@ -91,7 +91,8 @@ class Chat extends Model
         }
         
         $position = static::active()
-                          ->where('display_order', '>', $this->display_order)
+                          ->where('display_order', '>', 0)
+                          ->where('display_order', '<', $this->display_order)
                           ->count();
         
         return $position + 1;

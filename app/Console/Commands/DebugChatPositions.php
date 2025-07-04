@@ -17,7 +17,7 @@ class DebugChatPositions extends Command
         $this->line('');
         
         // Показываем все чаты
-        $allChats = Chat::active()->orderBy('display_order', 'desc')->orderBy('id', 'asc')->get();
+        $allChats = Chat::active()->orderBy('display_order', 'asc')->orderBy('id', 'asc')->get();
         
         $this->info('📊 All active chats:');
         foreach ($allChats as $chat) {
