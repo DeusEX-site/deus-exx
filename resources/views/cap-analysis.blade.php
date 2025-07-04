@@ -804,6 +804,13 @@
                                 <div class="label">Гео</div>
                                 <div class="value">${analysis.geos.length > 0 ? analysis.geos.join(', ') : '—'}</div>
                             </div>
+                            
+                            ${analysis.highlighted_text ? `
+                            <div class="analysis-item positive" style="grid-column: 1 / -1;">
+                                <div class="label">Обработанный текст для этого блока</div>
+                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left;">${analysis.highlighted_text}</div>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;

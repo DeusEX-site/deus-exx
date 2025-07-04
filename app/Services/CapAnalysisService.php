@@ -30,7 +30,8 @@ class CapAnalysisService
                 'affiliate_name' => $capEntry['affiliate_name'],
                 'broker_name' => $capEntry['broker_name'],
                 'geos' => $capEntry['geos'],
-                'work_hours' => $capEntry['work_hours']
+                'work_hours' => $capEntry['work_hours'],
+                'highlighted_text' => $capEntry['highlighted_text']
             ]);
         }
         
@@ -50,7 +51,7 @@ class CapAnalysisService
                 'id' => $cap->message->id . '_' . $cap->id, // Уникальный ID для каждой записи
                 'message' => $cap->message->message,
                 'user' => $cap->message->display_name,
-                'chat_name' => $cap->message->chat->name ?? 'Неизвестный чат',
+                'chat_name' => $cap->message->chat->display_name ?? 'Неизвестный чат',
                 'timestamp' => $cap->created_at->format('d.m.Y H:i'),
                 'analysis' => [
                     'has_cap_word' => true, // Если запись существует, значит cap word найден
@@ -62,7 +63,8 @@ class CapAnalysisService
                     'affiliate_name' => $cap->affiliate_name,
                     'broker_name' => $cap->broker_name,
                     'geos' => $cap->geos ?? [],
-                    'work_hours' => $cap->work_hours
+                    'work_hours' => $cap->work_hours,
+                    'highlighted_text' => $cap->highlighted_text
                 ]
             ];
         }
@@ -160,7 +162,7 @@ class CapAnalysisService
                 'id' => $cap->message->id . '_' . $cap->id,
                 'message' => $cap->message->message,
                 'user' => $cap->message->display_name,
-                'chat_name' => $cap->message->chat->name ?? 'Неизвестный чат',
+                'chat_name' => $cap->message->chat->display_name ?? 'Неизвестный чат',
                 'timestamp' => $cap->created_at->format('d.m.Y H:i'),
                 'analysis' => [
                     'has_cap_word' => true,
@@ -172,7 +174,8 @@ class CapAnalysisService
                     'affiliate_name' => $cap->affiliate_name,
                     'broker_name' => $cap->broker_name,
                     'geos' => $cap->geos ?? [],
-                    'work_hours' => $cap->work_hours
+                    'work_hours' => $cap->work_hours,
+                    'highlighted_text' => $cap->highlighted_text
                 ]
             ];
         }
@@ -307,7 +310,8 @@ class CapAnalysisService
                     'affiliate_name' => $affiliateName,
                     'broker_name' => $brokerName,
                     'geos' => $geos,
-                    'work_hours' => $globalWorkHours
+                    'work_hours' => $globalWorkHours,
+                    'highlighted_text' => $line // Сохраняем конкретную строку с этой капой
                 ];
             }
         }

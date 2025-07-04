@@ -19,7 +19,8 @@ class Cap extends Model
         'affiliate_name',
         'broker_name',
         'geos',
-        'work_hours'
+        'work_hours',
+        'highlighted_text'
     ];
 
     protected $casts = [
