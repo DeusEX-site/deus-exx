@@ -1700,18 +1700,68 @@
                     scrollListenerActive = true;
                 }, 2000);
                 
-                container.addEventListener('scroll', () => {
+                // Функция проверки необходимости загрузки старых сообщений
+                const checkLoadOldMessages = () => {
                     // Загружаем старые сообщения только если:
                     // 1. Слушатель активирован
-                    // 2. Прокрутили в самый верх 
+                    // 2. Прокрутили в самый верх (с небольшим отступом) 
                     // 3. Не загружаем сейчас
                     // 4. Есть старые сообщения для загрузки
                     if (scrollListenerActive && 
                         container.scrollTop <= 20 && 
                         !isLoadingOldMessages[chatId] && 
                         hasOlderMessages[chatId] !== false) {
+                        
+                        console.log(`🔄 Loading old messages for chat ${chatId}, scrollTop: ${container.scrollTop}`);
                         loadOldMessages(chatId);
                     }
+                };
+                
+                // Обрабатываем событие scroll (колесико мыши, клавиши)
+                container.addEventListener('scroll', checkLoadOldMessages);
+                
+                // Обрабатываем событие scrollend (когда завершается программный скролл)
+                if ('onscrollend' in container) {
+                    container.addEventListener('scrollend', checkLoadOldMessages);
+                }
+                
+                // Для старых браузеров - используем throttled версию
+                let scrollTimeout;
+                const throttledCheck = () => {
+                    if (scrollTimeout) clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(checkLoadOldMessages, 100);
+                };
+                
+                // Дополнительные события для перемещения ползунка мышкой
+                container.addEventListener('mouseup', throttledCheck);
+                container.addEventListener('touchend', throttledCheck);
+                
+                // Периодическая проверка позиции скролла (для случаев когда события не срабатывают)
+                let lastScrollTop = container.scrollTop;
+                const scrollChecker = setInterval(() => {
+                    if (container.scrollTop !== lastScrollTop) {
+                        lastScrollTop = container.scrollTop;
+                        throttledCheck();
+                    }
+                }, 200); // Проверяем каждые 200мс
+                
+                // Сохраняем интервал для очистки при необходимости
+                if (!window.scrollCheckers) window.scrollCheckers = {};
+                window.scrollCheckers[chatId] = scrollChecker;
+                
+                // Дополнительные события для мобильных устройств
+                container.addEventListener('touchmove', throttledCheck);
+                container.addEventListener('touchcancel', throttledCheck);
+                
+                // Событие для отслеживания drag операций на скроллбаре
+                container.addEventListener('mousedown', () => {
+                    const checkWhileDragging = () => {
+                        throttledCheck();
+                        if (container.scrollTop !== lastScrollTop) {
+                            requestAnimationFrame(checkWhileDragging);
+                        }
+                    };
+                    requestAnimationFrame(checkWhileDragging);
                 });
             }
         }
@@ -1898,6 +1948,13 @@
                 clearInterval(messageIntervals[chatId]);
                 delete messageIntervals[chatId];
                 console.log('🔴 Stopped polling for chat:', chatId);
+            }
+            
+            // Очищаем scroll checker для этого чата
+            if (window.scrollCheckers && window.scrollCheckers[chatId]) {
+                clearInterval(window.scrollCheckers[chatId]);
+                delete window.scrollCheckers[chatId];
+                console.log('🔴 Stopped scroll checker for chat:', chatId);
             }
         }
         
@@ -2454,6 +2511,14 @@
             // Останавливаем проверку чатов
             if (chatCheckInterval) {
                 clearInterval(chatCheckInterval);
+            }
+            
+            // Очищаем все scroll checkers
+            if (window.scrollCheckers) {
+                Object.values(window.scrollCheckers).forEach(checker => {
+                    if (checker) clearInterval(checker);
+                });
+                window.scrollCheckers = {};
             }
             
             // Очищаем флаги
