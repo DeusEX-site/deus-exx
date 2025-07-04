@@ -10,23 +10,9 @@ use Carbon\Carbon;
 
 class TestPositionStability extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'chats:test-stability-final';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
     protected $description = 'Test that TOP-10 chats do NOT change positions when receiving new messages';
 
-    /**
-     * Execute the console command.
-     */
     public function handle(ChatPositionService $chatPositionService)
     {
         $this->info('🔒 Final Position Stability Test');
@@ -53,7 +39,8 @@ class TestPositionStability extends Command
         $testChatsInTopTen = $topTenChats->take(3);
         
         foreach ($testChatsInTopTen as $index => $chat) {
-            $this->info("🎯 Testing message in TOP-10 chat: {$chat->display_name} (Position #{$index + 1})");
+            $position = $index + 1;
+            $this->info("🎯 Testing message in TOP-10 chat: {$chat->display_name} (Position #{$position})");
             
             // Запоминаем позиции до
             $beforePositions = $this->getChatPositions();
