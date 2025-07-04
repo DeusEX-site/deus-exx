@@ -6,6 +6,7 @@ use App\Models\Chat;
 use App\Models\Message;
 use App\Events\MessageSent;
 use App\Services\ChatPositionService;
+use App\Services\CapAnalysisService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -13,10 +14,12 @@ use Carbon\Carbon;
 class TelegramWebhookController extends Controller
 {
     protected $chatPositionService;
+    protected $capAnalysisService;
 
-    public function __construct(ChatPositionService $chatPositionService)
+    public function __construct(ChatPositionService $chatPositionService, CapAnalysisService $capAnalysisService)
     {
         $this->chatPositionService = $chatPositionService;
+        $this->capAnalysisService = $capAnalysisService;
     }
 
     public function handle(Request $request)
@@ -123,6 +126,16 @@ class TelegramWebhookController extends Controller
             'message_type' => $messageType,
             'telegram_raw_data' => $messageData,
         ]);
+        
+        // Анализируем сообщение на наличие кап
+        try {
+            $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $messageText);
+        } catch (\Exception $e) {
+            Log::warning('Cap analysis failed for message', [
+                'message_id' => $message->id,
+                'error' => $e->getMessage()
+            ]);
+        }
         
         return $message;
     }

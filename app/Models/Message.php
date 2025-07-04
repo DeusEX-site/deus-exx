@@ -40,6 +40,14 @@ class Message extends Model
         return $this->belongsTo(Chat::class);
     }
 
+    /**
+     * Связь с капами
+     */
+    public function caps()
+    {
+        return $this->hasMany(Cap::class);
+    }
+
     public function getDisplayNameAttribute()
     {
         if ($this->telegram_first_name || $this->telegram_last_name) {

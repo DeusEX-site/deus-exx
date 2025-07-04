@@ -83,10 +83,18 @@
         }
         
         .search-form {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             align-items: end;
+            margin-bottom: 2rem;
+        }
+        
+        .form-buttons {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-start;
         }
         
         .form-group {
@@ -204,8 +212,7 @@
         }
         
         .message-list {
-            max-height: 600px;
-            overflow-y: auto;
+            /* Убираем ограничение высоты - пусть страница будет длинной */
         }
         
         .message-item {
@@ -387,9 +394,57 @@
                         <option value="">Все чаты</option>
                     </select>
                 </div>
-                <button type="submit" class="search-btn" id="search-btn">
-                    🔍 Найти
-                </button>
+                <div class="form-group">
+                    <label for="geo-filter">Гео</label>
+                    <select id="geo-filter">
+                        <option value="">Все гео</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="broker-filter">Брокер</label>
+                    <select id="broker-filter">
+                        <option value="">Все брокеры</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="affiliate-filter">Аффилейт</label>
+                    <select id="affiliate-filter">
+                        <option value="">Все аффилейты</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="schedule-filter">Расписание</label>
+                    <select id="schedule-filter">
+                        <option value="">Все</option>
+                        <option value="has_schedule">Есть расписание</option>
+                        <option value="no_schedule">Нет расписания</option>
+                        <option value="24_7">24/7</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="total-filter">Общий лимит</label>
+                    <select id="total-filter">
+                        <option value="">Все</option>
+                        <option value="has_total">Есть лимит</option>
+                        <option value="no_total">Нет лимита</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="affiliate-presence-filter">Наличие аффилейта</label>
+                    <select id="affiliate-presence-filter">
+                        <option value="">Все</option>
+                        <option value="has_affiliate">Есть аффилейт</option>
+                        <option value="no_affiliate">Нет аффилейта</option>
+                    </select>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" class="search-btn" id="search-btn">
+                        🔍 Найти
+                    </button>
+                    <button type="button" class="search-btn" id="clear-filters-btn" style="background: rgba(239, 68, 68, 0.3);">
+                        🗑️ Очистить фильтры
+                    </button>
+                </div>
             </form>
         </div>
 
@@ -466,6 +521,81 @@
                 console.error('Ошибка загрузки чатов:', error);
             }
         }
+
+        // Загрузка списков для фильтров
+        async function loadFilterOptions() {
+            try {
+                const response = await fetch('/api/cap-analysis-filters', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Загрузка гео
+                        const geoFilter = document.getElementById('geo-filter');
+                        if (geoFilter && data.geos) {
+                            geoFilter.innerHTML = '<option value="">Все гео</option>';
+                            data.geos.forEach(geo => {
+                                const option = document.createElement('option');
+                                option.value = geo;
+                                option.textContent = geo;
+                                geoFilter.appendChild(option);
+                            });
+                        }
+
+                        // Загрузка брокеров
+                        const brokerFilter = document.getElementById('broker-filter');
+                        if (brokerFilter && data.brokers) {
+                            brokerFilter.innerHTML = '<option value="">Все брокеры</option>';
+                            data.brokers.forEach(broker => {
+                                const option = document.createElement('option');
+                                option.value = broker;
+                                option.textContent = broker;
+                                brokerFilter.appendChild(option);
+                            });
+                        }
+
+                        // Загрузка аффилейтов
+                        const affiliateFilter = document.getElementById('affiliate-filter');
+                        if (affiliateFilter && data.affiliates) {
+                            affiliateFilter.innerHTML = '<option value="">Все аффилейты</option>';
+                            data.affiliates.forEach(affiliate => {
+                                const option = document.createElement('option');
+                                option.value = affiliate;
+                                option.textContent = affiliate;
+                                affiliateFilter.appendChild(option);
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки фильтров:', error);
+            }
+        }
+
+        // Очистка всех фильтров
+        function clearFilters() {
+            document.getElementById('search').value = '';
+            document.getElementById('chat-select').value = '';
+            document.getElementById('geo-filter').value = '';
+            document.getElementById('broker-filter').value = '';
+            document.getElementById('affiliate-filter').value = '';
+            document.getElementById('schedule-filter').value = '';
+            document.getElementById('total-filter').value = '';
+            document.getElementById('affiliate-presence-filter').value = '';
+            
+            // Очистка результатов
+            const messageList = document.getElementById('message-list');
+            const statsSection = document.getElementById('stats-section');
+            if (messageList) messageList.innerHTML = '';
+            if (statsSection) statsSection.style.display = 'none';
+            
+            currentMessages = [];
+        }
         
         // Поиск сообщений
         async function searchMessages() {
@@ -476,6 +606,12 @@
             const statsSection = document.getElementById('stats-section');
             const searchInput = document.getElementById('search');
             const chatSelect = document.getElementById('chat-select');
+            const geoFilter = document.getElementById('geo-filter');
+            const brokerFilter = document.getElementById('broker-filter');
+            const affiliateFilter = document.getElementById('affiliate-filter');
+            const scheduleFilter = document.getElementById('schedule-filter');
+            const totalFilter = document.getElementById('total-filter');
+            const affiliatePresenceFilter = document.getElementById('affiliate-presence-filter');
             
             // Проверяем наличие элементов
             if (!searchBtn || !loading || !messageList || !statsSection || !searchInput || !chatSelect) {
@@ -492,6 +628,12 @@
             
             const search = searchInput.value;
             const chatId = chatSelect.value;
+            const geo = geoFilter?.value || '';
+            const broker = brokerFilter?.value || '';
+            const affiliate = affiliateFilter?.value || '';
+            const schedule = scheduleFilter?.value || '';
+            const total = totalFilter?.value || '';
+            const affiliatePresence = affiliatePresenceFilter?.value || '';
             
             searchBtn.disabled = true;
             searchBtn.textContent = '🔍 Поиск...';
@@ -503,6 +645,12 @@
                 const params = new URLSearchParams();
                 if (search) params.append('search', search);
                 if (chatId) params.append('chat_id', chatId);
+                if (geo) params.append('geo', geo);
+                if (broker) params.append('broker', broker);
+                if (affiliate) params.append('affiliate', affiliate);
+                if (schedule) params.append('schedule', schedule);
+                if (total) params.append('total', total);
+                if (affiliatePresence) params.append('affiliate_presence', affiliatePresence);
                 
                 const response = await fetch(`/api/cap-analysis?${params}`, {
                     headers: {
@@ -670,8 +818,7 @@
                 'Автор',
                 'Сообщение',
                 'Слово CAP',
-                'Все капы',
-                'Основная капа',
+                'Капа',
                 'Общий лимит',
                 'Расписание',
                 'Дата работы',
@@ -691,7 +838,6 @@
                         `"${msg.message.replace(/"/g, '""')}"`,
                         analysis.has_cap_word ? 'Да' : 'Нет',
                         `"${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(', ') : ''}"`,
-                        analysis.cap_amount || '',
                         analysis.total_amount || '',
                         `"${analysis.schedule || ''}"`,
                         `"${analysis.date || ''}"`,
@@ -750,8 +896,17 @@
                 console.error('Элемент export-btn не найден');
             }
             
-            // Загружаем чаты
+            // Обработчик кнопки очистки фильтров
+            const clearFiltersBtn = document.getElementById('clear-filters-btn');
+            if (clearFiltersBtn) {
+                clearFiltersBtn.addEventListener('click', clearFilters);
+            } else {
+                console.error('Элемент clear-filters-btn не найден');
+            }
+
+            // Загружаем чаты и фильтры
             loadChats();
+            loadFilterOptions();
         });
     </script>
 </body>

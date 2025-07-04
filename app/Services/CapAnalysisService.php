@@ -2,8 +2,322 @@
 
 namespace App\Services;
 
+use App\Models\Cap;
+use App\Models\Message;
+
 class CapAnalysisService
 {
+    /**
+     * Анализирует сообщение на наличие кап и сохраняет в таблицу
+     */
+    public function analyzeAndSaveCapMessage($messageId, $messageText)
+    {
+        // Удаляем старые записи для этого сообщения
+        Cap::where('message_id', $messageId)->delete();
+        
+        // Находим все отдельные капы в сообщении
+        $capEntries = $this->extractSeparateCapEntries($messageText);
+        
+        // Создаем отдельную запись для каждой капы
+        foreach ($capEntries as $capEntry) {
+            Cap::create([
+                'message_id' => $messageId,
+                'cap_amounts' => [$capEntry['cap_amount']], // Одна капа на запись
+                'total_amount' => $capEntry['total_amount'],
+                'schedule' => $capEntry['schedule'],
+                'date' => $capEntry['date'],
+                'is_24_7' => $capEntry['is_24_7'],
+                'affiliate_name' => $capEntry['affiliate_name'],
+                'broker_name' => $capEntry['broker_name'],
+                'geos' => $capEntry['geos'],
+                'work_hours' => $capEntry['work_hours']
+            ]);
+        }
+        
+        return ['cap_entries_count' => count($capEntries)];
+    }
+
+    /**
+     * Поиск кап из базы данных
+     */
+    public function searchCaps($search = null, $chatId = null)
+    {
+        $caps = Cap::searchCaps($search, $chatId)->get();
+        
+        $results = [];
+        foreach ($caps as $cap) {
+            $results[] = [
+                'id' => $cap->message->id . '_' . $cap->id, // Уникальный ID для каждой записи
+                'message' => $cap->message->message,
+                'user' => $cap->message->display_name,
+                'chat_name' => $cap->message->chat->name ?? 'Неизвестный чат',
+                'timestamp' => $cap->created_at->format('d.m.Y H:i'),
+                'analysis' => [
+                    'has_cap_word' => true, // Если запись существует, значит cap word найден
+                    'cap_amounts' => $cap->cap_amounts, // Это уже массив с одной капой
+                    'total_amount' => $cap->total_amount,
+                    'schedule' => $cap->schedule,
+                    'date' => $cap->date,
+                    'is_24_7' => $cap->is_24_7,
+                    'affiliate_name' => $cap->affiliate_name,
+                    'broker_name' => $cap->broker_name,
+                    'geos' => $cap->geos ?? [],
+                    'work_hours' => $cap->work_hours
+                ]
+            ];
+        }
+        
+        return $results;
+    }
+
+    /**
+     * Поиск кап с дополнительными фильтрами
+     */
+    public function searchCapsWithFilters($search = null, $chatId = null, $filters = [])
+    {
+        $query = Cap::with(['message' => function($q) {
+            $q->with('chat');
+        }]);
+
+        // Фильтр по чату
+        if ($chatId) {
+            $query->whereHas('message', function($q) use ($chatId) {
+                $q->where('chat_id', $chatId);
+            });
+        }
+
+        // Поиск по тексту
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('affiliate_name', 'LIKE', "%{$search}%")
+                  ->orWhere('broker_name', 'LIKE', "%{$search}%")
+                  ->orWhere('schedule', 'LIKE', "%{$search}%")
+                  ->orWhereHas('message', function($subQ) use ($search) {
+                      $subQ->where('message', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
+
+        // Фильтр по гео
+        if (!empty($filters['geo'])) {
+            $query->whereJsonContains('geos', $filters['geo']);
+        }
+
+        // Фильтр по брокеру
+        if (!empty($filters['broker'])) {
+            $query->where('broker_name', 'LIKE', "%{$filters['broker']}%");
+        }
+
+        // Фильтр по аффилейту
+        if (!empty($filters['affiliate'])) {
+            $query->where('affiliate_name', 'LIKE', "%{$filters['affiliate']}%");
+        }
+
+        // Фильтр по расписанию
+        if (!empty($filters['schedule'])) {
+            switch ($filters['schedule']) {
+                case 'has_schedule':
+                    $query->whereNotNull('schedule');
+                    break;
+                case 'no_schedule':
+                    $query->whereNull('schedule');
+                    break;
+                case '24_7':
+                    $query->where('is_24_7', true);
+                    break;
+            }
+        }
+
+        // Фильтр по общему лимиту
+        if (!empty($filters['total'])) {
+            switch ($filters['total']) {
+                case 'has_total':
+                    $query->whereNotNull('total_amount');
+                    break;
+                case 'no_total':
+                    $query->whereNull('total_amount');
+                    break;
+            }
+        }
+
+        // Фильтр по наличию аффилейта
+        if (!empty($filters['affiliate_presence'])) {
+            switch ($filters['affiliate_presence']) {
+                case 'has_affiliate':
+                    $query->whereNotNull('affiliate_name');
+                    break;
+                case 'no_affiliate':
+                    $query->whereNull('affiliate_name');
+                    break;
+            }
+        }
+
+        $caps = $query->orderBy('created_at', 'desc')->get();
+        
+        $results = [];
+        foreach ($caps as $cap) {
+            $results[] = [
+                'id' => $cap->message->id . '_' . $cap->id,
+                'message' => $cap->message->message,
+                'user' => $cap->message->display_name,
+                'chat_name' => $cap->message->chat->name ?? 'Неизвестный чат',
+                'timestamp' => $cap->created_at->format('d.m.Y H:i'),
+                'analysis' => [
+                    'has_cap_word' => true,
+                    'cap_amounts' => $cap->cap_amounts,
+                    'total_amount' => $cap->total_amount,
+                    'schedule' => $cap->schedule,
+                    'date' => $cap->date,
+                    'is_24_7' => $cap->is_24_7,
+                    'affiliate_name' => $cap->affiliate_name,
+                    'broker_name' => $cap->broker_name,
+                    'geos' => $cap->geos ?? [],
+                    'work_hours' => $cap->work_hours
+                ]
+            ];
+        }
+        
+        return $results;
+    }
+
+    /**
+     * Получение списков для фильтров
+     */
+    public function getFilterOptions()
+    {
+        // Получаем все уникальные значения
+        $caps = Cap::whereNotNull('geos')
+                   ->orWhereNotNull('broker_name')
+                   ->orWhereNotNull('affiliate_name')
+                   ->get();
+
+        $geos = [];
+        $brokers = [];
+        $affiliates = [];
+
+        foreach ($caps as $cap) {
+            // Собираем гео
+            if ($cap->geos) {
+                $geos = array_merge($geos, $cap->geos);
+            }
+
+            // Собираем брокеров
+            if ($cap->broker_name) {
+                $brokers[] = $cap->broker_name;
+            }
+
+            // Собираем аффилейтов
+            if ($cap->affiliate_name) {
+                $affiliates[] = $cap->affiliate_name;
+            }
+        }
+
+        return [
+            'geos' => array_values(array_unique($geos)),
+            'brokers' => array_values(array_unique($brokers)),
+            'affiliates' => array_values(array_unique($affiliates))
+        ];
+    }
+
+    /**
+     * Извлекает отдельные записи кап из сообщения
+     */
+    private function extractSeparateCapEntries($messageText)
+    {
+        $capEntries = [];
+        $lines = preg_split('/[\r\n]+/', $messageText);
+        
+        // Глобальная информация (может применяться ко всем капам)
+        $globalSchedule = null;
+        $globalDate = null;
+        $globalIs24_7 = false;
+        $globalWorkHours = null;
+        
+        // Извлекаем глобальную информацию
+        foreach ($lines as $line) {
+            $line = trim($line);
+            
+            // Ищем 24/7
+            if (preg_match('/24\/7|24-7/', $line)) {
+                $globalIs24_7 = true;
+                $globalSchedule = '24/7';
+            }
+            
+            // Ищем время работы (10-19, 09-18, etc.)
+            if (preg_match('/^(\d{1,2})-(\d{1,2})$/', $line, $matches)) {
+                $globalWorkHours = $matches[0];
+                $globalSchedule = $matches[0];
+            }
+            
+            // Ищем даты (14.05, 25.12, etc.)
+            if (preg_match('/^(\d{1,2})\.(\d{1,2})$/', $line, $matches)) {
+                $globalDate = $matches[0];
+            }
+        }
+        
+        // Ищем строки с капами
+        foreach ($lines as $line) {
+            $line = trim($line);
+            
+            // Ищем cap в строке
+            if (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)/iu', $line, $capMatch)) {
+                $capAmount = intval($capMatch[1]);
+                
+                // Извлекаем аффилейт и брокера
+                $affiliateName = null;
+                $brokerName = null;
+                if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)\s*:/', $line, $nameMatch)) {
+                    $affiliateName = trim($nameMatch[1]);
+                    $brokerName = trim($nameMatch[2]);
+                    
+                    // Убираем cap из названия аффилейта
+                    $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
+                    $affiliateName = trim($affiliateName);
+                }
+                
+                // Извлекаем гео
+                $geos = [];
+                if (preg_match('/:([^:\r\n]+)/', $line, $geoMatch)) {
+                    $geoString = trim($geoMatch[1]);
+                    $geoList = preg_split('/[,\/\s]+/', $geoString);
+                    $geos = array_filter(array_map('trim', $geoList), function($geo) {
+                        return strlen($geo) >= 2 && strlen($geo) <= 10 && preg_match('/^[A-Z]{2,}$/i', $geo);
+                    });
+                }
+                
+                // Ищем общий лимит (большие числа)
+                $totalAmount = null;
+                if (preg_match_all('/\b(\d+)\b/', $line, $numbers)) {
+                    $allNumbers = array_map('intval', $numbers[1]);
+                    $potentialTotals = array_filter($allNumbers, function($num) use ($capAmount) {
+                        return $num > $capAmount && $num < 10000;
+                    });
+                    if (!empty($potentialTotals)) {
+                        $totalAmount = max($potentialTotals);
+                    }
+                }
+                
+                // Создаем запись капы
+                $capEntries[] = [
+                    'cap_amount' => $capAmount,
+                    'total_amount' => $totalAmount,
+                    'schedule' => $globalSchedule,
+                    'date' => $globalDate,
+                    'is_24_7' => $globalIs24_7,
+                    'affiliate_name' => $affiliateName,
+                    'broker_name' => $brokerName,
+                    'geos' => $geos,
+                    'work_hours' => $globalWorkHours
+                ];
+            }
+        }
+        
+        return $capEntries;
+    }
+
+    /**
+     * Анализирует сообщение на наличие кап (без сохранения)
+     */
     public function analyzeCapMessage($message)
     {
         $analysis = [

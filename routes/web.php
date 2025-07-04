@@ -219,57 +219,30 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
     try {
         $search = $request->get('search', '');
         $chatId = $request->get('chat_id', null);
-        
-        $query = Message::query();
-        
-        // Поиск сообщений со словами cap, сар, сар (на разных языках)
-        $capPatterns = [
-            'cap', 'сар', 'сар', 'CAP', 'САР', 'САР',
-            'кап', 'КАП', 'каП', 'Кап'
-        ];
-        
-        $query->where(function($q) use ($capPatterns) {
-            foreach ($capPatterns as $pattern) {
-                $q->orWhere('message', 'LIKE', "%{$pattern}%");
-            }
-        });
-        
-        // Если указан конкретный чат
-        if ($chatId) {
-            $query->where('chat_id', $chatId);
-        }
-        
-        // Дополнительный поиск по тексту
-        if ($search) {
-            $query->where('message', 'LIKE', "%{$search}%");
-        }
-        
-        $messages = $query->orderBy('created_at', 'desc')
-                         ->limit(1000)
-                         ->get();
+        $geo = $request->get('geo', '');
+        $broker = $request->get('broker', '');
+        $affiliate = $request->get('affiliate', '');
+        $schedule = $request->get('schedule', '');
+        $total = $request->get('total', '');
+        $affiliatePresence = $request->get('affiliate_presence', '');
         
         // Создаем экземпляр сервиса анализа
         $capAnalysisService = new \App\Services\CapAnalysisService();
         
-        // Анализируем каждое сообщение
-        $analyzedMessages = $messages->map(function($message) use ($capAnalysisService) {
-            $analysis = $capAnalysisService->analyzeCapMessage($message->message);
-            return [
-                'id' => $message->id,
-                'message' => $message->message,
-                'user' => $message->user,
-                'chat_id' => $message->chat_id,
-                'chat_name' => $message->chat ? ($message->chat->title ?: $message->chat->username) : 'Unknown',
-                'created_at' => $message->created_at,
-                'timestamp' => $message->created_at->format('d.m.Y H:i:s'),
-                'analysis' => $analysis
-            ];
-        });
+        // Получаем результаты из базы данных с фильтрами
+        $results = $capAnalysisService->searchCapsWithFilters($search, $chatId, [
+            'geo' => $geo,
+            'broker' => $broker,
+            'affiliate' => $affiliate,
+            'schedule' => $schedule,
+            'total' => $total,
+            'affiliate_presence' => $affiliatePresence
+        ]);
         
         return response()->json([
             'success' => true,
-            'messages' => $analyzedMessages,
-            'total' => $analyzedMessages->count()
+            'messages' => $results,
+            'total' => count($results)
         ]);
         
     } catch (\Exception $e) {
@@ -281,6 +254,32 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
         return response()->json([
             'success' => false,
             'message' => 'Ошибка анализа: ' . $e->getMessage()
+        ], 500);
+    }
+});
+
+// API для получения списков фильтров
+Route::middleware('auth')->get('/api/cap-analysis-filters', function (Request $request) {
+    try {
+        $capAnalysisService = new \App\Services\CapAnalysisService();
+        $filterOptions = $capAnalysisService->getFilterOptions();
+        
+        return response()->json([
+            'success' => true,
+            'geos' => $filterOptions['geos'],
+            'brokers' => $filterOptions['brokers'],
+            'affiliates' => $filterOptions['affiliates']
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Cap analysis filters failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Ошибка загрузки фильтров: ' . $e->getMessage()
         ], 500);
     }
 });
