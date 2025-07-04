@@ -244,6 +244,15 @@
             font-weight: 500;
         }
         
+        .message-author {
+            background: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
         .message-date {
             color: rgba(255, 255, 255, 0.6);
             font-size: 0.75rem;
@@ -464,6 +473,12 @@
             const search = document.getElementById('search').value;
             const chatId = document.getElementById('chat-select').value;
             
+            // Проверяем что все элементы существуют
+            if (!searchBtn || !loading || !messageList || !statsSection) {
+                console.error('Не найдены необходимые элементы DOM');
+                return;
+            }
+            
             searchBtn.disabled = true;
             searchBtn.textContent = '🔍 Поиск...';
             
@@ -490,7 +505,10 @@
                         renderResults(data.messages);
                         updateStats(data.messages);
                         statsSection.style.display = 'grid';
-                        document.getElementById('export-btn').style.display = 'block';
+                        const exportBtn = document.getElementById('export-btn');
+                        if (exportBtn) {
+                            exportBtn.style.display = 'block';
+                        }
                     } else {
                         showError(data.message || 'Ошибка поиска');
                     }
@@ -504,7 +522,9 @@
             } finally {
                 searchBtn.disabled = false;
                 searchBtn.textContent = '🔍 Найти';
-                loading.style.display = 'none';
+                if (loading) {
+                    loading.style.display = 'none';
+                }
             }
         }
         
@@ -526,6 +546,7 @@
                         <div class="message-header">
                             <div class="message-info">
                                 <span class="chat-name">${msg.chat_name}</span>
+                                <span class="message-author">👤 ${msg.user || 'Unknown'}</span>
                                 <span class="message-date">${msg.timestamp}</span>
                             </div>
                         </div>
@@ -607,7 +628,11 @@
         // Показать ошибку
         function showError(message) {
             const messageList = document.getElementById('message-list');
-            messageList.innerHTML = `<div class="no-results">❌ ${message}</div>`;
+            if (messageList) {
+                messageList.innerHTML = `<div class="no-results">❌ ${message}</div>`;
+            } else {
+                console.error('Не найден элемент message-list для показа ошибки:', message);
+            }
         }
         
         // Экспорт в CSV
@@ -620,6 +645,7 @@
             const headers = [
                 'Дата',
                 'Чат',
+                'Автор',
                 'Сообщение',
                 'Слово CAP',
                 'Капа',
@@ -638,6 +664,7 @@
                     return [
                         `"${msg.timestamp}"`,
                         `"${msg.chat_name}"`,
+                        `"${msg.user || 'Unknown'}"`,
                         `"${msg.message.replace(/"/g, '""')}"`,
                         analysis.has_cap_word ? 'Да' : 'Нет',
                         analysis.cap_amount || '',
