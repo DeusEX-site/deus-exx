@@ -28,6 +28,12 @@
 ### Команды тестирования:
 
 ```bash
+# Отладка позиций чатов (показывает текущее состояние)
+php artisan chats:debug-positions
+
+# Симуляция сообщения в чат вне топ-10 (тест замены)
+php artisan chats:simulate-outside-message [chat_id]
+
 # Финальный тест стабильности позиций
 php artisan chats:test-stability-final
 

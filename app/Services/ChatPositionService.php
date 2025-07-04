@@ -46,23 +46,47 @@ class ChatPositionService
                 return ['status' => 'no_change', 'message' => 'Chat already in top 10, no position change needed'];
             }
 
+            // Чат НЕ в топ-10, логируем это
+            Log::info('Chat is NOT in top 10, checking for replacement', [
+                'chat_id' => $chat->id,
+                'chat_title' => $chat->display_name,
+                'display_order' => $chat->display_order
+            ]);
+
             // Чат не в топ-10, проверяем нужно ли менять позиции
             $topTenChats = Chat::active()->topTen()->get();
             
+            Log::info('Current top-10 chats count', [
+                'count' => $topTenChats->count(),
+                'top_ten_chat_ids' => $topTenChats->pluck('id')->toArray()
+            ]);
+            
             if ($topTenChats->count() < 10) {
                 // Если в топ-10 меньше 10 чатов, просто добавляем этот чат
+                Log::info('Top-10 not full, promoting chat', [
+                    'chat_id' => $chat->id,
+                    'chat_title' => $chat->display_name
+                ]);
                 $this->promoteChatToTopTen($chat);
                 return ['status' => 'promoted', 'message' => 'Chat promoted to top 10'];
             }
 
-            // Ищем чат в топ-10 у которого последнее сообщение дольше минуты назад
+            // Ищем чат в топ-10 для замены (самый старый по последнему входящему сообщению)
             $chatToReplace = $this->findChatToReplace($topTenChats);
             
             if ($chatToReplace) {
+                Log::info('Found chat to replace, performing swap', [
+                    'promoting_chat_id' => $chat->id,
+                    'promoting_chat_title' => $chat->display_name,
+                    'demoting_chat_id' => $chatToReplace->id,
+                    'demoting_chat_title' => $chatToReplace->display_name,
+                    'demoting_chat_display_order' => $chatToReplace->display_order
+                ]);
+                
                 // Меняем чаты местами
                 $this->swapChats($chat, $chatToReplace);
                 
-                Log::info('Chat positions swapped', [
+                Log::info('Chat positions swapped successfully', [
                     'promoted_chat' => $chat->id,
                     'demoted_chat' => $chatToReplace->id,
                     'promoted_chat_title' => $chat->display_name,
@@ -77,6 +101,12 @@ class ChatPositionService
                     'promoted_chat_title' => $chat->display_name,
                     'demoted_chat_title' => $chatToReplace->display_name
                 ];
+            } else {
+                Log::warning('No chat found for replacement in top-10', [
+                    'incoming_chat_id' => $chat->id,
+                    'incoming_chat_title' => $chat->display_name,
+                    'top_ten_count' => $topTenChats->count()
+                ]);
             }
 
             return ['status' => 'no_change', 'message' => 'No suitable chat found for replacement'];
@@ -100,6 +130,10 @@ class ChatPositionService
      */
     private function findChatToReplace($topTenChats): ?Chat
     {
+        Log::info('Finding chat to replace in top-10', [
+            'total_top_ten_chats' => $topTenChats->count()
+        ]);
+        
         // Находим чат с самым старым последним входящим сообщением среди всех топ-10
         $chatToReplace = $topTenChats->sortBy(function ($chat) {
             $lastIncomingMessageTime = $this->getLastIncomingMessageTime($chat);
