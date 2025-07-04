@@ -79,7 +79,12 @@ Route::get('/api/messages/latest', function () {
 // API для получения чатов
 Route::get('/api/chats', function () {
     $chats = Chat::active()
-        ->orderByActivity()
+        ->orderByRaw('
+            CASE 
+                WHEN display_order > 0 THEN display_order
+                ELSE 999999 + id  
+            END DESC
+        ')
         ->withCount('messages')
         ->get();
     

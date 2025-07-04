@@ -134,7 +134,12 @@ class TelegramBotController extends Controller
     public function getChats()
     {
         $chats = Chat::active()
-            ->orderByActivity()
+            ->orderByRaw('
+                CASE 
+                    WHEN display_order > 0 THEN display_order
+                    ELSE 999999 + id  
+                END DESC
+            ')
             ->withCount('messages')
             ->get();
         

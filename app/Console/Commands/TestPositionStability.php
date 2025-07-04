@@ -157,7 +157,12 @@ class TestPositionStability extends Command
     private function getChatPositions()
     {
         return Chat::active()
-                  ->orderByActivity()
+                  ->orderByRaw('
+                      CASE 
+                          WHEN display_order > 0 THEN display_order
+                          ELSE 999999 + id  
+                      END DESC
+                  ')
                   ->get(['id', 'title', 'display_order'])
                   ->map(function ($chat, $index) {
                       return [
