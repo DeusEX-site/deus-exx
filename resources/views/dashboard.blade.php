@@ -887,7 +887,10 @@
             chats.forEach(chat => {
                 loadChatMessages(chat.id, true); // Первоначальная загрузка
                 startMessagePolling(chat.id);
-                setupScrollListener(chat.id); // Добавляем обработчик скролла
+                // Добавляем обработчик скролла с задержкой
+                setTimeout(() => {
+                    setupScrollListener(chat.id);
+                }, 1000);
             });
         }
 
@@ -1105,9 +1108,11 @@
                 startMessagePolling(swapInfo.chatIn.id);
                 startMessagePolling(swapInfo.chatOut.id);
                 
-                // Переустанавливаем обработчики скролла для swapped чатов
-                setupScrollListener(swapInfo.chatIn.id);
-                setupScrollListener(swapInfo.chatOut.id);
+                // Переустанавливаем обработчики скролла для swapped чатов с задержкой
+                setTimeout(() => {
+                    setupScrollListener(swapInfo.chatIn.id);
+                    setupScrollListener(swapInfo.chatOut.id);
+                }, 1000);
                 
                 // Показываем индикаторы
                 showSwapIndicators(elementOut, elementIn);
@@ -1616,6 +1621,7 @@
                 return;
             }
             
+            // Сообщения уже в правильном порядке (от старых к новым) благодаря исправлениям в модели
             container.innerHTML = messages.map(msg => `
                 <div class="message ${msg.is_outgoing ? 'outgoing' : (msg.is_telegram ? 'telegram' : 'other')}" data-message-id="${msg.id}">
                     ${(msg.is_telegram || msg.is_outgoing) ? '<div class="user">' + msg.user + '</div>' : ''}
@@ -1624,22 +1630,39 @@
                 </div>
             `).join('');
             
-            // Устанавливаем ID первого сообщения для пагинации
+            // Устанавливаем ID первого и последнего сообщения для пагинации
             if (messages.length > 0) {
                 firstMessageIds[chatId] = messages[0].id;
+                lastMessageIds[chatId] = messages[messages.length - 1].id;
                 hasOlderMessages[chatId] = messages.length >= 20; // Если загрузили полных 20, то есть еще
             }
             
-            scrollChatToBottom(chatId);
+            // Прокручиваем к низу после загрузки - используем несколько попыток для надежности
+            setTimeout(() => {
+                scrollChatToBottom(chatId);
+                // Дополнительная попытка через 500мс для медленных устройств
+                setTimeout(() => {
+                    scrollChatToBottom(chatId);
+                }, 500);
+            }, 100);
         }
         
         // Прокрутка чата вниз (с анимацией)
         function scrollChatToBottom(chatId) {
             const container = document.getElementById(`messages-${chatId}`);
             if (container) {
-                container.scrollTo({
-                    top: container.scrollHeight,
-                    behavior: 'smooth'
+                // Используем requestAnimationFrame для более стабильной прокрутки
+                requestAnimationFrame(() => {
+                    const scrollHeight = container.scrollHeight;
+                    const clientHeight = container.clientHeight;
+                    
+                    // Проверяем, что есть контент для прокрутки
+                    if (scrollHeight > clientHeight) {
+                        container.scrollTo({
+                            top: scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }
                 });
             }
         }
@@ -1669,9 +1692,24 @@
         function setupScrollListener(chatId) {
             const container = document.getElementById(`messages-${chatId}`);
             if (container) {
+                // Добавляем небольшую задержку чтобы избежать срабатывания при первой загрузке
+                let scrollListenerActive = false;
+                
+                // Активируем слушатель скролла через 2 секунды после загрузки чата
+                setTimeout(() => {
+                    scrollListenerActive = true;
+                }, 2000);
+                
                 container.addEventListener('scroll', () => {
-                    // Загружаем старые сообщения если прокрутили в самый верх
-                    if (container.scrollTop <= 20 && !isLoadingOldMessages[chatId] && hasOlderMessages[chatId] !== false) {
+                    // Загружаем старые сообщения только если:
+                    // 1. Слушатель активирован
+                    // 2. Прокрутили в самый верх 
+                    // 3. Не загружаем сейчас
+                    // 4. Есть старые сообщения для загрузки
+                    if (scrollListenerActive && 
+                        container.scrollTop <= 20 && 
+                        !isLoadingOldMessages[chatId] && 
+                        hasOlderMessages[chatId] !== false) {
                         loadOldMessages(chatId);
                     }
                 });
@@ -1718,8 +1756,12 @@
             if (!container || messages.length === 0) return;
             
             const oldScrollHeight = container.scrollHeight;
+            const oldScrollTop = container.scrollTop;
             
-            // Добавляем сообщения в начало
+            // Создаем документный фрагмент для лучшей производительности
+            const fragment = document.createDocumentFragment();
+            
+            // Добавляем сообщения в правильном порядке (они уже отсортированы от старых к новым)
             messages.forEach((msg, index) => {
                 const messageEl = document.createElement('div');
                 messageEl.className = `message ${msg.is_outgoing ? 'outgoing' : (msg.is_telegram ? 'telegram' : 'other')}`;
@@ -1730,17 +1772,21 @@
                     <div class="time">${msg.timestamp}${msg.message_type && msg.message_type !== 'text' ? '<span class="message-type">' + getMessageTypeDisplay(msg.message_type) + '</span>' : ''}</div>
                 `;
                 
-                container.insertBefore(messageEl, container.firstChild);
+                fragment.appendChild(messageEl);
             });
+            
+            // Вставляем все сообщения одним блоком в начало контейнера
+            container.insertBefore(fragment, container.firstChild);
             
             // Обновляем firstMessageId
             if (messages.length > 0) {
                 firstMessageIds[chatId] = messages[0].id;
             }
             
-            // Сохраняем позицию скролла
+            // Сохраняем позицию скролла более точно
             const newScrollHeight = container.scrollHeight;
-            container.scrollTop = newScrollHeight - oldScrollHeight;
+            const scrollDiff = newScrollHeight - oldScrollHeight;
+            container.scrollTop = oldScrollTop + scrollDiff;
         }
         
         // Добавление только новых сообщений
@@ -1757,7 +1803,9 @@
                 noMessages.remove();
             }
             
-            // Добавляем новые сообщения
+            let addedMessages = 0;
+            
+            // Добавляем новые сообщения (уже в правильном порядке от старых к новым)
             messages.forEach((msg, index) => {
                 // Проверяем, не существует ли уже это сообщение
                 const existingMessage = container.querySelector(`[data-message-id="${msg.id}"]`);
@@ -1781,26 +1829,30 @@
                 messageEl.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
                 
                 container.appendChild(messageEl);
+                addedMessages++;
                 
                 // Запускаем анимацию с задержкой
                 setTimeout(() => {
                     messageEl.style.opacity = '1';
                     messageEl.style.transform = 'translateY(0)';
-                }, 10 + (index * 100));
+                }, 10 + (addedMessages * 50));
                 
                 // Убираем inline стили после завершения анимации
                 setTimeout(() => {
-                    messageEl.style.removeProperty('opacity');
-                    messageEl.style.removeProperty('transform');
-                    messageEl.style.removeProperty('transition');
-                }, 600 + (index * 100));
+                    if (messageEl.parentNode) {
+                        messageEl.style.removeProperty('opacity');
+                        messageEl.style.removeProperty('transform');
+                        messageEl.style.removeProperty('transition');
+                    }
+                }, 600 + (addedMessages * 50));
             });
             
-            // Плавная прокрутка к новым сообщениям
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior: 'smooth'
-            });
+            // Прокрутка к новым сообщениям только если были добавлены новые
+            if (addedMessages > 0) {
+                setTimeout(() => {
+                    scrollChatToBottom(chatId);
+                }, 100);
+            }
         }
         
         // Обновление последнего ID сообщения
@@ -1939,7 +1991,10 @@
             // Загружаем сообщения для нового чата
             loadChatMessages(chat.id, true);
             startMessagePolling(chat.id);
-            setupScrollListener(chat.id); // Добавляем обработчик скролла для нового чата
+            // Добавляем обработчик скролла для нового чата с задержкой
+            setTimeout(() => {
+                setupScrollListener(chat.id);
+            }, 1000);
             
             // Показываем уведомление о новом чате
             showNewChatNotification(chat);
