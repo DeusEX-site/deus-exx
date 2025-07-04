@@ -469,19 +469,29 @@
         
         // Поиск сообщений
         async function searchMessages() {
+            // Получаем элементы заново каждый раз для надежности
             const searchBtn = document.getElementById('search-btn');
             const loading = document.getElementById('loading');
             const messageList = document.getElementById('message-list');
             const statsSection = document.getElementById('stats-section');
+            const searchInput = document.getElementById('search');
+            const chatSelect = document.getElementById('chat-select');
             
-            const search = document.getElementById('search').value;
-            const chatId = document.getElementById('chat-select').value;
-            
-            // Все элементы должны существовать, так как мы проверили их при инициализации
-            if (!searchBtn || !loading || !messageList || !statsSection) {
-                console.error('Критическая ошибка: элементы DOM исчезли после инициализации');
+            // Проверяем наличие элементов
+            if (!searchBtn || !loading || !messageList || !statsSection || !searchInput || !chatSelect) {
+                console.error('Ошибка: не найдены элементы DOM', {
+                    searchBtn: !!searchBtn,
+                    loading: !!loading,
+                    messageList: !!messageList,
+                    statsSection: !!statsSection,
+                    searchInput: !!searchInput,
+                    chatSelect: !!chatSelect
+                });
                 return;
             }
+            
+            const search = searchInput.value;
+            const chatId = chatSelect.value;
             
             searchBtn.disabled = true;
             searchBtn.textContent = '🔍 Поиск...';
@@ -567,9 +577,16 @@
                             </div>
                             
                             <div class="analysis-item ${analysis.cap_amount ? 'positive' : ''}">
-                                <div class="label">Капа</div>
+                                <div class="label">Капа ${analysis.cap_amounts && analysis.cap_amounts.length > 1 ? '(все)' : ''}</div>
+                                <div class="value">${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(' + ') : '—'}</div>
+                            </div>
+                            
+                            ${analysis.cap_amounts && analysis.cap_amounts.length > 1 ? `
+                            <div class="analysis-item positive">
+                                <div class="label">Сумма кап</div>
                                 <div class="value">${analysis.cap_amount || '—'}</div>
                             </div>
+                            ` : ''}
                             
                             <div class="analysis-item ${analysis.total_amount ? 'positive' : ''}">
                                 <div class="label">Общий лимит</div>
@@ -660,7 +677,8 @@
                 'Автор',
                 'Сообщение',
                 'Слово CAP',
-                'Капа',
+                'Все капы',
+                'Основная капа',
                 'Общий лимит',
                 'Расписание',
                 'Дата работы',
@@ -679,6 +697,7 @@
                         `"${msg.user || 'Unknown'}"`,
                         `"${msg.message.replace(/"/g, '""')}"`,
                         analysis.has_cap_word ? 'Да' : 'Нет',
+                        `"${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(' + ') : ''}"`,
                         analysis.cap_amount || '',
                         analysis.total_amount || '',
                         `"${analysis.schedule || ''}"`,

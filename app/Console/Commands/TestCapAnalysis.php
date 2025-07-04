@@ -37,6 +37,12 @@ class TestCapAnalysis extends Command
 
         // Тестовые сообщения
         $testMessages = [
+            'CAP 30 Aff - Rec : RU/KZ CAP 20 Aff2 - Rec : AU/US 10-19',  // Разные cap
+            'CAP 30
+Aff - Rec : RU/KZ 
+Aff2 - Rec : AU/US
+10-19',  // Один cap на несколько строк
+            'CAP 10',  // Простой cap
             'cap 30 XYZ Affiliate - BinaryBroker : DE,FR,UK',
             'сар 50 TestAffiliate - CryptoTrader : RU,UA,KZ 10-18',
             'сар 25 MyAffiliate - ForexPro : US,CA,AU 24/7',
@@ -46,7 +52,14 @@ class TestCapAnalysis extends Command
             'CAP 75 EnglishAffiliate - TradingPlatform : GB,IE,US 25.12',
             'Нужно 200 лидов до конца месяца',
             'cap 20 TestCompany - BrokerName : FR,DE,NL 24/7',
-            'Лимит 300 на сегодня, cap 50 на партнера'
+            'Лимит 300 на сегодня, cap 50 на партнера',
+            'CAP: 35 special format - TestBroker : CA',  // Специальный формат
+            'CAP=40 another format test',  // Ещё один формат
+            'CAP 25
+First - Broker1 : US/CA
+Second - Broker2 : UK/DE  
+Third - Broker3 : FR/IT',  // Один cap, три пары
+            'Multiple caps: CAP 15, CAP 25, CAP 35 total 500'  // Множественные cap
         ];
 
         foreach ($testMessages as $messageText) {
@@ -96,7 +109,8 @@ class TestCapAnalysis extends Command
             $this->info("Message: {$message->message}");
             $this->line("Analysis:");
             $this->line("  - Has cap word: " . ($analysis['has_cap_word'] ? 'Yes' : 'No'));
-            $this->line("  - Cap amount: " . ($analysis['cap_amount'] ?: 'Not found'));
+            $this->line("  - All cap amounts: " . (count($analysis['cap_amounts']) > 0 ? '[' . implode(', ', $analysis['cap_amounts']) . ']' : 'Not found'));
+            $this->line("  - Main cap amount: " . ($analysis['cap_amount'] ?: 'Not found'));
             $this->line("  - Total amount: " . ($analysis['total_amount'] ?: 'Not found'));
             $this->line("  - Schedule: " . ($analysis['schedule'] ?: 'Not found'));
             $this->line("  - Date: " . ($analysis['date'] ?: 'Not found'));
