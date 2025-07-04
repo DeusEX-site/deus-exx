@@ -1003,61 +1003,32 @@
             
             console.log('🔄 Starting DOM elements swap:', swapInfo);
             
-            // Найти контейнер
-            const chatContainer = document.querySelector('.container');
-            if (!chatContainer) {
-                console.error('❌ Chat container not found');
-                isSwappingChats = false;
-                return;
-            }
+            // Поиск элементов напрямую по ID (не нужен контейнер)
             
-            const allChatElements = chatContainer.querySelectorAll('[id^="chat-window-"]');
-            console.log('📊 Found chat elements:', allChatElements.length);
-            
-            // Функция для получения отображаемого имени чата
-            function getDisplayName(chat) {
-                return chat.title || chat.username || 'Чат #' + chat.chat_id;
-            }
-            
-            const chatOutDisplayName = getDisplayName(swapInfo.chatOut);
-            const chatInDisplayName = getDisplayName(swapInfo.chatIn);
-            
-            console.log('🔍 Looking for elements:', {
-                chatOut: chatOutDisplayName,
-                chatIn: chatInDisplayName
+            console.log('🔍 Looking for elements by ID:', {
+                chatOutId: swapInfo.chatOutId,
+                chatInId: swapInfo.chatInId
             });
             
-            // Найти оба элемента
-            let elementOut = null;
-            let elementIn = null;
-            
-            for (let element of allChatElements) {
-                const titleElement = element.querySelector('.chat-header h3');
-                const titleText = titleElement ? titleElement.textContent.trim() : '';
-                
-                if (titleText === chatOutDisplayName) {
-                    elementOut = element;
-                }
-                if (titleText === chatInDisplayName) {
-                    elementIn = element;
-                }
-            }
+            // Найти элементы по ID чатов (более надежно, чем по названиям)
+            const elementOut = document.getElementById(`chat-window-${swapInfo.chatOutId}`);
+            const elementIn = document.getElementById(`chat-window-${swapInfo.chatInId}`);
             
             console.log('🔍 Found elements:', {
                 elementOut: elementOut ? elementOut.id : 'NOT FOUND',
-                elementIn: elementIn ? elementIn.id : 'NOT FOUND'
+                elementIn: elementIn ? elementIn.id : 'NOT FOUND',
+                chatOutData: swapInfo.chatOut.title || swapInfo.chatOut.username,
+                chatInData: swapInfo.chatIn.title || swapInfo.chatIn.username
             });
             
             if (!elementOut) {
-                console.error('❌ Element for chatOut not found:', chatOutDisplayName);
+                console.error('❌ Element for chatOut not found:', `chat-window-${swapInfo.chatOutId}`);
                 isSwappingChats = false;
                 return;
             }
             
             if (!elementIn) {
-                console.log('⚠️ Element for chatIn not found - will update elementOut only');
-                // Просто обновляем элемент Out новыми данными In
-                updateElementWithChatData(elementOut, swapInfo.chatIn);
+                console.log('⚠️ Element for chatIn not found - skipping swap:', `chat-window-${swapInfo.chatInId}`);
                 isSwappingChats = false;
                 return;
             }
@@ -1066,45 +1037,7 @@
             swapDOMElements(elementOut, elementIn, swapInfo);
         }
         
-        // Обновление одного элемента новыми данными чата
-        function updateElementWithChatData(element, newChat) {
-            console.log('🔄 Updating element with new chat data:', newChat.title || newChat.username);
-            
-            // Анимация
-            element.style.transform = 'scale(0.95)';
-            element.style.transition = 'transform 0.3s ease';
-            
-            setTimeout(() => {
-                // Обновляем ID элемента
-                element.id = `chat-window-${newChat.id}`;
-                
-                // Обновляем заголовок
-                updateChatTitleOnly(element, newChat);
-                
-                // Обновляем ID внутренних элементов
-                updateInternalIds(element, newChat);
-                
-                // Загружаем сообщения для нового чата
-                const messagesContainer = element.querySelector('.chat-messages');
-                if (messagesContainer) {
-                    messagesContainer.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
-                    loadChatMessages(newChat.id, true);
-                }
-                
-                // Перезапускаем polling
-                startMessagePolling(newChat.id);
-                
-                // Показываем индикатор
-                showPromotionIndicator(element);
-                
-                // Возвращаем нормальный размер
-                element.style.transform = 'scale(1)';
-                
-                setTimeout(() => {
-                    isSwappingChats = false;
-                }, 500);
-            }, 300);
-        }
+
         
         // Swap DOM элементов местами
         function swapDOMElements(elementOut, elementIn, swapInfo) {
