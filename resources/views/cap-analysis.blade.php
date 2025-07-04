@@ -576,17 +576,10 @@
                                 <div class="value">${analysis.has_cap_word ? '✅' : '❌'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.cap_amount ? 'positive' : ''}">
-                                <div class="label">Капа ${analysis.cap_amounts && analysis.cap_amounts.length > 1 ? '(все)' : ''}</div>
-                                <div class="value">${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(' + ') : '—'}</div>
+                            <div class="analysis-item ${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? 'positive' : ''}">
+                                <div class="label">Капа ${analysis.cap_amounts && analysis.cap_amounts.length > 1 ? '(отдельно)' : ''}</div>
+                                <div class="value">${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.map(cap => `<span style="display: inline-block; margin: 0 0.25rem; padding: 0.125rem 0.5rem; background: rgba(16, 185, 129, 0.3); border-radius: 0.25rem;">${cap}</span>`).join('') : '—'}</div>
                             </div>
-                            
-                            ${analysis.cap_amounts && analysis.cap_amounts.length > 1 ? `
-                            <div class="analysis-item positive">
-                                <div class="label">Сумма кап</div>
-                                <div class="value">${analysis.cap_amount || '—'}</div>
-                            </div>
-                            ` : ''}
                             
                             <div class="analysis-item ${analysis.total_amount ? 'positive' : ''}">
                                 <div class="label">Общий лимит</div>
@@ -697,7 +690,7 @@
                         `"${msg.user || 'Unknown'}"`,
                         `"${msg.message.replace(/"/g, '""')}"`,
                         analysis.has_cap_word ? 'Да' : 'Нет',
-                        `"${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(' + ') : ''}"`,
+                        `"${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(', ') : ''}"`,
                         analysis.cap_amount || '',
                         analysis.total_amount || '',
                         `"${analysis.schedule || ''}"`,

@@ -34,16 +34,9 @@ class CapAnalysisService
         $capAmounts = $this->extractCapAmounts($message);
         $analysis['cap_amounts'] = $capAmounts;
         
-        // Основной cap amount - максимальный из найденных или сумма если все одинаковые
+        // Основной cap amount - для обратной совместимости (не используется в отображении)
         if (!empty($capAmounts)) {
-            $uniqueCaps = array_unique($capAmounts);
-            if (count($uniqueCaps) === 1) {
-                // Если все cap одинаковые, показываем сумму
-                $analysis['cap_amount'] = array_sum($capAmounts);
-            } else {
-                // Если разные, показываем максимальный
-                $analysis['cap_amount'] = max($capAmounts);
-            }
+            $analysis['cap_amount'] = $capAmounts[0]; // Первая найденная капа
         }
         
         // Ищем 24/7
@@ -71,20 +64,15 @@ class CapAnalysisService
             // Определяем total amount как максимальное число, которое больше cap amount
             $largestNumber = max($analysis['raw_numbers']);
             
-            // Если есть числа больше cap amount и они разумных размеров
-            if ($analysis['cap_amount']) {
-                $potentialTotals = array_filter($analysis['raw_numbers'], function($num) use ($analysis) {
-                    return $num > $analysis['cap_amount'] && $num < 10000; // Разумный лимит
+            // Если есть числа больше любой капы и они разумных размеров
+            if (!empty($capAmounts)) {
+                $maxCap = max($capAmounts);
+                $potentialTotals = array_filter($analysis['raw_numbers'], function($num) use ($maxCap) {
+                    return $num > $maxCap && $num < 10000; // Разумный лимит
                 });
                 
                 if (!empty($potentialTotals)) {
                     $analysis['total_amount'] = max($potentialTotals);
-                } else {
-                    // Если нет больших чисел, сумма всех cap может быть total
-                    $totalCaps = array_sum($capAmounts);
-                    if ($totalCaps > $analysis['cap_amount']) {
-                        $analysis['total_amount'] = $totalCaps;
-                    }
                 }
             } else {
                 // Если cap amount не найден, самое большое число может быть total
