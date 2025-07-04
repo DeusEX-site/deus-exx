@@ -764,6 +764,9 @@
     <div class="header">
         <h1>📱 Telegram Dashboard <span class="real-time-indicator" title="Обновление в реальном времени"></span></h1>
         <div class="header-controls">
+            <a href="{{ route('cap-analysis') }}" class="broadcast-btn" title="Анализ сообщений с капой" style="text-decoration: none; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;">
+                📊 Анализ Капы
+            </a>
             <button id="broadcast-btn" class="broadcast-btn" title="Глобальная рассылка офферов">
                 📢 Рассылка
             </button>
