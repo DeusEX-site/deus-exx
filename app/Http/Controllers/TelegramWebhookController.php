@@ -186,6 +186,8 @@ class TelegramWebhookController extends Controller
     private function updateChatStats($chatModel)
     {
         $chatModel->increment('message_count');
+        // Обновляем last_message_at только для входящих сообщений
+        // (исходящие сообщения обрабатываются в TelegramBotController)
         $chatModel->update(['last_message_at' => now()]);
     }
 } 
