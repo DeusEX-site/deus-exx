@@ -1090,6 +1090,14 @@
                 updateInternalIds(elementOut, swapInfo.chatIn);
                 updateInternalIds(elementIn, swapInfo.chatOut);
                 
+                // ВАЖНО: Останавливаем старые polling
+                stopMessagePolling(swapInfo.chatOut.id);
+                stopMessagePolling(swapInfo.chatIn.id);
+                
+                // ВАЖНО: Загружаем новые сообщения для каждого чата
+                loadNewMessagesForSwappedChats(elementOut, swapInfo.chatIn);
+                loadNewMessagesForSwappedChats(elementIn, swapInfo.chatOut);
+                
                 // Перезапускаем polling
                 startMessagePolling(swapInfo.chatIn.id);
                 startMessagePolling(swapInfo.chatOut.id);
@@ -1101,9 +1109,11 @@
                 // Показываем индикаторы
                 showSwapIndicators(elementOut, elementIn);
                 
-                // Автоскролл вниз после swap
-                scrollChatToBottom(swapInfo.chatIn.id);
-                scrollChatToBottom(swapInfo.chatOut.id);
+                // Автоскролл вниз после swap (с задержкой для загрузки сообщений)
+                setTimeout(() => {
+                    scrollChatToBottom(swapInfo.chatIn.id);
+                    scrollChatToBottom(swapInfo.chatOut.id);
+                }, 1000);
                 
                 // Возвращаем нормальный размер
                 elementOut.style.transform = 'scale(1)';
@@ -1631,6 +1641,27 @@
             }
         }
         
+        // Загрузка новых сообщений для swapped чатов
+        function loadNewMessagesForSwappedChats(element, chat) {
+            const messagesContainer = element.querySelector('.chat-messages');
+            if (messagesContainer) {
+                // Очищаем контейнер и показываем загрузку
+                messagesContainer.innerHTML = '<div class="loading">Загрузка сообщений...</div>';
+                
+                // Сбрасываем переменные для пагинации
+                delete lastMessageIds[chat.id];
+                delete firstMessageIds[chat.id];
+                delete hasOlderMessages[chat.id];
+                delete isLoadingMessages[chat.id];
+                delete isLoadingOldMessages[chat.id];
+                
+                // Загружаем новые сообщения
+                loadChatMessages(chat.id, true);
+                
+                console.log('🔄 Loading new messages for swapped chat:', chat.title || chat.username);
+            }
+        }
+        
         // Настройка обработчика скролла для загрузки старых сообщений
         function setupScrollListener(chatId) {
             const container = document.getElementById(`messages-${chatId}`);
@@ -1804,6 +1835,15 @@
             messageIntervals[chatId] = setInterval(() => {
                 loadChatMessages(chatId, false); // Загрузка только новых сообщений
             }, 1000); // Обновляем каждую секунду
+        }
+        
+        // Остановка polling для чата
+        function stopMessagePolling(chatId) {
+            if (messageIntervals[chatId]) {
+                clearInterval(messageIntervals[chatId]);
+                delete messageIntervals[chatId];
+                console.log('🔴 Stopped polling for chat:', chatId);
+            }
         }
         
         // Запуск проверки новых чатов и позиций
