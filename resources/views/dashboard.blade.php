@@ -1004,7 +1004,13 @@
             console.log('🔄 Starting swap with info:', swapInfo);
             
             // Найти элементы по позициям, а не по ID
-            const chatContainer = document.querySelector('.dashboard-container');
+            const chatContainer = document.querySelector('.container');
+            if (!chatContainer) {
+                console.error('❌ Chat container not found');
+                isSwappingChats = false;
+                return;
+            }
+            
             const allChatElements = chatContainer.querySelectorAll('[id^="chat-window-"]');
             
             console.log('📊 Found chat elements:', allChatElements.length);
