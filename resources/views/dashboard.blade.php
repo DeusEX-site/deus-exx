@@ -1015,11 +1015,24 @@
             
             console.log('📊 Found chat elements:', allChatElements.length);
             
+            // Функция для получения отображаемого имени чата
+            function getDisplayName(chat) {
+                return chat.title || chat.username || 'Чат #' + chat.chat_id;
+            }
+            
+            const chatOutDisplayName = getDisplayName(swapInfo.chatOut);
+            const chatInDisplayName = getDisplayName(swapInfo.chatIn);
+            
+            console.log('🔍 Looking for elements with names:', {
+                chatOutDisplayName: chatOutDisplayName,
+                chatInDisplayName: chatInDisplayName
+            });
+            
             // Найти элемент, который сейчас показывает chatOut (он в топ-10)
             let elementOut = null;
             for (let element of allChatElements) {
                 const titleElement = element.querySelector('.chat-header h3');
-                if (titleElement && titleElement.textContent.trim() === swapInfo.chatOut.title) {
+                if (titleElement && titleElement.textContent.trim() === chatOutDisplayName) {
                     elementOut = element;
                     break;
                 }
@@ -1029,7 +1042,7 @@
             let elementIn = null;
             for (let element of allChatElements) {
                 const titleElement = element.querySelector('.chat-header h3');
-                if (titleElement && titleElement.textContent.trim() === swapInfo.chatIn.title) {
+                if (titleElement && titleElement.textContent.trim() === chatInDisplayName) {
                     elementIn = element;
                     break;
                 }
@@ -1038,18 +1051,18 @@
             console.log('🔍 Found elements:', {
                 elementOut: elementOut ? elementOut.id : 'NOT FOUND',
                 elementIn: elementIn ? elementIn.id : 'NOT FOUND',
-                chatOutTitle: swapInfo.chatOut.title,
-                chatInTitle: swapInfo.chatIn.title
+                chatOutDisplayName: chatOutDisplayName,
+                chatInDisplayName: chatInDisplayName
             });
             
             if (!elementOut) {
-                console.error('❌ Element for chatOut not found:', swapInfo.chatOut.title);
+                console.error('❌ Element for chatOut not found:', chatOutDisplayName);
                 isSwappingChats = false;
                 return;
             }
             
             if (!elementIn) {
-                console.log('⚠️ Element for chatIn not found, will replace elementOut:', swapInfo.chatIn.title);
+                console.log('⚠️ Element for chatIn not found, will replace elementOut:', chatInDisplayName);
                 // Если элемент chatIn не найден, просто обновим elementOut
                 replaceChatContent(elementOut, swapInfo.chatIn);
                 isSwappingChats = false;
@@ -1207,16 +1220,18 @@
         function updateChatTitleOnly(element, chat) {
             const header = element.querySelector('.chat-header');
             if (header) {
+                const displayName = chat.title || chat.username || 'Чат #' + chat.chat_id;
+                
                 // Обновляем только текст заголовка
                 const titleElement = header.querySelector('h3');
                 if (titleElement) {
-                    titleElement.textContent = chat.title || chat.username || 'Чат #' + chat.chat_id;
+                    titleElement.textContent = displayName;
                 }
                 
                 // Обновляем аватар
                 const avatarElement = header.querySelector('.chat-avatar');
                 if (avatarElement) {
-                    avatarElement.textContent = getAvatarText(chat.title || chat.username);
+                    avatarElement.textContent = getAvatarText(displayName);
                 }
                 
                 // Обновляем подпись
@@ -1227,6 +1242,8 @@
                 
                 // Обновляем класс заголовка
                 header.className = `chat-header ${chat.type}`;
+                
+                console.log('📝 Updated title to:', displayName);
             }
         }
 
