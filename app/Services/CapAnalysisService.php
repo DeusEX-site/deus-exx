@@ -265,28 +265,9 @@ class CapAnalysisService
             }
         }
         
-        // Поиск общего тотала для случаев когда нет специфичного
+        // НЕ ищем общий тотал автоматически
+        // Каждая строка должна иметь свой тотал или бесконечность
         $globalTotalAmount = null;
-        $allNumbers = [];
-        foreach ($lines as $line) {
-            preg_match_all('/\b(\d+)\b/', $line, $matches);
-            foreach ($matches[1] as $match) {
-                $num = intval($match);
-                $allNumbers[] = $num;
-            }
-        }
-        
-        // Определяем общий TOTAL - число которое НЕ является CAP и больше максимального CAP
-        if (!empty($allCapValues)) {
-            $maxCap = max($allCapValues);
-            foreach ($allNumbers as $num) {
-                // Исключаем все CAP значения из поиска total
-                if (!in_array($num, $allCapValues) && $num > $maxCap && $num >= 50 && $num < 10000) {
-                    $globalTotalAmount = $num;
-                    break;
-                }
-            }
-        }
         
         // Поиск глобальных параметров (применяются ко всем, если не указаны конкретно)
         $globalSchedule = null;
@@ -405,9 +386,9 @@ class CapAnalysisService
                     }
                 }
                 
-                // Если не найден тотал в строке, используем общий тотал
+                // Если не найден тотал в строке, устанавливаем бесконечность
                 if (!$lineTotalAmount) {
-                    $lineTotalAmount = $globalTotalAmount ?: -1; // -1 означает бесконечность
+                    $lineTotalAmount = -1; // -1 означает бесконечность
                 }
                 
                 $affiliateName = trim($pairMatch[1]);
@@ -555,7 +536,21 @@ class CapAnalysisService
         
         // Если пары не найдены, создаем одну запись с глобальными параметрами
         if (empty($pairs)) {
-            $globalTotal = $globalTotalAmount ?: -1; // -1 означает бесконечность
+            // Ищем тотал во всем сообщении
+            $messageTotalAmount = null;
+            preg_match_all('/\b(\d+)\b/', $messageText, $allMessageNumbers);
+            if (!empty($allMessageNumbers[1])) {
+                $messageNumbersArray = array_map('intval', $allMessageNumbers[1]);
+                
+                // Ищем число которое НЕ является CAP и больше CAP
+                foreach ($messageNumbersArray as $num) {
+                    if (!in_array($num, $allCapValues) && $num > $capAmount && $num >= 50 && $num < 10000) {
+                        $messageTotalAmount = $num;
+                        break;
+                    }
+                }
+            }
+            
             $pairs[] = [
                 'affiliate_name' => null,
                 'broker_name' => null,
@@ -565,7 +560,7 @@ class CapAnalysisService
                 'work_hours' => $globalWorkHours,
                 'highlighted_text' => $messageText,
                 'cap_amount' => $capAmount, // Общий CAP для случая без пар
-                'total_amount' => $globalTotal // Общий тотал для случая без пар
+                'total_amount' => $messageTotalAmount ?: -1 // Тотал из всего сообщения или бесконечность
             ];
         }
         
