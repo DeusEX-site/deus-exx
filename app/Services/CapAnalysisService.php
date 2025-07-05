@@ -396,8 +396,22 @@ class CapAnalysisService
                 $affiliateName = trim($pairMatch[1]);
                 $brokerPart = trim($pairMatch[2]);
                 
-                // Убираем CAP из названия аффилейта если есть
-                $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
+                // Убираем CAP из названия аффилейта (из любого места, не только начала)
+                $affiliateName = preg_replace('/(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
+                
+                // Убираем все найденные CAP значения
+                foreach ($allCapValues as $capValue) {
+                    $affiliateName = preg_replace('/\b' . $capValue . '\b\s*/', '', $affiliateName);
+                }
+                
+                // Убираем числа которые являются total amount
+                if ($totalAmount > 0) {
+                    $affiliateName = preg_replace('/\b' . $totalAmount . '\b\s*/', '', $affiliateName);
+                }
+                
+                // Убираем начальные слова типа "по", "max", "до" и т.д.
+                $affiliateName = preg_replace('/^(по|max|до|макс|мах)\s+/iu', '', $affiliateName);
+                
                 $affiliateName = trim($affiliateName);
                 
                 // Разделяем брокера и гео из brokerPart
