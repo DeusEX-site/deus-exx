@@ -50,4 +50,13 @@ return [
         'caption_length' => 1024,
         'entities_per_message' => 100,
     ],
+    
+    // Настройки уведомлений о капах
+    'cap_notifications' => [
+        'enabled' => env('TELEGRAM_CAP_NOTIFICATIONS_ENABLED', true),
+        'admin_chat_id' => env('TELEGRAM_ADMIN_CHAT_ID'), // ID админского чата для дублирования уведомлений
+        'notify_on_create' => env('TELEGRAM_CAP_NOTIFY_CREATE', true),
+        'notify_on_update' => env('TELEGRAM_CAP_NOTIFY_UPDATE', true),
+        'bulk_threshold' => env('TELEGRAM_CAP_BULK_THRESHOLD', 3), // Если обновилось больше кап чем этот порог - отправляем групповое уведомление
+    ],
 ]; 

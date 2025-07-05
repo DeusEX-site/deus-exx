@@ -39,6 +39,14 @@ class Cap extends Model
     }
 
     /**
+     * Связь с историей изменений
+     */
+    public function history()
+    {
+        return $this->hasMany(CapHistory::class);
+    }
+
+    /**
      * Поиск кап по параметрам
      */
     public static function searchCaps($search = null, $chatId = null)
