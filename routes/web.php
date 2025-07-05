@@ -224,7 +224,6 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
         $affiliate = $request->get('affiliate', '');
         $schedule = $request->get('schedule', '');
         $total = $request->get('total', '');
-        $affiliatePresence = $request->get('affiliate_presence', '');
         
         // Создаем экземпляр сервиса анализа
         $capAnalysisService = new \App\Services\CapAnalysisService();
@@ -235,8 +234,7 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
             'broker' => $broker,
             'affiliate' => $affiliate,
             'schedule' => $schedule,
-            'total' => $total,
-            'affiliate_presence' => $affiliatePresence
+            'total' => $total
         ]);
         
         return response()->json([

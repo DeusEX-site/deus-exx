@@ -431,9 +431,8 @@
                     <label for="schedule-filter">Расписание</label>
                     <select id="schedule-filter">
                         <option value="">Все</option>
-                        <option value="has_schedule">Есть расписание</option>
-                        <option value="no_schedule">Нет расписания</option>
                         <option value="24_7">24/7</option>
+                        <option value="has_schedule">Есть расписание</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -441,15 +440,7 @@
                     <select id="total-filter">
                         <option value="">Все</option>
                         <option value="has_total">Есть лимит</option>
-                        <option value="no_total">Нет лимита</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="affiliate-presence-filter">Наличие аффилейта</label>
-                    <select id="affiliate-presence-filter">
-                        <option value="">Все</option>
-                        <option value="has_affiliate">Есть аффилейт</option>
-                        <option value="no_affiliate">Нет аффилейта</option>
+                        <option value="infinity">Бесконечность</option>
                     </select>
                 </div>
                 <div class="form-buttons">
@@ -622,7 +613,7 @@
             // Очищаем элементы безопасно
             const elements = [
                 'search', 'chat-select', 'geo-filter', 'broker-filter', 
-                'affiliate-filter', 'schedule-filter', 'total-filter', 'affiliate-presence-filter'
+                'affiliate-filter', 'schedule-filter', 'total-filter'
             ];
             
             elements.forEach(id => {
@@ -672,7 +663,6 @@
             const affiliateFilter = document.getElementById('affiliate-filter');
             const scheduleFilter = document.getElementById('schedule-filter');
             const totalFilter = document.getElementById('total-filter');
-            const affiliatePresenceFilter = document.getElementById('affiliate-presence-filter');
             
             const search = searchInput.value;
             const chatId = chatSelect.value;
@@ -681,10 +671,9 @@
             const affiliate = affiliateFilter?.value || '';
             const schedule = scheduleFilter?.value || '';
             const total = totalFilter?.value || '';
-            const affiliatePresence = affiliatePresenceFilter?.value || '';
 
             console.log('Параметры поиска:', {
-                search, chatId, geo, broker, affiliate, schedule, total, affiliatePresence
+                search, chatId, geo, broker, affiliate, schedule, total
             });
             
             searchBtn.disabled = true;
@@ -702,7 +691,6 @@
                 if (affiliate) params.append('affiliate', affiliate);
                 if (schedule) params.append('schedule', schedule);
                 if (total) params.append('total', total);
-                if (affiliatePresence) params.append('affiliate_presence', affiliatePresence);
                 
                 const response = await fetch(`/api/cap-analysis?${params}`, {
                     headers: {
@@ -800,9 +788,9 @@
                                 <div class="value">${analysis.date || new Date().toLocaleDateString('ru-RU')}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.affiliate_name ? 'positive' : 'warning'}">
+                            <div class="analysis-item ${analysis.affiliate_name ? 'positive' : 'critical'}">
                                 <div class="label">Аффилейт</div>
-                                <div class="value">${analysis.affiliate_name || '<span style="color: #f59e0b;">❌ Отсутствует</span>'}</div>
+                                <div class="value">${analysis.affiliate_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
                             <div class="analysis-item ${analysis.broker_name ? 'positive' : 'critical'}">

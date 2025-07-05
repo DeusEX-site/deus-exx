@@ -87,7 +87,8 @@ class TestNewCapSystem extends Command
             "CAP 30\naff - brok : RU LV\naff2 - brok2 : DE FR",
             "CAP 50\naff - brok\nRU",
             "CAP 20\n24/7\nDE,FR,IT",
-            "CAP 40\n- BinaryOptions : DE,FR"
+            "CAP 40\n- BinaryOptions : DE,FR",
+            "CAP 25\n10-19\nRU,KZ"
         ];
         
         $capAnalysisService = new CapAnalysisService();
@@ -118,7 +119,6 @@ class TestNewCapSystem extends Command
                     $this->line("  - Geo: " . (count($data['geos']) > 0 ? implode(', ', $data['geos']) : 'Missing (CRITICAL)'));
                     
                     // Check validation
-                    $warnings = [];
                     $errors = [];
                     
                     if (!$data['broker_name']) {
@@ -126,7 +126,7 @@ class TestNewCapSystem extends Command
                     }
                     
                     if (!$data['affiliate_name']) {
-                        $warnings[] = 'Affiliate name is missing';
+                        $errors[] = 'Affiliate name is mandatory';
                     }
                     
                     if (count($data['geos']) == 0) {
@@ -135,13 +135,7 @@ class TestNewCapSystem extends Command
                     
                     if (!empty($errors)) {
                         $this->error("  ERRORS: " . implode(', ', $errors));
-                    }
-                    
-                    if (!empty($warnings)) {
-                        $this->warn("  WARNINGS: " . implode(', ', $warnings));
-                    }
-                    
-                    if (empty($errors) && empty($warnings)) {
+                    } else {
                         $this->info("  ✅ All mandatory fields present");
                     }
                     

@@ -119,10 +119,8 @@ class CapAnalysisService
         if (!empty($filters['schedule'])) {
             switch ($filters['schedule']) {
                 case 'has_schedule':
-                    $query->whereNotNull('schedule');
-                    break;
-                case 'no_schedule':
-                    $query->whereNull('schedule');
+                    $query->whereNotNull('schedule')
+                          ->where('schedule', '!=', '24/7');
                     break;
                 case '24_7':
                     $query->where('is_24_7', true);
@@ -134,22 +132,11 @@ class CapAnalysisService
         if (!empty($filters['total'])) {
             switch ($filters['total']) {
                 case 'has_total':
-                    $query->whereNotNull('total_amount');
+                    $query->whereNotNull('total_amount')
+                          ->where('total_amount', '!=', -1);
                     break;
-                case 'no_total':
-                    $query->whereNull('total_amount');
-                    break;
-            }
-        }
-
-        // Фильтр по наличию аффилейта
-        if (!empty($filters['affiliate_presence'])) {
-            switch ($filters['affiliate_presence']) {
-                case 'has_affiliate':
-                    $query->whereNotNull('affiliate_name');
-                    break;
-                case 'no_affiliate':
-                    $query->whereNull('affiliate_name');
+                case 'infinity':
+                    $query->where('total_amount', -1);
                     break;
             }
         }
@@ -350,8 +337,21 @@ class CapAnalysisService
         foreach ($lines as $line) {
             $line = trim($line);
             
-            // Ищем пары аффилейт-брокер
+            // Пропускаем строки, которые являются временем работы (например 10-19, 09-18)
+            if (preg_match('/^\d{1,2}-\d{1,2}$/', $line)) {
+                continue;
+            }
+            
+            // Ищем пары аффилейт-брокер (НЕ только цифры)
             if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)/', $line, $pairMatch)) {
+                // Проверяем что это не время работы внутри строки
+                $part1 = trim($pairMatch[1]);
+                $part2 = trim($pairMatch[2]);
+                
+                // Если обе части - только цифры, это время работы, пропускаем
+                if (preg_match('/^\d{1,2}$/', $part1) && preg_match('/^\d{1,2}$/', $part2)) {
+                    continue;
+                }
                 $affiliateName = trim($pairMatch[1]);
                 $brokerName = trim($pairMatch[2]);
                 
