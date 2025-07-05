@@ -83,18 +83,19 @@ class TestNewCapSystem extends Command
         $this->line('');
         
         $testMessages = [
-            'CAP 30/200 Aff - Rec : RU,KZ',
-            'CAP 30 Aff - Rec : RU,KZ',
-            'CAP 50\\100 TestAffiliate - BinaryBroker : US,CA',
-            'CAP 20',
-            'CAP 40 - BinaryOptions : DE,FR',
-            'CAP 25 SuperAffiliate - : IT,ES'
+            "CAP 10\n10-19\n14.09\naff - brok : RU\nmax 100",
+            "CAP 30\naff - brok : RU LV\naff2 - brok2 : DE FR",
+            "CAP 50\naff - brok\nRU",
+            "CAP 20\n24/7\nDE,FR,IT",
+            "CAP 40\n- BinaryOptions : DE,FR"
         ];
         
         $capAnalysisService = new CapAnalysisService();
         
         foreach ($testMessages as $message) {
-            $this->info("Testing message: {$message}");
+            $this->info("Testing message:");
+            $this->info($message);
+            $this->line('');
             
             // Analyze and save the message
             $analysis = $capAnalysisService->analyzeAndSaveCapMessage(999, $message);
@@ -103,46 +104,52 @@ class TestNewCapSystem extends Command
             $results = $capAnalysisService->searchCaps(null, null);
             
             if (!empty($results)) {
-                $result = $results[0];
-                $data = $result['analysis'];
+                $this->line("Found " . count($results) . " CAP entries:");
                 
-                $this->line("  - CAP Amount: " . ($data['cap_amounts'] ? implode(', ', $data['cap_amounts']) : 'Not found'));
-                $this->line("  - Total Amount: " . ($data['total_amount'] ? $data['total_amount'] : 'Infinity'));
-                $this->line("  - Schedule: " . ($data['schedule'] ? $data['schedule'] : '24/7 (default)'));
-                $this->line("  - Affiliate: " . ($data['affiliate_name'] ? $data['affiliate_name'] : 'Missing (WARNING)'));
-                $this->line("  - Broker: " . ($data['broker_name'] ? $data['broker_name'] : 'Missing (CRITICAL)'));
-                $this->line("  - Geo: " . (count($data['geos']) > 0 ? implode(', ', $data['geos']) : 'Missing (CRITICAL)'));
-                
-                // Check validation
-                $warnings = [];
-                $errors = [];
-                
-                if (!$data['broker_name']) {
-                    $errors[] = 'Broker name is mandatory';
-                }
-                
-                if (!$data['affiliate_name']) {
-                    $warnings[] = 'Affiliate name is missing';
-                }
-                
-                if (count($data['geos']) == 0) {
-                    $errors[] = 'Geo is mandatory';
-                }
-                
-                if (!empty($errors)) {
-                    $this->error("  ERRORS: " . implode(', ', $errors));
-                }
-                
-                if (!empty($warnings)) {
-                    $this->warn("  WARNINGS: " . implode(', ', $warnings));
-                }
-                
-                if (empty($errors) && empty($warnings)) {
-                    $this->info("  ✅ All mandatory fields present");
+                foreach ($results as $result) {
+                    $data = $result['analysis'];
+                    
+                    $this->line("  - CAP Amount: " . ($data['cap_amounts'] ? implode(', ', $data['cap_amounts']) : 'Not found'));
+                    $this->line("  - Total Amount: " . ($data['total_amount'] === -1 ? 'Infinity' : ($data['total_amount'] ?: 'Not found')));
+                    $this->line("  - Schedule: " . ($data['schedule'] ?: '24/7 (default)'));
+                    $this->line("  - Date: " . ($data['date'] ?: 'Today'));
+                    $this->line("  - Affiliate: " . ($data['affiliate_name'] ?: 'Missing (WARNING)'));
+                    $this->line("  - Broker: " . ($data['broker_name'] ?: 'Missing (CRITICAL)'));
+                    $this->line("  - Geo: " . (count($data['geos']) > 0 ? implode(', ', $data['geos']) : 'Missing (CRITICAL)'));
+                    
+                    // Check validation
+                    $warnings = [];
+                    $errors = [];
+                    
+                    if (!$data['broker_name']) {
+                        $errors[] = 'Broker name is mandatory';
+                    }
+                    
+                    if (!$data['affiliate_name']) {
+                        $warnings[] = 'Affiliate name is missing';
+                    }
+                    
+                    if (count($data['geos']) == 0) {
+                        $errors[] = 'Geo is mandatory';
+                    }
+                    
+                    if (!empty($errors)) {
+                        $this->error("  ERRORS: " . implode(', ', $errors));
+                    }
+                    
+                    if (!empty($warnings)) {
+                        $this->warn("  WARNINGS: " . implode(', ', $warnings));
+                    }
+                    
+                    if (empty($errors) && empty($warnings)) {
+                        $this->info("  ✅ All mandatory fields present");
+                    }
+                    
+                    $this->line('');
                 }
             }
             
-            $this->line('');
+            $this->line('---');
             
             // Clean up test data
             Cap::where('message_id', 999)->delete();

@@ -223,26 +223,92 @@ class CapAnalysisService
     }
 
     /**
+     * Список известных гео кодов
+     */
+    private function getGeoList()
+    {
+        return [
+            'RU', 'KZ', 'UA', 'BY', 'UZ', 'TJ', 'KG', 'AM', 'AZ', 'GE', 'MD', 'LT', 'LV', 'EE',
+            'DE', 'FR', 'IT', 'ES', 'PT', 'GB', 'UK', 'IE', 'NL', 'BE', 'AT', 'CH', 'SE', 'NO', 'DK', 'FI', 'PL', 'CZ', 'SK', 'HU', 'RO', 'BG', 'HR', 'SI', 'RS', 'BA', 'ME', 'MK', 'AL', 'GR', 'CY', 'MT',
+            'US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE', 'VE', 'UY', 'PY', 'EC', 'BO', 'GY', 'SR', 'FK',
+            'AU', 'NZ', 'PG', 'FJ', 'NC', 'VU', 'SB', 'TO', 'WS', 'KI', 'TV', 'NR', 'PW', 'FM', 'MH',
+            'CN', 'JP', 'KR', 'TW', 'HK', 'MO', 'SG', 'MY', 'TH', 'VN', 'PH', 'ID', 'BN', 'LA', 'KH', 'MM', 'IN', 'BD', 'PK', 'LK', 'NP', 'BT', 'MV', 'AF', 'IR', 'IQ', 'SY', 'LB', 'JO', 'PS', 'IL', 'TR', 'CY', 'SA', 'AE', 'QA', 'BH', 'KW', 'OM', 'YE',
+            'EG', 'LY', 'TN', 'DZ', 'MA', 'SD', 'SS', 'ET', 'ER', 'DJ', 'SO', 'KE', 'UG', 'TZ', 'RW', 'BI', 'CD', 'CF', 'TD', 'CM', 'GQ', 'GA', 'ST', 'CG', 'AO', 'ZM', 'ZW', 'BW', 'NA', 'ZA', 'LS', 'SZ', 'MG', 'MU', 'SC', 'KM', 'MZ', 'MW', 'ZW'
+        ];
+    }
+
+    /**
      * Извлекает отдельные записи кап из сообщения
      */
     private function extractSeparateCapEntries($messageText)
     {
         $capEntries = [];
         $lines = preg_split('/[\r\n]+/', $messageText);
+        $geoList = $this->getGeoList();
         
-        // Глобальная информация (может применяться ко всем капам)
+        // Ищем CAP в сообщении
+        $capAmount = null;
+        $totalAmount = null;
+        
+        // Поиск CAP
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)/iu', $line, $capMatch)) {
+                $capAmount = intval($capMatch[1]);
+                break;
+            }
+        }
+        
+        // Если CAP не найден, пропускаем
+        if (!$capAmount) {
+            return $capEntries;
+        }
+        
+        // Поиск всех чисел для определения TOTAL
+        $allNumbers = [];
+        foreach ($lines as $line) {
+            preg_match_all('/\b(\d+)\b/', $line, $matches);
+            foreach ($matches[1] as $match) {
+                $num = intval($match);
+                $allNumbers[] = $num;
+            }
+        }
+        
+        // Определяем TOTAL - число минимум в 2 раза больше CAP
+        foreach ($allNumbers as $num) {
+            if ($num >= $capAmount * 2 && $num < 10000) {
+                $totalAmount = $num;
+                break;
+            }
+        }
+        
+        // Если TOTAL не найден, устанавливаем бесконечность
+        if (!$totalAmount) {
+            $totalAmount = -1; // -1 означает бесконечность
+        }
+        
+        // Поиск глобальных параметров (применяются ко всем, если не указаны конкретно)
         $globalSchedule = null;
         $globalDate = null;
-        $globalIs24_7 = false;
+        $globalGeos = [];
         $globalWorkHours = null;
         
-        // Извлекаем глобальную информацию
+        // Ищем глобальные параметры в строках без пар аффилейт-брокер
         foreach ($lines as $line) {
             $line = trim($line);
             
+            // Пропускаем строки с парами аффилейт-брокер
+            if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)/', $line)) {
+                continue;
+            }
+            
+            // Пропускаем строки с CAP
+            if (preg_match('/(?:cap|сар|сар|кап)/iu', $line)) {
+                continue;
+            }
+            
             // Ищем 24/7
             if (preg_match('/24\/7|24-7/', $line)) {
-                $globalIs24_7 = true;
                 $globalSchedule = '24/7';
             }
             
@@ -254,165 +320,131 @@ class CapAnalysisService
             
             // Ищем даты (14.05, 25.12, etc.)
             if (preg_match('/^(\d{1,2})\.(\d{1,2})$/', $line, $matches)) {
-                $globalDate = $matches[0];
+                $globalDate = $matches[0] . '.' . date('Y'); // Добавляем текущий год
+            }
+            
+            // Ищем гео в отдельных строках
+            $lineGeos = [];
+            $words = preg_split('/[\s,\/]+/', $line);
+            foreach ($words as $word) {
+                $word = trim(strtoupper($word));
+                if (in_array($word, $geoList)) {
+                    $lineGeos[] = $word;
+                }
+            }
+            if (!empty($lineGeos)) {
+                $globalGeos = array_merge($globalGeos, $lineGeos);
             }
         }
         
-        // Если нет времени и даты, значит расписание это 24/7
-        if (!$globalSchedule && !$globalDate) {
+        // Устанавливаем значения по умолчанию
+        if (!$globalSchedule) {
             $globalSchedule = '24/7';
-            $globalIs24_7 = true;
+        }
+        if (!$globalDate) {
+            $globalDate = date('d.m.Y');
         }
         
-        // Ищем строки с капами
+        // Поиск пар аффилейт-брокер
+        $pairs = [];
         foreach ($lines as $line) {
             $line = trim($line);
             
-            // Проверяем паттерны CAP X/Y где X это капа, Y это тотал
-            if (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)\/(\d+)/iu', $line, $capTotalMatch)) {
-                $capAmount = intval($capTotalMatch[1]);
-                $totalAmount = intval($capTotalMatch[2]);
+            // Ищем пары аффилейт-брокер
+            if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)/', $line, $pairMatch)) {
+                $affiliateName = trim($pairMatch[1]);
+                $brokerName = trim($pairMatch[2]);
                 
-                // Извлекаем аффилейт и брокера
-                $affiliateName = null;
-                $brokerName = null;
-                if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)\s*:/', $line, $nameMatch)) {
-                    $affiliateName = trim($nameMatch[1]);
-                    $brokerName = trim($nameMatch[2]);
-                    
-                    // Убираем cap из названия аффилейта
-                    $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+\/\d+\s*/iu', '', $affiliateName);
-                    $affiliateName = trim($affiliateName);
-                }
+                // Убираем CAP из названия аффилейта если есть
+                $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
+                $affiliateName = trim($affiliateName);
                 
-                // Извлекаем гео
-                $geos = [];
+                // Поиск гео в той же строке
+                $lineGeos = [];
+                
+                // Поиск после двоеточия
                 if (preg_match('/:([^:\r\n]+)/', $line, $geoMatch)) {
                     $geoString = trim($geoMatch[1]);
-                    $geoList = preg_split('/[,\/\s]+/', $geoString);
-                    $geos = array_filter(array_map('trim', $geoList), function($geo) {
-                        return strlen($geo) >= 2 && strlen($geo) <= 10 && preg_match('/^[A-Z]{2,}$/i', $geo);
-                    });
+                    $words = preg_split('/[\s,\/]+/', $geoString);
+                    foreach ($words as $word) {
+                        $word = trim(strtoupper($word));
+                        if (in_array($word, $geoList)) {
+                            $lineGeos[] = $word;
+                        }
+                    }
                 }
                 
-                // Создаем запись капы
-                $capEntries[] = [
-                    'cap_amount' => $capAmount,
-                    'total_amount' => $totalAmount,
-                    'schedule' => $globalSchedule,
-                    'date' => $globalDate,
-                    'is_24_7' => $globalIs24_7,
-                    'affiliate_name' => $affiliateName,
-                    'broker_name' => $brokerName,
-                    'geos' => $geos,
-                    'work_hours' => $globalWorkHours,
+                // Поиск гео в любом месте строки
+                if (empty($lineGeos)) {
+                    $words = preg_split('/[\s,\/]+/', $line);
+                    foreach ($words as $word) {
+                        $word = trim(strtoupper($word));
+                        if (in_array($word, $geoList)) {
+                            $lineGeos[] = $word;
+                        }
+                    }
+                }
+                
+                // Поиск времени/даты в той же строке
+                $lineSchedule = $globalSchedule;
+                $lineDate = $globalDate;
+                $lineWorkHours = $globalWorkHours;
+                
+                // Поиск 24/7 в строке
+                if (preg_match('/24\/7|24-7/', $line)) {
+                    $lineSchedule = '24/7';
+                }
+                
+                // Поиск времени работы в строке
+                if (preg_match('/(\d{1,2})-(\d{1,2})/', $line, $matches)) {
+                    $lineWorkHours = $matches[0];
+                    $lineSchedule = $matches[0];
+                }
+                
+                // Поиск даты в строке
+                if (preg_match('/(\d{1,2})\.(\d{1,2})/', $line, $matches)) {
+                    $lineDate = $matches[0] . '.' . date('Y');
+                }
+                
+                $pairs[] = [
+                    'affiliate_name' => $affiliateName ?: null,
+                    'broker_name' => $brokerName ?: null,
+                    'geos' => !empty($lineGeos) ? $lineGeos : $globalGeos,
+                    'schedule' => $lineSchedule,
+                    'date' => $lineDate,
+                    'work_hours' => $lineWorkHours,
                     'highlighted_text' => $line
                 ];
             }
-            // Проверяем паттерны с \ или / где с обеих сторон цифры (не 24/7 или 24/5)
-            elseif (preg_match('/(\d+)[\/\\\\](\d+)/', $line, $slashMatch)) {
-                $firstNum = intval($slashMatch[1]);
-                $secondNum = intval($slashMatch[2]);
-                
-                // Проверяем что это не 24/7 или 24/5
-                if (!($firstNum == 24 && ($secondNum == 7 || $secondNum == 5))) {
-                    // Ищем CAP в той же строке
-                    if (preg_match('/(?:cap|сар|сар|кап)/iu', $line)) {
-                        $capAmount = $firstNum;
-                        $totalAmount = $secondNum;
-                        
-                        // Извлекаем аффилейт и брокера
-                        $affiliateName = null;
-                        $brokerName = null;
-                        if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)\s*:/', $line, $nameMatch)) {
-                            $affiliateName = trim($nameMatch[1]);
-                            $brokerName = trim($nameMatch[2]);
-                            
-                            // Убираем cap из названия аффилейта
-                            $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+[\/\\\\]\d+\s*/iu', '', $affiliateName);
-                            $affiliateName = trim($affiliateName);
-                        }
-                        
-                        // Извлекаем гео
-                        $geos = [];
-                        if (preg_match('/:([^:\r\n]+)/', $line, $geoMatch)) {
-                            $geoString = trim($geoMatch[1]);
-                            $geoList = preg_split('/[,\/\s]+/', $geoString);
-                            $geos = array_filter(array_map('trim', $geoList), function($geo) {
-                                return strlen($geo) >= 2 && strlen($geo) <= 10 && preg_match('/^[A-Z]{2,}$/i', $geo);
-                            });
-                        }
-                        
-                        // Создаем запись капы
-                        $capEntries[] = [
-                            'cap_amount' => $capAmount,
-                            'total_amount' => $totalAmount,
-                            'schedule' => $globalSchedule,
-                            'date' => $globalDate,
-                            'is_24_7' => $globalIs24_7,
-                            'affiliate_name' => $affiliateName,
-                            'broker_name' => $brokerName,
-                            'geos' => $geos,
-                            'work_hours' => $globalWorkHours,
-                            'highlighted_text' => $line
-                        ];
-                    }
-                }
-            }
-            // Ищем обычные cap в строке
-            elseif (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)/iu', $line, $capMatch)) {
-                $capAmount = intval($capMatch[1]);
-                
-                // Извлекаем аффилейт и брокера
-                $affiliateName = null;
-                $brokerName = null;
-                if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)\s*:/', $line, $nameMatch)) {
-                    $affiliateName = trim($nameMatch[1]);
-                    $brokerName = trim($nameMatch[2]);
-                    
-                    // Убираем cap из названия аффилейта
-                    $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
-                    $affiliateName = trim($affiliateName);
-                }
-                
-                // Извлекаем гео
-                $geos = [];
-                if (preg_match('/:([^:\r\n]+)/', $line, $geoMatch)) {
-                    $geoString = trim($geoMatch[1]);
-                    $geoList = preg_split('/[,\/\s]+/', $geoString);
-                    $geos = array_filter(array_map('trim', $geoList), function($geo) {
-                        return strlen($geo) >= 2 && strlen($geo) <= 10 && preg_match('/^[A-Z]{2,}$/i', $geo);
-                    });
-                }
-                
-                // Ищем общий лимит (большие числа)
-                $totalAmount = null;
-                if (preg_match_all('/\b(\d+)\b/', $line, $numbers)) {
-                    $allNumbers = array_map('intval', $numbers[1]);
-                    $potentialTotals = array_filter($allNumbers, function($num) use ($capAmount) {
-                        return $num > $capAmount && $num < 10000;
-                    });
-                    if (!empty($potentialTotals)) {
-                        $totalAmount = max($potentialTotals);
-                    }
-                }
-                
-                // Если нет тотал, тотал это бесконечность (null означает бесконечность)
-                
-                // Создаем запись капы
-                $capEntries[] = [
-                    'cap_amount' => $capAmount,
-                    'total_amount' => $totalAmount, // null означает бесконечность
-                    'schedule' => $globalSchedule,
-                    'date' => $globalDate,
-                    'is_24_7' => $globalIs24_7,
-                    'affiliate_name' => $affiliateName,
-                    'broker_name' => $brokerName,
-                    'geos' => $geos,
-                    'work_hours' => $globalWorkHours,
-                    'highlighted_text' => $line // Сохраняем конкретную строку с этой капой
-                ];
-            }
+        }
+        
+        // Если пары не найдены, создаем одну запись с глобальными параметрами
+        if (empty($pairs)) {
+            $pairs[] = [
+                'affiliate_name' => null,
+                'broker_name' => null,
+                'geos' => $globalGeos,
+                'schedule' => $globalSchedule,
+                'date' => $globalDate,
+                'work_hours' => $globalWorkHours,
+                'highlighted_text' => $messageText
+            ];
+        }
+        
+        // Создаем записи для каждой пары
+        foreach ($pairs as $pair) {
+            $capEntries[] = [
+                'cap_amount' => $capAmount,
+                'total_amount' => $totalAmount,
+                'schedule' => $pair['schedule'],
+                'date' => $pair['date'],
+                'is_24_7' => $pair['schedule'] === '24/7',
+                'affiliate_name' => $pair['affiliate_name'],
+                'broker_name' => $pair['broker_name'],
+                'geos' => $pair['geos'],
+                'work_hours' => $pair['work_hours'],
+                'highlighted_text' => $pair['highlighted_text']
+            ];
         }
         
         return $capEntries;

@@ -649,17 +649,15 @@
         async function searchMessages() {
             // Получаем основные элементы (обязательные)
             const searchBtn = document.getElementById('search-btn');
-            const loading = document.getElementById('loading');
             const messageList = document.getElementById('message-list');
             const statsSection = document.getElementById('stats-section');
             const searchInput = document.getElementById('search');
             const chatSelect = document.getElementById('chat-select');
             
             // Проверяем наличие основных элементов
-            if (!searchBtn || !loading || !messageList || !statsSection || !searchInput || !chatSelect) {
+            if (!searchBtn || !messageList || !statsSection || !searchInput || !chatSelect) {
                 console.error('Ошибка: не найдены основные элементы DOM', {
                     searchBtn: !!searchBtn,
-                    loading: !!loading,
                     messageList: !!messageList,
                     statsSection: !!statsSection,
                     searchInput: !!searchInput,
@@ -692,8 +690,8 @@
             searchBtn.disabled = true;
             searchBtn.textContent = '🔍 Поиск...';
             
-            loading.style.display = 'block';
-            loading.textContent = '🔍 Поиск сообщений...';
+            // Показываем loading
+            messageList.innerHTML = '<div class="loading">🔍 Поиск сообщений...</div>';
             
             try {
                 const params = new URLSearchParams();
@@ -736,13 +734,10 @@
                 console.error('Ошибка поиска:', error);
                 showError('Ошибка соединения');
             } finally {
-                // Убеждаемся, что кнопка и loading сбрасываются корректно
+                // Убеждаемся, что кнопка сбрасывается корректно
                 if (searchBtn) {
                     searchBtn.disabled = false;
                     searchBtn.textContent = '🔍 Найти';
-                }
-                if (loading) {
-                    loading.style.display = 'none';
                 }
                 
                 console.log('Поиск завершен');
@@ -790,19 +785,19 @@
                                 <div class="value">${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.map(cap => `<span style="display: inline-block; margin: 0 0.25rem; padding: 0.125rem 0.5rem; background: rgba(16, 185, 129, 0.3); border-radius: 0.25rem;">${cap}</span>`).join('') : '—'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.total_amount ? 'positive' : ''}">
+                            <div class="analysis-item ${analysis.total_amount === -1 || analysis.total_amount > 0 ? 'positive' : 'negative'}">
                                 <div class="label">Общий лимит</div>
-                                <div class="value">${analysis.total_amount || '<span class="infinity-indicator">∞ (бесконечность)</span>'}</div>
+                                <div class="value">${analysis.total_amount === -1 ? '∞' : (analysis.total_amount > 0 ? analysis.total_amount : '—')}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.schedule ? 'positive' : ''}">
+                            <div class="analysis-item ${analysis.schedule ? 'positive' : 'positive'}">
                                 <div class="label">Расписание</div>
-                                <div class="value">${analysis.schedule || '<span class="infinity-indicator">24/7 (по умолчанию)</span>'}</div>
+                                <div class="value">${analysis.schedule || '24/7'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.date ? 'positive' : ''}">
+                            <div class="analysis-item ${analysis.date ? 'positive' : 'positive'}">
                                 <div class="label">Дата</div>
-                                <div class="value">${analysis.date || '—'}</div>
+                                <div class="value">${analysis.date || new Date().toLocaleDateString('ru-RU')}</div>
                             </div>
                             
                             <div class="analysis-item ${analysis.affiliate_name ? 'positive' : 'warning'}">
