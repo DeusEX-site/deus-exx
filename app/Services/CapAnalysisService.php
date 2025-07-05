@@ -4,16 +4,9 @@ namespace App\Services;
 
 use App\Models\Cap;
 use App\Models\Message;
-use App\Models\CapHistory;
 
 class CapAnalysisService
 {
-    public $notificationService;
-    
-    public function __construct()
-    {
-        $this->notificationService = new CapNotificationService();
-    }
     /**
      * Анализирует сообщение на наличие кап и сохраняет в таблицу
      */
@@ -25,11 +18,9 @@ class CapAnalysisService
         // Находим все отдельные капы в сообщении
         $capEntries = $this->extractSeparateCapEntries($messageText);
         
-        $createdCaps = [];
-        
         // Создаем отдельную запись для каждой капы
         foreach ($capEntries as $capEntry) {
-            $cap = Cap::create([
+            Cap::create([
                 'message_id' => $messageId,
                 'cap_amounts' => [$capEntry['cap_amount']], // Одна капа на запись
                 'total_amount' => $capEntry['total_amount'],
@@ -42,57 +33,9 @@ class CapAnalysisService
                 'work_hours' => $capEntry['work_hours'],
                 'highlighted_text' => $capEntry['highlighted_text']
             ]);
-            
-            $createdCaps[] = $cap;
         }
         
-        // Получаем исходное сообщение для уведомлений
-        $sourceMessage = Message::find($messageId);
-        
-        // Отправляем уведомления о новых капах
-        if ($sourceMessage && config('telegram.cap_notifications.notify_on_create', true)) {
-            foreach ($createdCaps as $cap) {
-                $this->notificationService->sendNewCapNotification($cap, $sourceMessage);
-            }
-        }
-        
-        // Обновляем существующие капы по совпадению аффилейт-брокер-гео
-        $updatedCaps = [];
-        $updateResults = [];
-        
-        foreach ($createdCaps as $newCap) {
-            $updated = $this->updateExistingCapsByMatch($newCap, $messageId, $sourceMessage);
-            $updatedCaps = array_merge($updatedCaps, $updated['caps']);
-            $updateResults = array_merge($updateResults, $updated['details']);
-        }
-        
-        // Отправляем уведомления об обновлениях
-        if ($sourceMessage && config('telegram.cap_notifications.notify_on_update', true) && !empty($updateResults)) {
-            $bulkThreshold = config('telegram.cap_notifications.bulk_threshold', 3);
-            
-            if (count($updateResults) >= $bulkThreshold) {
-                // Групповое уведомление
-                $this->notificationService->sendBulkUpdateNotification($sourceMessage, $updateResults);
-            } else {
-                // Индивидуальные уведомления
-                foreach ($updateResults as $update) {
-                    $this->notificationService->sendCapUpdateNotification(
-                        $update['cap'],
-                        $sourceMessage,
-                        $update['old_values'],
-                        $update['new_values'],
-                        $update['changed_fields']
-                    );
-                }
-            }
-        }
-        
-        return [
-            'cap_entries_count' => count($capEntries),
-            'created_caps' => count($createdCaps),
-            'updated_caps' => count($updatedCaps),
-            'notifications_sent' => $this->notificationService->isEnabled()
-        ];
+        return ['cap_entries_count' => count($capEntries)];
     }
 
     /**
@@ -782,242 +725,5 @@ class CapAnalysisService
         }
         
         return max($pairs, 1); // Минимум одна пара
-    }
-    
-    /**
-     * Обновляет существующие капы по совпадению аффилейт-брокер-гео
-     */
-    public function updateExistingCapsByMatch($newCap, $sourceMessageId, $sourceMessage = null)
-    {
-        $updatedCaps = [];
-        $updateDetails = [];
-        
-        // Генерируем ключ для поиска совпадений
-        $matchKey = $this->generateMatchKey($newCap);
-        
-        if (empty($matchKey)) {
-            return ['caps' => $updatedCaps, 'details' => $updateDetails];
-        }
-        
-        // Ищем существующие капы с таким же ключом совпадения
-        $existingCaps = $this->findCapsByMatchKey($matchKey, $newCap->id);
-        
-        foreach ($existingCaps as $existingCap) {
-            $oldValues = $this->getCapValues($existingCap);
-            
-            // Обновляем значения из нового сообщения
-            $updated = $this->updateCapValues($existingCap, $newCap);
-            
-            if ($updated) {
-                $newValues = $this->getCapValues($existingCap);
-                
-                // Определяем какие поля изменились
-                $changedFields = $this->getChangedFields($oldValues, $newValues);
-                
-                // Сохраняем в истории изменений
-                CapHistory::createHistoryEntry(
-                    $existingCap->id,
-                    $sourceMessageId,
-                    $existingCap->message_id,
-                    $matchKey,
-                    $oldValues,
-                    $newValues,
-                    'updated'
-                );
-                
-                $updatedCaps[] = $existingCap;
-                $updateDetails[] = [
-                    'cap' => $existingCap,
-                    'old_values' => $oldValues,
-                    'new_values' => $newValues,
-                    'changed_fields' => $changedFields,
-                    'match_key' => $matchKey
-                ];
-            }
-        }
-        
-        return ['caps' => $updatedCaps, 'details' => $updateDetails];
-    }
-    
-    /**
-     * Генерирует ключ для поиска совпадений по аффилейт-брокер-гео
-     */
-    private function generateMatchKey($cap)
-    {
-        $affiliate = strtolower(trim($cap->affiliate_name ?? ''));
-        $broker = strtolower(trim($cap->broker_name ?? ''));
-        $geos = is_array($cap->geos) ? array_map('strtolower', $cap->geos) : [];
-        
-        // Ключ должен содержать аффилейт и брокер
-        if (empty($affiliate) || empty($broker)) {
-            return null;
-        }
-        
-        sort($geos); // Сортируем гео для консистентности
-        
-        return $affiliate . '|' . $broker . '|' . implode(',', $geos);
-    }
-    
-    /**
-     * Ищет капы по ключу совпадения
-     */
-    private function findCapsByMatchKey($matchKey, $excludeCapId = null)
-    {
-        $query = Cap::whereNotNull('affiliate_name')
-            ->whereNotNull('broker_name')
-            ->where('affiliate_name', '!=', '')
-            ->where('broker_name', '!=', '');
-        
-        if ($excludeCapId) {
-            $query->where('id', '!=', $excludeCapId);
-        }
-        
-        $caps = $query->get();
-        
-        $matchingCaps = [];
-        foreach ($caps as $cap) {
-            $capMatchKey = $this->generateMatchKey($cap);
-            if ($capMatchKey === $matchKey) {
-                $matchingCaps[] = $cap;
-            }
-        }
-        
-        return $matchingCaps;
-    }
-    
-    /**
-     * Извлекает значения капы для истории
-     */
-    private function getCapValues($cap)
-    {
-        return [
-            'cap_amounts' => $cap->cap_amounts,
-            'total_amount' => $cap->total_amount,
-            'schedule' => $cap->schedule,
-            'date' => $cap->date,
-            'is_24_7' => $cap->is_24_7,
-            'work_hours' => $cap->work_hours,
-            'highlighted_text' => $cap->highlighted_text
-        ];
-    }
-    
-    /**
-     * Обновляет значения капы из нового сообщения
-     */
-    private function updateCapValues($existingCap, $newCap)
-    {
-        $updated = false;
-        
-        // Обновляем только если есть новые значения
-        if (!empty($newCap->cap_amounts) && $existingCap->cap_amounts !== $newCap->cap_amounts) {
-            $existingCap->cap_amounts = $newCap->cap_amounts;
-            $updated = true;
-        }
-        
-        if ($newCap->total_amount !== null && $existingCap->total_amount !== $newCap->total_amount) {
-            $existingCap->total_amount = $newCap->total_amount;
-            $updated = true;
-        }
-        
-        if (!empty($newCap->schedule) && $existingCap->schedule !== $newCap->schedule) {
-            $existingCap->schedule = $newCap->schedule;
-            $updated = true;
-        }
-        
-        if (!empty($newCap->date) && $existingCap->date !== $newCap->date) {
-            $existingCap->date = $newCap->date;
-            $updated = true;
-        }
-        
-        if ($newCap->is_24_7 !== null && $existingCap->is_24_7 !== $newCap->is_24_7) {
-            $existingCap->is_24_7 = $newCap->is_24_7;
-            $updated = true;
-        }
-        
-        if (!empty($newCap->work_hours) && $existingCap->work_hours !== $newCap->work_hours) {
-            $existingCap->work_hours = $newCap->work_hours;
-            $updated = true;
-        }
-        
-        if (!empty($newCap->highlighted_text) && $existingCap->highlighted_text !== $newCap->highlighted_text) {
-            $existingCap->highlighted_text = $newCap->highlighted_text;
-            $updated = true;
-        }
-        
-        if ($updated) {
-            $existingCap->save();
-        }
-        
-        return $updated;
-    }
-    
-    /**
-     * Получает историю изменений для капы
-     */
-    public function getCapHistory($capId)
-    {
-        return CapHistory::getCapHistory($capId);
-    }
-    
-    /**
-     * Получает историю изменений для всех кап с определенным ключом совпадения
-     */
-    public function getMatchKeyHistory($affiliate, $broker, $geos = [])
-    {
-        $matchKey = strtolower(trim($affiliate)) . '|' . strtolower(trim($broker)) . '|' . implode(',', array_map('strtolower', $geos));
-        return CapHistory::getMatchKeyHistory($matchKey);
-    }
-    
-    /**
-     * Получает историю изменений для поиска (форматированную для UI)
-     */
-    public function getFormattedCapHistory($capId)
-    {
-        $history = $this->getCapHistory($capId);
-        
-        $formattedHistory = [];
-        foreach ($history as $entry) {
-            $formattedHistory[] = [
-                'id' => $entry->id,
-                'action' => $entry->action,
-                'timestamp' => $entry->created_at->format('d.m.Y H:i'),
-                'source_message' => $entry->sourceMessage->message ?? '',
-                'source_chat' => $entry->sourceMessage->chat->title ?? 'Неизвестный чат',
-                'target_message' => $entry->targetMessage->message ?? '',
-                'target_chat' => $entry->targetMessage->chat->title ?? 'Неизвестный чат',
-                'changed_fields' => $entry->changed_fields ?? [],
-                'old_values' => $entry->old_values ?? [],
-                'new_values' => $entry->new_values ?? []
-            ];
-        }
-        
-        return $formattedHistory;
-    }
-    
-    /**
-     * Определяет какие поля изменились между старыми и новыми значениями
-     */
-    private function getChangedFields($oldValues, $newValues)
-    {
-        $changedFields = [];
-        
-        if (!is_array($oldValues) || !is_array($newValues)) {
-            return $changedFields;
-        }
-        
-        foreach ($newValues as $field => $newValue) {
-            $oldValue = $oldValues[$field] ?? null;
-            
-            // Сравнение значений с учетом массивов
-            if (is_array($newValue) && is_array($oldValue)) {
-                if (json_encode($newValue) !== json_encode($oldValue)) {
-                    $changedFields[] = $field;
-                }
-            } elseif ($newValue !== $oldValue) {
-                $changedFields[] = $field;
-            }
-        }
-        
-        return $changedFields;
     }
 } 
