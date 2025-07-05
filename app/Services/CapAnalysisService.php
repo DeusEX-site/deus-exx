@@ -344,9 +344,10 @@ class CapAnalysisService
         if (!$globalSchedule) {
             $globalSchedule = '24/7';
         }
-        if (!$globalDate) {
-            $globalDate = date('d.m.Y');
-        }
+        // НЕ устанавливаем дату по умолчанию - оставляем null если не найдена
+        // if (!$globalDate) {
+        //     $globalDate = date('d.m.Y');
+        // }
         
         // Поиск пар аффилейт-брокер
         $pairs = [];

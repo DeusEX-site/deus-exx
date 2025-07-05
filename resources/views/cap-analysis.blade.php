@@ -754,11 +754,37 @@
                 return;
             }
             
-            messageList.innerHTML = messages.map(msg => {
-                const analysis = msg.analysis;
+            // Группируем сообщения по message_id
+            const groupedMessages = {};
+            messages.forEach(msg => {
+                const messageId = msg.id.split('_')[0];
+                if (!groupedMessages[messageId]) {
+                    groupedMessages[messageId] = {
+                        message: msg,
+                        caps: []
+                    };
+                }
+                groupedMessages[messageId].caps.push(msg.analysis);
+            });
+            
+            messageList.innerHTML = Object.values(groupedMessages).map(group => {
+                const msg = group.message;
+                const caps = group.caps;
                 const highlightedText = highlightCapWords(msg.message);
                 
-
+                // Собираем все CAP значения из всех записей
+                const allCaps = caps.flatMap(cap => cap.cap_amounts || []);
+                
+                // Берем данные из первой записи для общих полей, но показываем все разные значения
+                const firstCap = caps[0];
+                
+                // Собираем все уникальные значения полей
+                const allAffiliates = [...new Set(caps.map(cap => cap.affiliate_name).filter(Boolean))];
+                const allBrokers = [...new Set(caps.map(cap => cap.broker_name).filter(Boolean))];
+                const allGeos = [...new Set(caps.flatMap(cap => cap.geos || []))];
+                const allSchedules = [...new Set(caps.map(cap => cap.schedule).filter(Boolean))];
+                const allDates = [...new Set(caps.map(cap => cap.date).filter(Boolean))];
+                const allTotalAmounts = [...new Set(caps.map(cap => cap.total_amount).filter(t => t !== null && t !== undefined))];
                 
                 return `
                     <div class="message-item">
@@ -773,57 +799,67 @@
                         <div class="message-text" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${highlightedText}</div>
                         
                         <div class="analysis-section">
-                            <div class="analysis-item ${analysis.has_cap_word ? 'positive' : 'negative'}">
+                            <div class="analysis-item ${firstCap.has_cap_word ? 'positive' : 'negative'}">
                                 <div class="label">Слово CAP</div>
-                                <div class="value">${analysis.has_cap_word ? '✅' : '❌'}</div>
+                                <div class="value">${firstCap.has_cap_word ? '✅' : '❌'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? 'positive' : ''}">
-                                <div class="label">Капа ${analysis.cap_amounts && analysis.cap_amounts.length > 1 ? '(отдельно)' : ''}</div>
-                                <div class="value">${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.map(cap => `<span style="display: inline-block; margin: 0 0.25rem; padding: 0.125rem 0.5rem; background: rgba(16, 185, 129, 0.3); border-radius: 0.25rem;">${cap}</span>`).join('') : '—'}</div>
+                            <div class="analysis-item ${allCaps.length > 0 ? 'positive' : ''}">
+                                <div class="label">Капа ${allCaps.length > 1 ? '(все)' : ''}</div>
+                                <div class="value">${allCaps.length > 0 ? allCaps.map(cap => `<span style="display: inline-block; margin: 0 0.25rem; padding: 0.125rem 0.5rem; background: rgba(16, 185, 129, 0.3); border-radius: 0.25rem;">${cap}</span>`).join('') : '—'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.total_amount === -1 || analysis.total_amount > 0 ? 'positive' : 'negative'}">
+                            <div class="analysis-item ${allTotalAmounts.length > 0 ? 'positive' : 'negative'}">
                                 <div class="label">Общий лимит</div>
-                                <div class="value">${analysis.total_amount === -1 ? '∞' : (analysis.total_amount > 0 ? analysis.total_amount : '—')}</div>
+                                <div class="value">${allTotalAmounts.length > 0 ? allTotalAmounts.map(total => total === -1 ? '∞' : total).join(', ') : '—'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.schedule ? 'positive' : 'positive'}">
+                            <div class="analysis-item ${allSchedules.length > 0 ? 'positive' : 'positive'}">
                                 <div class="label">Расписание</div>
-                                <div class="value">${analysis.schedule || '24/7'}</div>
+                                <div class="value">${allSchedules.length > 0 ? allSchedules.join(', ') : '24/7'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.date ? 'positive' : 'positive'}">
+                            <div class="analysis-item ${allDates.length > 0 ? 'positive' : 'positive'}">
                                 <div class="label">Дата</div>
-                                <div class="value">${analysis.date || new Date().toLocaleDateString('ru-RU')}</div>
+                                <div class="value">${allDates.length > 0 ? allDates.join(', ') : '∞'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.affiliate_name ? 'positive' : 'critical'}">
+                            <div class="analysis-item ${allAffiliates.length > 0 ? 'positive' : 'critical'}">
                                 <div class="label">Аффилейт</div>
-                                <div class="value">${analysis.affiliate_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
+                                <div class="value">${allAffiliates.length > 0 ? allAffiliates.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.broker_name ? 'positive' : 'critical'}">
+                            <div class="analysis-item ${allBrokers.length > 0 ? 'positive' : 'critical'}">
                                 <div class="label">Брокер</div>
-                                <div class="value">${analysis.broker_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
+                                <div class="value">${allBrokers.length > 0 ? allBrokers.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.geos.length > 0 ? 'positive' : 'critical'}">
+                            <div class="analysis-item ${allGeos.length > 0 ? 'positive' : 'critical'}">
                                 <div class="label">Гео</div>
-                                <div class="value">${analysis.geos.length > 0 ? analysis.geos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
+                                <div class="value">${allGeos.length > 0 ? allGeos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
-                            ${analysis.highlighted_text ? `
+                            ${caps.length > 1 ? `
                             <div class="analysis-item positive" style="grid-column: 1 / -1;">
-                                <div class="label">Обработанный текст для этого блока</div>
-                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left; white-space: pre-wrap;">${analysis.highlighted_text
+                                <div class="label">Все обработанные блоки (${caps.length})</div>
+                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left; white-space: pre-wrap;">${caps.map((cap, index) => `${index + 1}. ${cap.highlighted_text || 'Общие параметры'}`).join('\n')
                                     .replace(/&/g, '&amp;')
                                     .replace(/</g, '&lt;')
                                     .replace(/>/g, '&gt;')
                                     .replace(/"/g, '&quot;')
                                     .replace(/'/g, '&#39;')}</div>
                             </div>
-                            ` : ''}
+                            ` : (firstCap.highlighted_text ? `
+                            <div class="analysis-item positive" style="grid-column: 1 / -1;">
+                                <div class="label">Обработанный текст для этого блока</div>
+                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left; white-space: pre-wrap;">${firstCap.highlighted_text
+                                    .replace(/&/g, '&amp;')
+                                    .replace(/</g, '&lt;')
+                                    .replace(/>/g, '&gt;')
+                                    .replace(/"/g, '&quot;')
+                                    .replace(/'/g, '&#39;')}</div>
+                            </div>
+                            ` : '')}
                         </div>
                     </div>
                 `;
@@ -851,10 +887,20 @@
         
         // Обновление статистики
         function updateStats(messages) {
-            const totalMessages = messages.length;
-            const capMessages = messages.filter(msg => msg.analysis.has_cap_word).length;
-            const scheduleMessages = messages.filter(msg => msg.analysis.schedule).length;
-            const geoMessages = messages.filter(msg => msg.analysis.geos.length > 0).length;
+            // Группируем по уникальным сообщениям (по message_id)
+            const uniqueMessages = {};
+            messages.forEach(msg => {
+                const messageId = msg.id.split('_')[0]; // Получаем message_id из "message_id_cap_id"
+                if (!uniqueMessages[messageId]) {
+                    uniqueMessages[messageId] = msg;
+                }
+            });
+            
+            const uniqueMessageArray = Object.values(uniqueMessages);
+            const totalMessages = uniqueMessageArray.length;
+            const capMessages = uniqueMessageArray.filter(msg => msg.analysis.has_cap_word).length;
+            const scheduleMessages = uniqueMessageArray.filter(msg => msg.analysis.schedule).length;
+            const geoMessages = uniqueMessageArray.filter(msg => msg.analysis.geos.length > 0).length;
             
             const totalEl = document.getElementById('total-messages');
             const capEl = document.getElementById('cap-messages');
@@ -884,13 +930,26 @@
                 return;
             }
             
+            // Группируем сообщения по message_id для экспорта
+            const groupedMessages = {};
+            currentMessages.forEach(msg => {
+                const messageId = msg.id.split('_')[0];
+                if (!groupedMessages[messageId]) {
+                    groupedMessages[messageId] = {
+                        message: msg,
+                        caps: []
+                    };
+                }
+                groupedMessages[messageId].caps.push(msg.analysis);
+            });
+            
             const headers = [
                 'Дата',
                 'Чат',
                 'Автор',
                 'Сообщение',
                 'Слово CAP',
-                'Капа',
+                'Капа (все)',
                 'Общий лимит',
                 'Расписание',
                 'Дата работы',
@@ -901,21 +960,33 @@
             
             const csvContent = [
                 headers.join(','),
-                ...currentMessages.map(msg => {
-                    const analysis = msg.analysis;
+                ...Object.values(groupedMessages).map(group => {
+                    const msg = group.message;
+                    const caps = group.caps;
+                    const firstCap = caps[0];
+                    
+                    // Собираем все уникальные значения
+                    const allCaps = caps.flatMap(cap => cap.cap_amounts || []);
+                    const allAffiliates = [...new Set(caps.map(cap => cap.affiliate_name).filter(Boolean))];
+                    const allBrokers = [...new Set(caps.map(cap => cap.broker_name).filter(Boolean))];
+                    const allGeos = [...new Set(caps.flatMap(cap => cap.geos || []))];
+                    const allSchedules = [...new Set(caps.map(cap => cap.schedule).filter(Boolean))];
+                    const allDates = [...new Set(caps.map(cap => cap.date).filter(Boolean))];
+                    const allTotalAmounts = [...new Set(caps.map(cap => cap.total_amount).filter(t => t !== null && t !== undefined))];
+                    
                     return [
                         `"${msg.timestamp}"`,
                         `"${msg.chat_name}"`,
                         `"${msg.user || 'Unknown'}"`,
                         `"${msg.message.replace(/"/g, '""')}"`,
-                        analysis.has_cap_word ? 'Да' : 'Нет',
-                        `"${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(', ') : ''}"`,
-                        analysis.total_amount || '',
-                        `"${analysis.schedule || ''}"`,
-                        `"${analysis.date || ''}"`,
-                        `"${analysis.affiliate_name || ''}"`,
-                        `"${analysis.broker_name || ''}"`,
-                        `"${analysis.geos.join(', ')}"`
+                        firstCap.has_cap_word ? 'Да' : 'Нет',
+                        `"${allCaps.join(', ')}"`,
+                        `"${allTotalAmounts.map(total => total === -1 ? '∞' : total).join(', ')}"`,
+                        `"${allSchedules.join(', ') || '24/7'}"`,
+                        `"${allDates.join(', ') || '∞'}"`,
+                        `"${allAffiliates.join(', ')}"`,
+                        `"${allBrokers.join(', ')}"`,
+                        `"${allGeos.join(', ')}"`
                     ].join(',');
                 })
             ].join('\n');

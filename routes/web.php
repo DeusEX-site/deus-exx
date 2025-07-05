@@ -311,26 +311,6 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-// Временный route для проверки переносов строк
-Route::get('/debug-messages', function () {
-    $messages = \App\Models\Message::orderBy('id', 'desc')->limit(5)->get();
-    
-    $debug = [];
-    foreach ($messages as $message) {
-        $debug[] = [
-            'id' => $message->id,
-            'message' => $message->message,
-            'has_newlines' => strpos($message->message, "\n") !== false,
-            'has_carriage_returns' => strpos($message->message, "\r") !== false,
-            'newline_count' => substr_count($message->message, "\n"),
-            'message_length' => strlen($message->message),
-            'preview' => substr($message->message, 0, 100),
-            'raw_bytes' => bin2hex(substr($message->message, 0, 50)),
-            'json_encoded' => json_encode($message->message, JSON_UNESCAPED_UNICODE)
-        ];
-    }
-    
-    return response()->json($debug, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-});
+
 
 require __DIR__.'/auth.php';
