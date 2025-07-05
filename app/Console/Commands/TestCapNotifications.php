@@ -99,6 +99,7 @@ class TestCapNotifications extends Command
         $this->info("✅ Результат обновления:");
         $this->info("  - Создано кап: {$result2['created_caps']}");
         $this->info("  - Обновлено кап: {$result2['updated_caps']}");
+        $this->info("  - Без изменений: " . ($result2['unchanged_caps'] ?? 0));
         $this->info("  - Уведомления: " . ($result2['notifications_sent'] ? 'Отправлены' : 'Отключены'));
         $this->line('');
         
@@ -143,12 +144,34 @@ class TestCapNotifications extends Command
         $this->info("✅ Результат массового обновления:");
         $this->info("  - Создано кап: {$bulkResult['created_caps']}");
         $this->info("  - Обновлено кап: {$bulkResult['updated_caps']}");
+        $this->info("  - Без изменений: " . ($bulkResult['unchanged_caps'] ?? 0));
         $this->info("  - Уведомления: " . ($bulkResult['notifications_sent'] ? 'Отправлены (групповое)' : 'Отключены'));
+        $this->line('');
+        
+        // Тест 5: Отправка идентичных данных (без изменений)
+        $this->info('🧪 Тест 5: Отправка идентичных данных (без изменений)...');
+        
+        $identicalMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message' => 'CAP 35 TestNotif - TestBroker : RU/KZ' . PHP_EOL . '24/7' . PHP_EOL . '31.12',
+            'user' => 'TestUnchangedUser',
+            'telegram_message_id' => 3030,
+            'telegram_user_id' => 3030,
+            'created_at' => now()->addMinutes(15)
+        ]);
+        
+        $unchangedResult = $capAnalysisService->analyzeAndSaveCapMessage($identicalMessage->id, $identicalMessage->message);
+        
+        $this->info("✅ Результат идентичных данных:");
+        $this->info("  - Создано кап: {$unchangedResult['created_caps']}");
+        $this->info("  - Обновлено кап: {$unchangedResult['updated_caps']}");
+        $this->info("  - Без изменений: " . ($unchangedResult['unchanged_caps'] ?? 0));
+        $this->info("  - Уведомления: " . ($unchangedResult['notifications_sent'] ? 'Отправлены' : 'Отключены'));
         $this->line('');
         
         // Тест уведомлений напрямую
         if ($notificationsEnabled) {
-            $this->info('🧪 Тест 5: Прямая отправка уведомления...');
+            $this->info('🧪 Тест 6: Прямая отправка уведомления...');
             
             $notificationService = new CapNotificationService();
             $testResult = $notificationService->sendNewCapNotification($cap1, $message1);

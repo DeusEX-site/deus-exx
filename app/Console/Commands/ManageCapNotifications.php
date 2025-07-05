@@ -100,6 +100,7 @@ class ManageCapNotifications extends Command
         $adminChatId = config('telegram.cap_notifications.admin_chat_id');
         $notifyCreate = config('telegram.cap_notifications.notify_on_create', true);
         $notifyUpdate = config('telegram.cap_notifications.notify_on_update', true);
+        $notifyUnchanged = config('telegram.cap_notifications.notify_on_unchanged', false);
         $bulkThreshold = config('telegram.cap_notifications.bulk_threshold', 3);
         
         $this->info('🔧 Настройки:');
@@ -108,6 +109,7 @@ class ManageCapNotifications extends Command
         $this->info("  - Админский чат: " . ($adminChatId ? "✅ {$adminChatId}" : '❌ НЕ УСТАНОВЛЕН'));
         $this->info("  - Уведомления о создании: " . ($notifyCreate ? '✅ Включены' : '❌ Отключены'));
         $this->info("  - Уведомления об обновлении: " . ($notifyUpdate ? '✅ Включены' : '❌ Отключены'));
+        $this->info("  - Уведомления о неизменных данных: " . ($notifyUnchanged ? '✅ Включены' : '❌ Отключены'));
         $this->info("  - Порог группировки: {$bulkThreshold}");
         
         $this->line('');
