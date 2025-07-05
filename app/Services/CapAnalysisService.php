@@ -145,6 +145,8 @@ class CapAnalysisService
         
         $results = [];
         foreach ($caps as $cap) {
+
+            
             $results[] = [
                 'id' => $cap->message->id . '_' . $cap->id,
                 'message' => $cap->message->message,

@@ -271,8 +271,16 @@
             border-radius: 0.5rem;
             border-left: 3px solid #10b981;
             margin-bottom: 1rem;
-            white-space: pre-wrap;
+            white-space: pre-wrap !important;
             word-wrap: break-word;
+            line-height: 1.5;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        
+        /* Ensure all text content preserves line breaks */
+        .message-text * {
+            white-space: pre-wrap !important;
         }
         
         .analysis-section {
@@ -750,6 +758,8 @@
                 const analysis = msg.analysis;
                 const highlightedText = highlightCapWords(msg.message);
                 
+
+                
                 return `
                     <div class="message-item">
                         <div class="message-header">
@@ -760,7 +770,7 @@
                             </div>
                         </div>
                         
-                        <div class="message-text">${highlightedText}</div>
+                        <div class="message-text" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${highlightedText}</div>
                         
                         <div class="analysis-section">
                             <div class="analysis-item ${analysis.has_cap_word ? 'positive' : 'negative'}">
