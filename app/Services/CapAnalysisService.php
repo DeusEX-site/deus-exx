@@ -265,25 +265,22 @@ class CapAnalysisService
             }
         }
         
-        // Поиск общего тотала для случаев когда нет специфичного
+        // Поиск общего тотала - число в строке БЕЗ слова CAP
         $globalTotalAmount = null;
-        $allNumbers = [];
-        foreach ($lines as $line) {
-            preg_match_all('/\b(\d+)\b/', $line, $matches);
-            foreach ($matches[1] as $match) {
-                $num = intval($match);
-                $allNumbers[] = $num;
-            }
-        }
         
-        // Определяем общий TOTAL - число которое НЕ является CAP и больше максимального CAP
-        if (!empty($allCapValues)) {
-            $maxCap = max($allCapValues);
-            foreach ($allNumbers as $num) {
-                // Исключаем все CAP значения из поиска total
-                if (!in_array($num, $allCapValues) && $num > $maxCap && $num >= 50 && $num < 10000) {
-                    $globalTotalAmount = $num;
-                    break;
+        foreach ($lines as $line) {
+            $line = trim($line);
+            // Ищем строки БЕЗ слова CAP
+            if (!preg_match('/(?:cap|сар|сар|кап)/iu', $line)) {
+                // Ищем числа в этой строке
+                preg_match_all('/\b(\d+)\b/', $line, $matches);
+                foreach ($matches[1] as $match) {
+                    $num = intval($match);
+                    // Общий тотал - число не являющееся CAP и разумного размера
+                    if (!in_array($num, $allCapValues) && $num >= 50 && $num < 10000) {
+                        $globalTotalAmount = $num;
+                        break 2; // Выходим из обеих циклов - берем первое найденное
+                    }
                 }
             }
         }
@@ -391,22 +388,12 @@ class CapAnalysisService
                 // Ищем тотал специфичный для этой строки
                 $lineTotalAmount = null;
                 
-                // Ищем все числа в этой строке
-                preg_match_all('/\b(\d+)\b/', $line, $lineNumbers);
-                if (!empty($lineNumbers[1])) {
-                    $lineNumbersArray = array_map('intval', $lineNumbers[1]);
-                    
-                    // Ищем число которое НЕ является CAP и больше CAP
-                    foreach ($lineNumbersArray as $num) {
-                        if (!in_array($num, $allCapValues) && $num > $lineCapAmount && $num >= 50 && $num < 10000) {
-                            $lineTotalAmount = $num;
-                            break;
-                        }
-                    }
-                }
-                
-                // Если не найден тотал в строке, используем общий тотал
-                if (!$lineTotalAmount) {
+                // Проверяем есть ли в строке CAP со слешем (например, CAP 30/300)
+                if (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*\d+\/(\d+)/iu', $line, $slashMatch)) {
+                    // Если есть слеш, то число после слеша - специфичный тотал
+                    $lineTotalAmount = intval($slashMatch[1]);
+                } else {
+                    // Если нет слеша в CAP строке, используем общий тотал
                     $lineTotalAmount = $globalTotalAmount ?: -1; // -1 означает бесконечность
                 }
                 
