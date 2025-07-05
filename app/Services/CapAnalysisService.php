@@ -237,6 +237,7 @@ class CapAnalysisService
         
         // Ищем CAP в сообщении
         $capAmount = null;
+        $totalAmount = null;
         
         // Поиск CAP
         foreach ($lines as $line) {
@@ -265,54 +266,31 @@ class CapAnalysisService
             }
         }
         
-        // Поиск общего тотала в строках без пар аффилейт-брокер
-        $globalTotalAmount = null;
-        
-        // Ищем общий тотал в отдельных строках
+        // Поиск всех чисел для определения TOTAL
+        $allNumbers = [];
         foreach ($lines as $line) {
-            $line = trim($line);
-            
-            // Пропускаем строки с CAP
-            if (preg_match('/(?:cap|сар|сар|кап)/iu', $line)) {
-                continue;
-            }
-            
-            // Пропускаем строки с парами аффилейт-брокер
-            if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)/', $line)) {
-                // Проверяем что это не время работы
-                $parts = explode('-', $line);
-                if (count($parts) == 2) {
-                    $part1 = trim($parts[0]);
-                    $part2 = trim($parts[1]);
-                    // Если обе части - только цифры, это время работы, не пропускаем
-                    if (!(preg_match('/^\d{1,2}$/', $part1) && preg_match('/^\d{1,2}$/', $part2))) {
-                        continue; // Это пара аффилейт-брокер, пропускаем
-                    }
-                }
-            }
-            
-            // Пропускаем строки которые являются только датами
-            if (preg_match('/^\d{1,2}\.\d{1,2}$/', $line)) {
-                continue;
-            }
-            
-            // Пропускаем строки которые являются только 24/7
-            if (preg_match('/^24\/7$|^24-7$/', $line)) {
-                continue;
-            }
-            
-            // Ищем числа в строке
             preg_match_all('/\b(\d+)\b/', $line, $matches);
-            if (!empty($matches[1])) {
-                foreach ($matches[1] as $match) {
-                    $num = intval($match);
-                    // Проверяем что это не CAP и это разумное число для тотала
-                    if (!in_array($num, $allCapValues) && $num >= 50 && $num < 10000) {
-                        $globalTotalAmount = $num;
-                        break 2; // Выходим из обоих циклов
-                    }
+            foreach ($matches[1] as $match) {
+                $num = intval($match);
+                $allNumbers[] = $num;
+            }
+        }
+        
+        // Определяем TOTAL - число которое НЕ является CAP и больше максимального CAP
+        if (!empty($allCapValues)) {
+            $maxCap = max($allCapValues);
+            foreach ($allNumbers as $num) {
+                // Исключаем все CAP значения из поиска total
+                if (!in_array($num, $allCapValues) && $num > $maxCap && $num >= 50 && $num < 10000) {
+                    $totalAmount = $num;
+                    break;
                 }
             }
+        }
+        
+        // Если TOTAL не найден, устанавливаем бесконечность
+        if (!$totalAmount) {
+            $totalAmount = -1; // -1 означает бесконечность
         }
         
         // Поиск глобальных параметров (применяются ко всем, если не указаны конкретно)
@@ -363,8 +341,8 @@ class CapAnalysisService
             // Ищем даты (14.05, 25.12, etc.)
             if (preg_match('/^(\d{1,2})\.(\d{1,2})$/', $line, $matches)) {
                 $globalDate = $matches[0] . '.' . date('Y'); // Добавляем текущий год
-            }
-            
+        }
+        
             // Ищем гео в отдельных строках
             $lineGeos = [];
             $words = preg_split('/[\s,\/]+/', $line);
@@ -415,99 +393,37 @@ class CapAnalysisService
                     $lineCapAmount = intval($lineCapMatch[1]);
                 }
                 
-                // Ищем тотал специфичный для этой строки
-                $lineTotalAmount = null;
-                
-                // Ищем все числа в этой строке
-                preg_match_all('/\b(\d+)\b/', $line, $lineNumbers);
-                if (!empty($lineNumbers[1])) {
-                    $lineNumbersArray = array_map('intval', $lineNumbers[1]);
-                    
-                    // Ищем число которое НЕ является CAP и больше CAP
-                    foreach ($lineNumbersArray as $num) {
-                        if (!in_array($num, $allCapValues) && $num > $lineCapAmount && $num >= 50 && $num < 10000) {
-                            $lineTotalAmount = $num;
-                            break;
-                        }
-                    }
-                }
-                
-                // Если не найден тотал в строке, используем общий тотал
-                if (!$lineTotalAmount) {
-                    $lineTotalAmount = $globalTotalAmount ?: -1; // -1 означает бесконечность
-                }
-                
                 $affiliateName = trim($pairMatch[1]);
                 $brokerPart = trim($pairMatch[2]);
-                
-                // Очищаем имя аффилиата более аккуратно
-                $cleanAffiliateName = $affiliateName;
-                
+                    
                 // Убираем CAP из названия аффилейта (из любого места, не только начала)
-                $cleanAffiliateName = preg_replace('/(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $cleanAffiliateName);
+                $affiliateName = preg_replace('/(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
                 
                 // Убираем все найденные CAP значения
                 foreach ($allCapValues as $capValue) {
-                    $cleanAffiliateName = preg_replace('/\b' . $capValue . '\b\s*/', '', $cleanAffiliateName);
+                    $affiliateName = preg_replace('/\b' . $capValue . '\b\s*/', '', $affiliateName);
                 }
                 
-                // Убираем числа которые являются total amount только если они есть в строке
-                if ($lineTotalAmount > 0) {
-                    $cleanAffiliateName = preg_replace('/\b' . $lineTotalAmount . '\b\s*/', '', $cleanAffiliateName);
+                // Убираем числа которые являются total amount
+                if ($totalAmount > 0) {
+                    $affiliateName = preg_replace('/\b' . $totalAmount . '\b\s*/', '', $affiliateName);
                 }
                 
-                // Убираем начальные слова типа "по", "max", "до", "no" и т.д.
-                $cleanAffiliateName = preg_replace('/^(по|max|до|макс|мах|no)\s+/iu', '', $cleanAffiliateName);
+                // Убираем начальные слова типа "по", "max", "до" и т.д.
+                $affiliateName = preg_replace('/^(по|max|до|макс|мах)\s+/iu', '', $affiliateName);
                 
-                $cleanAffiliateName = trim($cleanAffiliateName);
+                    $affiliateName = trim($affiliateName);
                 
                 // Разделяем брокера и гео из brokerPart
                 $lineGeos = [];
                 $brokerName = $brokerPart;
                 
-                // Сначала проверяем, есть ли расписание/даты в brokerPart и убираем их
-                $cleanBrokerPart = $brokerPart;
-                
-                // Убираем 24/7 из broker part
-                $cleanBrokerPart = preg_replace('/\s*24\/7\s*/', ' ', $cleanBrokerPart);
-                $cleanBrokerPart = preg_replace('/\s*24-7\s*/', ' ', $cleanBrokerPart);
-                
-                // Убираем даты в формате ДД.ММ из broker part
-                $cleanBrokerPart = preg_replace('/\s*\d{1,2}\.\d{1,2}\s*/', ' ', $cleanBrokerPart);
-                
-                // Убираем время работы в формате ЧЧ-ЧЧ из broker part
-                $cleanBrokerPart = preg_replace('/\s*\d{1,2}-\d{1,2}\s*/', ' ', $cleanBrokerPart);
-                
-                // Убираем отдельные числа которые могут быть частью времени/даты
-                // Но только если они не являются частью имени брокера
-                $tempParts = preg_split('/[\s,\/]+/', $cleanBrokerPart);
-                $filteredParts = [];
-                
-                foreach ($tempParts as $part) {
-                    $part = trim($part);
-                    if (empty($part)) continue;
-                    
-                    // Пропускаем отдельные числа от 1 до 31 (вероятно дни/месяцы)
-                    if (preg_match('/^\d{1,2}$/', $part)) {
-                        $num = intval($part);
-                        if ($num >= 1 && $num <= 31) {
-                            continue; // Пропускаем числа которые могут быть частью даты
-                        }
-                    }
-                    
-                    $filteredParts[] = $part;
-                }
-                
-                $cleanBrokerPart = implode(' ', $filteredParts);
-                
-                // Сначала ищем гео в cleanBrokerPart и удаляем их из названия брокера
-                $brokerWords = preg_split('/[\s,\/]+/', $cleanBrokerPart);
+                // Сначала ищем гео в brokerPart и удаляем их из названия брокера
+                $brokerWords = preg_split('/[\s,\/]+/', $brokerPart);
                 $brokerNameWords = [];
                 
                 foreach ($brokerWords as $word) {
                     $word = trim($word);
-                    if (empty($word)) continue;
-                    
                     $wordUpper = strtoupper($word);
                     if (in_array($wordUpper, $geoList)) {
                         $lineGeos[] = $wordUpper;
@@ -545,10 +461,10 @@ class CapAnalysisService
                 // Убираем дубликаты гео
                 $lineGeos = array_unique($lineGeos);
                 
-                // Поиск времени/даты в той же строке (приоритет над глобальными)
-                $lineSchedule = null;
-                $lineDate = null;
-                $lineWorkHours = null;
+                // Поиск времени/даты в той же строке
+                $lineSchedule = $globalSchedule;
+                $lineDate = $globalDate;
+                $lineWorkHours = $globalWorkHours;
                 
                 // Поиск 24/7 в строке
                 if (preg_match('/24\/7|24-7/', $line)) {
@@ -566,48 +482,21 @@ class CapAnalysisService
                     $lineDate = $matches[0] . '.' . date('Y');
                 }
                 
-                // Если не найдено в строке, используем глобальные
-                if (!$lineSchedule) {
-                    $lineSchedule = $globalSchedule;
-                }
-                if (!$lineDate) {
-                    $lineDate = $globalDate;
-                }
-                if (!$lineWorkHours) {
-                    $lineWorkHours = $globalWorkHours;
-                }
-                
                 $pairs[] = [
-                    'affiliate_name' => $cleanAffiliateName ?: null,
+                    'affiliate_name' => $affiliateName ?: null,
                     'broker_name' => $brokerName ?: null,
                     'geos' => !empty($lineGeos) ? $lineGeos : $globalGeos,
                     'schedule' => $lineSchedule,
                     'date' => $lineDate,
                     'work_hours' => $lineWorkHours,
                     'highlighted_text' => $line,
-                    'cap_amount' => $lineCapAmount, // Добавляем индивидуальный CAP для каждой пары
-                    'total_amount' => $lineTotalAmount // Добавляем индивидуальный тотал для каждой пары
+                    'cap_amount' => $lineCapAmount // Добавляем индивидуальный CAP для каждой пары
                 ];
             }
         }
         
         // Если пары не найдены, создаем одну запись с глобальными параметрами
         if (empty($pairs)) {
-            // Ищем тотал во всем сообщении
-            $messageTotalAmount = null;
-            preg_match_all('/\b(\d+)\b/', $messageText, $allMessageNumbers);
-            if (!empty($allMessageNumbers[1])) {
-                $messageNumbersArray = array_map('intval', $allMessageNumbers[1]);
-                
-                // Ищем число которое НЕ является CAP и больше CAP
-                foreach ($messageNumbersArray as $num) {
-                    if (!in_array($num, $allCapValues) && $num > $capAmount && $num >= 50 && $num < 10000) {
-                        $messageTotalAmount = $num;
-                        break;
-                    }
-                }
-            }
-            
             $pairs[] = [
                 'affiliate_name' => null,
                 'broker_name' => null,
@@ -616,16 +505,15 @@ class CapAnalysisService
                 'date' => $globalDate,
                 'work_hours' => $globalWorkHours,
                 'highlighted_text' => $messageText,
-                'cap_amount' => $capAmount, // Общий CAP для случая без пар
-                'total_amount' => $messageTotalAmount ?: -1 // Тотал из всего сообщения или бесконечность
+                'cap_amount' => $capAmount // Общий CAP для случая без пар
             ];
-        }
-        
+                }
+                
         // Создаем записи для каждой пары
         foreach ($pairs as $pair) {
-            $capEntries[] = [
+                $capEntries[] = [
                 'cap_amount' => $pair['cap_amount'], // Используем индивидуальный CAP каждой пары
-                'total_amount' => $pair['total_amount'], // Используем индивидуальный тотал каждой пары
+                    'total_amount' => $totalAmount,
                 'schedule' => $pair['schedule'],
                 'date' => $pair['date'],
                 'is_24_7' => $pair['schedule'] === '24/7',
@@ -634,7 +522,7 @@ class CapAnalysisService
                 'geos' => $pair['geos'],
                 'work_hours' => $pair['work_hours'],
                 'highlighted_text' => $pair['highlighted_text']
-            ];
+                ];
         }
         
         return $capEntries;
