@@ -837,11 +837,11 @@
                                     } else if (cap.total_amount > 0) {
                                         additionalInfo.push(cap.total_amount);
                                     }
-                                    if (cap.date) {
-                                        additionalInfo.push(cap.date);
-                                    }
                                     if (cap.schedule) {
                                         additionalInfo.push(cap.schedule);
+                                    }
+                                    if (cap.date) {
+                                        additionalInfo.push(cap.date);
                                     }
                                     
                                     if (additionalInfo.length > 0) {
@@ -849,13 +849,14 @@
                                     }
                                     
                                     return result;
-                                }).filter(Boolean).join('<br>')
+                                }).filter(Boolean).join('|||BREAK|||')
                                     .replace(/&/g, '&amp;')
                                     .replace(/</g, '&lt;')
                                     .replace(/>/g, '&gt;')
                                     .replace(/"/g, '&quot;')
                                     .replace(/'/g, '&#39;')
-                                    .replace(/\n/g, '<br>')}</div>
+                                    .replace(/\n/g, '<br>')
+                                    .replace(/\|\|\|BREAK\|\|\|/g, '<br>')}</div>
                             </div>
                         </div>
                         ` : ''}

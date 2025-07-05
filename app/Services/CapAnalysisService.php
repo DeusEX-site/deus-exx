@@ -107,12 +107,12 @@ class CapAnalysisService
 
         // Фильтр по брокеру
         if (!empty($filters['broker'])) {
-            $query->where('broker_name', 'LIKE', "%{$filters['broker']}%");
+            $query->where('broker_name', $filters['broker']);
         }
 
         // Фильтр по аффилейту
         if (!empty($filters['affiliate'])) {
-            $query->where('affiliate_name', 'LIKE', "%{$filters['affiliate']}%");
+            $query->where('affiliate_name', $filters['affiliate']);
         }
 
         // Фильтр по расписанию
