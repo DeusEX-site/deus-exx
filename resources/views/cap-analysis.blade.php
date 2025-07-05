@@ -279,24 +279,8 @@
         
         .analysis-section {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: auto auto;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 1rem;
-        }
-        
-        /* Адаптивность для мобильных устройств */
-        @media (max-width: 768px) {
-            .analysis-section {
-                grid-template-columns: repeat(2, 1fr);
-                grid-template-rows: auto auto auto auto;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .analysis-section {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto;
-            }
         }
         
         .analysis-item {
