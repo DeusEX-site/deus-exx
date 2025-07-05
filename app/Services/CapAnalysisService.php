@@ -258,12 +258,109 @@ class CapAnalysisService
             }
         }
         
+        // Если нет времени и даты, значит расписание это 24/7
+        if (!$globalSchedule && !$globalDate) {
+            $globalSchedule = '24/7';
+            $globalIs24_7 = true;
+        }
+        
         // Ищем строки с капами
         foreach ($lines as $line) {
             $line = trim($line);
             
-            // Ищем cap в строке
-            if (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)/iu', $line, $capMatch)) {
+            // Проверяем паттерны CAP X/Y где X это капа, Y это тотал
+            if (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)\/(\d+)/iu', $line, $capTotalMatch)) {
+                $capAmount = intval($capTotalMatch[1]);
+                $totalAmount = intval($capTotalMatch[2]);
+                
+                // Извлекаем аффилейт и брокера
+                $affiliateName = null;
+                $brokerName = null;
+                if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)\s*:/', $line, $nameMatch)) {
+                    $affiliateName = trim($nameMatch[1]);
+                    $brokerName = trim($nameMatch[2]);
+                    
+                    // Убираем cap из названия аффилейта
+                    $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+\/\d+\s*/iu', '', $affiliateName);
+                    $affiliateName = trim($affiliateName);
+                }
+                
+                // Извлекаем гео
+                $geos = [];
+                if (preg_match('/:([^:\r\n]+)/', $line, $geoMatch)) {
+                    $geoString = trim($geoMatch[1]);
+                    $geoList = preg_split('/[,\/\s]+/', $geoString);
+                    $geos = array_filter(array_map('trim', $geoList), function($geo) {
+                        return strlen($geo) >= 2 && strlen($geo) <= 10 && preg_match('/^[A-Z]{2,}$/i', $geo);
+                    });
+                }
+                
+                // Создаем запись капы
+                $capEntries[] = [
+                    'cap_amount' => $capAmount,
+                    'total_amount' => $totalAmount,
+                    'schedule' => $globalSchedule,
+                    'date' => $globalDate,
+                    'is_24_7' => $globalIs24_7,
+                    'affiliate_name' => $affiliateName,
+                    'broker_name' => $brokerName,
+                    'geos' => $geos,
+                    'work_hours' => $globalWorkHours,
+                    'highlighted_text' => $line
+                ];
+            }
+            // Проверяем паттерны с \ или / где с обеих сторон цифры (не 24/7 или 24/5)
+            elseif (preg_match('/(\d+)[\/\\\\](\d+)/', $line, $slashMatch)) {
+                $firstNum = intval($slashMatch[1]);
+                $secondNum = intval($slashMatch[2]);
+                
+                // Проверяем что это не 24/7 или 24/5
+                if (!($firstNum == 24 && ($secondNum == 7 || $secondNum == 5))) {
+                    // Ищем CAP в той же строке
+                    if (preg_match('/(?:cap|сар|сар|кап)/iu', $line)) {
+                        $capAmount = $firstNum;
+                        $totalAmount = $secondNum;
+                        
+                        // Извлекаем аффилейт и брокера
+                        $affiliateName = null;
+                        $brokerName = null;
+                        if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)\s*:/', $line, $nameMatch)) {
+                            $affiliateName = trim($nameMatch[1]);
+                            $brokerName = trim($nameMatch[2]);
+                            
+                            // Убираем cap из названия аффилейта
+                            $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+[\/\\\\]\d+\s*/iu', '', $affiliateName);
+                            $affiliateName = trim($affiliateName);
+                        }
+                        
+                        // Извлекаем гео
+                        $geos = [];
+                        if (preg_match('/:([^:\r\n]+)/', $line, $geoMatch)) {
+                            $geoString = trim($geoMatch[1]);
+                            $geoList = preg_split('/[,\/\s]+/', $geoString);
+                            $geos = array_filter(array_map('trim', $geoList), function($geo) {
+                                return strlen($geo) >= 2 && strlen($geo) <= 10 && preg_match('/^[A-Z]{2,}$/i', $geo);
+                            });
+                        }
+                        
+                        // Создаем запись капы
+                        $capEntries[] = [
+                            'cap_amount' => $capAmount,
+                            'total_amount' => $totalAmount,
+                            'schedule' => $globalSchedule,
+                            'date' => $globalDate,
+                            'is_24_7' => $globalIs24_7,
+                            'affiliate_name' => $affiliateName,
+                            'broker_name' => $brokerName,
+                            'geos' => $geos,
+                            'work_hours' => $globalWorkHours,
+                            'highlighted_text' => $line
+                        ];
+                    }
+                }
+            }
+            // Ищем обычные cap в строке
+            elseif (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)/iu', $line, $capMatch)) {
                 $capAmount = intval($capMatch[1]);
                 
                 // Извлекаем аффилейт и брокера
@@ -300,10 +397,12 @@ class CapAnalysisService
                     }
                 }
                 
+                // Если нет тотал, тотал это бесконечность (null означает бесконечность)
+                
                 // Создаем запись капы
                 $capEntries[] = [
                     'cap_amount' => $capAmount,
-                    'total_amount' => $totalAmount,
+                    'total_amount' => $totalAmount, // null означает бесконечность
                     'schedule' => $globalSchedule,
                     'date' => $globalDate,
                     'is_24_7' => $globalIs24_7,

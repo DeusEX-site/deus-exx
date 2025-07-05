@@ -298,6 +298,16 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
         
+        .analysis-item.warning {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        
+        .analysis-item.critical {
+            background: rgba(239, 68, 68, 0.3);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+        }
+        
         .analysis-item .label {
             font-size: 0.75rem;
             color: rgba(255, 255, 255, 0.7);
@@ -307,6 +317,11 @@
         .analysis-item .value {
             font-weight: 600;
             color: white;
+        }
+        
+        .infinity-indicator {
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.6);
         }
         
         .loading {
@@ -622,7 +637,7 @@
             // Очистка результатов
             const messageList = document.getElementById('message-list');
             const statsSection = document.getElementById('stats-section');
-            if (messageList) messageList.innerHTML = '';
+            if (messageList) messageList.innerHTML = '<div class="loading">🔍 Введите поисковый запрос и нажмите "Найти"</div>';
             if (statsSection) statsSection.style.display = 'none';
             
             currentMessages = [];
@@ -777,12 +792,12 @@
                             
                             <div class="analysis-item ${analysis.total_amount ? 'positive' : ''}">
                                 <div class="label">Общий лимит</div>
-                                <div class="value">${analysis.total_amount || '—'}</div>
+                                <div class="value">${analysis.total_amount || '<span class="infinity-indicator">∞ (бесконечность)</span>'}</div>
                             </div>
                             
                             <div class="analysis-item ${analysis.schedule ? 'positive' : ''}">
                                 <div class="label">Расписание</div>
-                                <div class="value">${analysis.schedule || '—'}</div>
+                                <div class="value">${analysis.schedule || '<span class="infinity-indicator">24/7 (по умолчанию)</span>'}</div>
                             </div>
                             
                             <div class="analysis-item ${analysis.date ? 'positive' : ''}">
@@ -790,19 +805,19 @@
                                 <div class="value">${analysis.date || '—'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.affiliate_name ? 'positive' : ''}">
+                            <div class="analysis-item ${analysis.affiliate_name ? 'positive' : 'warning'}">
                                 <div class="label">Аффилейт</div>
-                                <div class="value">${analysis.affiliate_name || '—'}</div>
+                                <div class="value">${analysis.affiliate_name || '<span style="color: #f59e0b;">❌ Отсутствует</span>'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.broker_name ? 'positive' : ''}">
+                            <div class="analysis-item ${analysis.broker_name ? 'positive' : 'critical'}">
                                 <div class="label">Брокер</div>
-                                <div class="value">${analysis.broker_name || '—'}</div>
+                                <div class="value">${analysis.broker_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
-                            <div class="analysis-item ${analysis.geos.length > 0 ? 'positive' : ''}">
+                            <div class="analysis-item ${analysis.geos.length > 0 ? 'positive' : 'critical'}">
                                 <div class="label">Гео</div>
-                                <div class="value">${analysis.geos.length > 0 ? analysis.geos.join(', ') : '—'}</div>
+                                <div class="value">${analysis.geos.length > 0 ? analysis.geos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
                             ${analysis.highlighted_text ? `

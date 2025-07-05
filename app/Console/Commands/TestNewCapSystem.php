@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Models\Message;
 use App\Models\Chat;
 use App\Services\CapAnalysisService;
+use App\Models\Cap;
 
 class TestNewCapSystem extends Command
 {
@@ -71,6 +72,80 @@ class TestNewCapSystem extends Command
         
         $this->info("\nТестирование завершено! Найдено " . count($results) . " отдельных записей кап");
         
+        $this->testNewCapLogic();
+        
         return Command::SUCCESS;
+    }
+
+    private function testNewCapLogic()
+    {
+        $this->info('Testing new CAP logic...');
+        $this->line('');
+        
+        $testMessages = [
+            'CAP 30/200 Aff - Rec : RU,KZ',
+            'CAP 30 Aff - Rec : RU,KZ',
+            'CAP 50\\100 TestAffiliate - BinaryBroker : US,CA',
+            'CAP 20',
+            'CAP 40 - BinaryOptions : DE,FR',
+            'CAP 25 SuperAffiliate - : IT,ES'
+        ];
+        
+        $capAnalysisService = new CapAnalysisService();
+        
+        foreach ($testMessages as $message) {
+            $this->info("Testing message: {$message}");
+            
+            // Analyze and save the message
+            $analysis = $capAnalysisService->analyzeAndSaveCapMessage(999, $message);
+            
+            // Get the results
+            $results = $capAnalysisService->searchCaps(null, null);
+            
+            if (!empty($results)) {
+                $result = $results[0];
+                $data = $result['analysis'];
+                
+                $this->line("  - CAP Amount: " . ($data['cap_amounts'] ? implode(', ', $data['cap_amounts']) : 'Not found'));
+                $this->line("  - Total Amount: " . ($data['total_amount'] ? $data['total_amount'] : 'Infinity'));
+                $this->line("  - Schedule: " . ($data['schedule'] ? $data['schedule'] : '24/7 (default)'));
+                $this->line("  - Affiliate: " . ($data['affiliate_name'] ? $data['affiliate_name'] : 'Missing (WARNING)'));
+                $this->line("  - Broker: " . ($data['broker_name'] ? $data['broker_name'] : 'Missing (CRITICAL)'));
+                $this->line("  - Geo: " . (count($data['geos']) > 0 ? implode(', ', $data['geos']) : 'Missing (CRITICAL)'));
+                
+                // Check validation
+                $warnings = [];
+                $errors = [];
+                
+                if (!$data['broker_name']) {
+                    $errors[] = 'Broker name is mandatory';
+                }
+                
+                if (!$data['affiliate_name']) {
+                    $warnings[] = 'Affiliate name is missing';
+                }
+                
+                if (count($data['geos']) == 0) {
+                    $errors[] = 'Geo is mandatory';
+                }
+                
+                if (!empty($errors)) {
+                    $this->error("  ERRORS: " . implode(', ', $errors));
+                }
+                
+                if (!empty($warnings)) {
+                    $this->warn("  WARNINGS: " . implode(', ', $warnings));
+                }
+                
+                if (empty($errors) && empty($warnings)) {
+                    $this->info("  ✅ All mandatory fields present");
+                }
+            }
+            
+            $this->line('');
+            
+            // Clean up test data
+            Cap::where('message_id', 999)->delete();
+        }
     }
 } 
