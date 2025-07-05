@@ -57,7 +57,6 @@ return [
         'admin_chat_id' => env('TELEGRAM_ADMIN_CHAT_ID'), // ID админского чата для дублирования уведомлений
         'notify_on_create' => env('TELEGRAM_CAP_NOTIFY_CREATE', true),
         'notify_on_update' => env('TELEGRAM_CAP_NOTIFY_UPDATE', true),
-        'notify_on_unchanged' => env('TELEGRAM_CAP_NOTIFY_UNCHANGED', false), // Уведомления когда данные не изменились
         'bulk_threshold' => env('TELEGRAM_CAP_BULK_THRESHOLD', 3), // Если обновилось больше кап чем этот порог - отправляем групповое уведомление
     ],
 ]; 

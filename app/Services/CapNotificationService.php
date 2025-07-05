@@ -112,47 +112,6 @@ class CapNotificationService
     }
     
     /**
-     * Отправляет уведомление о том, что данные не изменились
-     */
-    public function sendUnchangedCapNotification($cap, $sourceMessage)
-    {
-        if (!$this->enabled || !$this->botToken) {
-            return false;
-        }
-        
-        try {
-            $text = $this->formatUnchangedCapMessage($cap, $sourceMessage);
-            
-            // Отправляем в админский чат (если настроен)
-            if ($this->adminChatId) {
-                $this->sendToChat($this->adminChatId, $text);
-            }
-            
-            // Отправляем в исходный чат
-            $originalChat = $sourceMessage->chat;
-            if ($originalChat && $originalChat->chat_id) {
-                $this->sendToChat($originalChat->chat_id, $text);
-            }
-            
-            Log::info('Cap unchanged notification sent', [
-                'cap_id' => $cap->id,
-                'message_id' => $sourceMessage->id,
-                'type' => 'cap_unchanged'
-            ]);
-            
-            return true;
-            
-        } catch (\Exception $e) {
-            Log::error('Failed to send cap unchanged notification', [
-                'cap_id' => $cap->id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return false;
-        }
-    }
-
-    /**
      * Отправляет групповое уведомление о множественных обновлениях
      */
     public function sendBulkUpdateNotification($sourceMessage, $updates)
@@ -243,21 +202,6 @@ class CapNotificationService
         return "{$header}\n\n{$capInfo}\n\n{$changesInfo}\n\n{$sourceInfo}";
     }
     
-    /**
-     * Форматирует сообщение о том, что капа не изменилась
-     */
-    private function formatUnchangedCapMessage($cap, $sourceMessage)
-    {
-        $emoji = '✅';
-        $header = "{$emoji} <b>КАПА БЕЗ ИЗМЕНЕНИЙ</b>";
-        
-        $capInfo = $this->formatCapInfo($cap);
-        $sourceInfo = $this->formatSourceInfo($sourceMessage);
-        $statusInfo = "📋 <b>Статус:</b> Данные полностью совпадают с существующими";
-        
-        return "{$header}\n\n{$capInfo}\n\n{$statusInfo}\n\n{$sourceInfo}";
-    }
-
     /**
      * Форматирует сообщение для чата где обновилась капа
      */
