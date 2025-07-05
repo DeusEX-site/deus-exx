@@ -761,7 +761,7 @@
                 groupedMessages[messageId].caps.push(msg.analysis);
             });
             
-                        messageList.innerHTML = Object.values(groupedMessages).map(group => {
+            messageList.innerHTML = Object.values(groupedMessages).map(group => {
                 const msg = group.message;
                 const caps = group.caps;
                 const highlightedText = highlightCapWords(msg.message);

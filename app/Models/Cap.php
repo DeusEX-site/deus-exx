@@ -66,6 +66,8 @@ class Cap extends Model
             });
         }
 
-        return $query->orderBy('created_at', 'desc');
+        return $query->leftJoin('messages', 'caps.message_id', '=', 'messages.id')
+                     ->orderBy('messages.created_at', 'desc')
+                     ->select('caps.*');
     }
 } 
