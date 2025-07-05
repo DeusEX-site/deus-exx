@@ -271,22 +271,32 @@
             border-radius: 0.5rem;
             border-left: 3px solid #10b981;
             margin-bottom: 1rem;
-            white-space: pre-wrap !important;
             word-wrap: break-word;
             line-height: 1.5;
             overflow-wrap: break-word;
             word-break: break-word;
         }
         
-        /* Ensure all text content preserves line breaks */
-        .message-text * {
-            white-space: pre-wrap !important;
-        }
-        
         .analysis-section {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto;
             gap: 1rem;
+        }
+        
+        /* Адаптивность для мобильных устройств */
+        @media (max-width: 768px) {
+            .analysis-section {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: auto auto auto auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .analysis-section {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
         }
         
         .analysis-item {
@@ -796,7 +806,7 @@
                             </div>
                         </div>
                         
-                        <div class="message-text" style="white-space: pre-wrap; word-wrap: break-word; line-height: 1.5;">${highlightedText}</div>
+                        <div class="message-text" style="word-wrap: break-word; line-height: 1.5;">${highlightedText}</div>
                         
                         <div class="analysis-section">
                             <div class="analysis-item ${firstCap.has_cap_word ? 'positive' : 'negative'}">
@@ -839,27 +849,29 @@
                                 <div class="value">${allGeos.length > 0 ? allGeos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
-                            ${caps.length > 1 ? `
-                            <div class="analysis-item positive" style="grid-column: 1 / -1;">
-                                <div class="label">Все обработанные блоки (${caps.length})</div>
-                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left; white-space: pre-wrap;">${caps.map((cap, index) => `${index + 1}. ${cap.highlighted_text || 'Общие параметры'}`).join('\n')
-                                    .replace(/&/g, '&amp;')
-                                    .replace(/</g, '&lt;')
-                                    .replace(/>/g, '&gt;')
-                                    .replace(/"/g, '&quot;')
-                                    .replace(/'/g, '&#39;')}</div>
-                            </div>
-                            ` : (firstCap.highlighted_text ? `
-                            <div class="analysis-item positive" style="grid-column: 1 / -1;">
-                                <div class="label">Обработанный текст для этого блока</div>
-                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left; white-space: pre-wrap;">${firstCap.highlighted_text
-                                    .replace(/&/g, '&amp;')
-                                    .replace(/</g, '&lt;')
-                                    .replace(/>/g, '&gt;')
-                                    .replace(/"/g, '&quot;')
-                                    .replace(/'/g, '&#39;')}</div>
-                            </div>
-                            ` : '')}
+                                                         ${caps.length > 1 ? `
+                             <div class="analysis-item positive" style="grid-column: 1 / -1;">
+                                 <div class="label">Все обработанные блоки (${caps.length})</div>
+                                 <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left;">${caps.map((cap, index) => `${index + 1}. ${cap.highlighted_text || 'Общие параметры'}`).join('<br>')
+                                     .replace(/&/g, '&amp;')
+                                     .replace(/</g, '&lt;')
+                                     .replace(/>/g, '&gt;')
+                                     .replace(/"/g, '&quot;')
+                                     .replace(/'/g, '&#39;')
+                                     .replace(/\n/g, '<br>')}</div>
+                             </div>
+                             ` : (firstCap.highlighted_text ? `
+                             <div class="analysis-item positive" style="grid-column: 1 / -1;">
+                                 <div class="label">Обработанный текст для этого блока</div>
+                                 <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left;">${firstCap.highlighted_text
+                                     .replace(/&/g, '&amp;')
+                                     .replace(/</g, '&lt;')
+                                     .replace(/>/g, '&gt;')
+                                     .replace(/"/g, '&quot;')
+                                     .replace(/'/g, '&#39;')
+                                     .replace(/\n/g, '<br>')}</div>
+                             </div>
+                             ` : '')}
                         </div>
                     </div>
                 `;
@@ -869,13 +881,15 @@
         // Подсветка слов cap
         function highlightCapWords(text) {
             const capWords = ['cap', 'сар', 'сар', 'кап', 'CAP', 'САР', 'САР', 'КАП'];
-            // Экранируем HTML символы, но сохраняем переносы строк
+            // Экранируем HTML символы и заменяем переносы строк на <br>
             let highlightedText = text
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
+                .replace(/'/g, '&#39;')
+                .replace(/\n/g, '<br>') // Заменяем переносы строк на <br>
+                .replace(/\r/g, ''); // Убираем возврат каретки
             
             capWords.forEach(word => {
                 const regex = new RegExp(`\\b${word}\\b`, 'gi');
