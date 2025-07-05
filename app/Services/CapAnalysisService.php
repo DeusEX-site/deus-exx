@@ -253,6 +253,19 @@ class CapAnalysisService
             return $capEntries;
         }
         
+        // Сначала находим ВСЕ CAP значения в тексте
+        $allCapValues = [];
+        foreach ($lines as $line) {
+            if (preg_match_all('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)/iu', $line, $capMatches)) {
+                foreach ($capMatches[1] as $match) {
+                    $capValue = intval($match);
+                    if ($capValue > 0 && $capValue < 10000) {
+                        $allCapValues[] = $capValue;
+                    }
+                }
+            }
+        }
+        
         // Поиск всех чисел для определения TOTAL
         $allNumbers = [];
         foreach ($lines as $line) {
@@ -263,11 +276,15 @@ class CapAnalysisService
             }
         }
         
-        // Определяем TOTAL - число минимум в 2 раза больше CAP
-        foreach ($allNumbers as $num) {
-            if ($num >= $capAmount * 2 && $num < 10000) {
-                $totalAmount = $num;
-                break;
+        // Определяем TOTAL - число которое НЕ является CAP и больше максимального CAP
+        if (!empty($allCapValues)) {
+            $maxCap = max($allCapValues);
+            foreach ($allNumbers as $num) {
+                // Исключаем все CAP значения из поиска total
+                if (!in_array($num, $allCapValues) && $num > $maxCap && $num >= 50 && $num < 10000) {
+                    $totalAmount = $num;
+                    break;
+                }
             }
         }
         
