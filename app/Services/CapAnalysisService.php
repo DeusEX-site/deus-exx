@@ -265,9 +265,55 @@ class CapAnalysisService
             }
         }
         
-        // НЕ ищем общий тотал автоматически
-        // Каждая строка должна иметь свой тотал или бесконечность
+        // Поиск общего тотала в строках без пар аффилейт-брокер
         $globalTotalAmount = null;
+        
+        // Ищем общий тотал в отдельных строках
+        foreach ($lines as $line) {
+            $line = trim($line);
+            
+            // Пропускаем строки с CAP
+            if (preg_match('/(?:cap|сар|сар|кап)/iu', $line)) {
+                continue;
+            }
+            
+            // Пропускаем строки с парами аффилейт-брокер
+            if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)/', $line)) {
+                // Проверяем что это не время работы
+                $parts = explode('-', $line);
+                if (count($parts) == 2) {
+                    $part1 = trim($parts[0]);
+                    $part2 = trim($parts[1]);
+                    // Если обе части - только цифры, это время работы, не пропускаем
+                    if (!(preg_match('/^\d{1,2}$/', $part1) && preg_match('/^\d{1,2}$/', $part2))) {
+                        continue; // Это пара аффилейт-брокер, пропускаем
+                    }
+                }
+            }
+            
+            // Пропускаем строки которые являются только датами
+            if (preg_match('/^\d{1,2}\.\d{1,2}$/', $line)) {
+                continue;
+            }
+            
+            // Пропускаем строки которые являются только 24/7
+            if (preg_match('/^24\/7$|^24-7$/', $line)) {
+                continue;
+            }
+            
+            // Ищем числа в строке
+            preg_match_all('/\b(\d+)\b/', $line, $matches);
+            if (!empty($matches[1])) {
+                foreach ($matches[1] as $match) {
+                    $num = intval($match);
+                    // Проверяем что это не CAP и это разумное число для тотала
+                    if (!in_array($num, $allCapValues) && $num >= 50 && $num < 10000) {
+                        $globalTotalAmount = $num;
+                        break 2; // Выходим из обоих циклов
+                    }
+                }
+            }
+        }
         
         // Поиск глобальных параметров (применяются ко всем, если не указаны конкретно)
         $globalSchedule = null;
@@ -386,9 +432,9 @@ class CapAnalysisService
                     }
                 }
                 
-                // Если не найден тотал в строке, устанавливаем бесконечность
+                // Если не найден тотал в строке, используем общий тотал
                 if (!$lineTotalAmount) {
-                    $lineTotalAmount = -1; // -1 означает бесконечность
+                    $lineTotalAmount = $globalTotalAmount ?: -1; // -1 означает бесконечность
                 }
                 
                 $affiliateName = trim($pairMatch[1]);
@@ -499,10 +545,10 @@ class CapAnalysisService
                 // Убираем дубликаты гео
                 $lineGeos = array_unique($lineGeos);
                 
-                // Поиск времени/даты в той же строке
-                $lineSchedule = $globalSchedule;
-                $lineDate = $globalDate;
-                $lineWorkHours = $globalWorkHours;
+                // Поиск времени/даты в той же строке (приоритет над глобальными)
+                $lineSchedule = null;
+                $lineDate = null;
+                $lineWorkHours = null;
                 
                 // Поиск 24/7 в строке
                 if (preg_match('/24\/7|24-7/', $line)) {
@@ -518,6 +564,17 @@ class CapAnalysisService
                 // Поиск даты в строке
                 if (preg_match('/(\d{1,2})\.(\d{1,2})/', $line, $matches)) {
                     $lineDate = $matches[0] . '.' . date('Y');
+                }
+                
+                // Если не найдено в строке, используем глобальные
+                if (!$lineSchedule) {
+                    $lineSchedule = $globalSchedule;
+                }
+                if (!$lineDate) {
+                    $lineDate = $globalDate;
+                }
+                if (!$lineWorkHours) {
+                    $lineWorkHours = $globalWorkHours;
                 }
                 
                 $pairs[] = [
