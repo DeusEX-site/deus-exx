@@ -284,25 +284,40 @@ class CapAnalysisService
         foreach ($lines as $line) {
             $line = trim($line);
             
-            // Пропускаем строки с парами аффилейт-брокер
-            if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)/', $line)) {
-                continue;
-            }
-            
             // Пропускаем строки с CAP
             if (preg_match('/(?:cap|сар|сар|кап)/iu', $line)) {
                 continue;
             }
             
-            // Ищем 24/7
-            if (preg_match('/24\/7|24-7/', $line)) {
-                $globalSchedule = '24/7';
-            }
-            
-            // Ищем время работы (10-19, 09-18, etc.)
+            // СНАЧАЛА проверяем время работы (10-19, 09-18, etc.)
             if (preg_match('/^(\d{1,2})-(\d{1,2})$/', $line, $matches)) {
                 $globalWorkHours = $matches[0];
                 $globalSchedule = $matches[0];
+                \Log::info('Найдено время работы: ' . $matches[0] . ' в строке: ' . $line);
+                continue; // Пропускаем дальнейшие проверки для этой строки
+            }
+            
+            // Ищем 24/7
+            if (preg_match('/24\/7|24-7/', $line)) {
+                $globalSchedule = '24/7';
+                continue;
+            }
+            
+            // ПОСЛЕ проверки времени работы пропускаем строки с парами аффилейт-брокер
+            if (preg_match('/([a-zA-Zа-яА-Я\d\s]+)\s*-\s*([a-zA-Zа-яА-Я\d\s]+)/', $line)) {
+                // Но перед пропуском еще раз проверим, что это не время работы
+                $parts = explode('-', $line);
+                if (count($parts) == 2) {
+                    $part1 = trim($parts[0]);
+                    $part2 = trim($parts[1]);
+                    // Если обе части - только цифры, это время работы
+                    if (preg_match('/^\d{1,2}$/', $part1) && preg_match('/^\d{1,2}$/', $part2)) {
+                        $globalWorkHours = $line;
+                        $globalSchedule = $line;
+                        continue;
+                    }
+                }
+                continue; // Это действительно пара аффилейт-брокер
             }
             
             // Ищем даты (14.05, 25.12, etc.)
