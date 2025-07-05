@@ -1625,7 +1625,7 @@
             container.innerHTML = messages.map(msg => `
                 <div class="message ${msg.is_outgoing ? 'outgoing' : (msg.is_telegram ? 'telegram' : 'other')}" data-message-id="${msg.id}">
                     ${(msg.is_telegram || msg.is_outgoing) ? '<div class="user">' + msg.user + '</div>' : ''}
-                    <div>${msg.message}</div>
+                    <div>${msg.message.replace(/\n/g, '<br>').replace(/\r/g, '')}</div>
                     <div class="time">${msg.timestamp}${msg.message_type && msg.message_type !== 'text' ? '<span class="message-type">' + getMessageTypeDisplay(msg.message_type) + '</span>' : ''}</div>
                 </div>
             `).join('');
@@ -1818,7 +1818,7 @@
                 messageEl.setAttribute('data-message-id', msg.id);
                 messageEl.innerHTML = `
                     ${(msg.is_telegram || msg.is_outgoing) ? '<div class="user">' + msg.user + '</div>' : ''}
-                    <div>${msg.message}</div>
+                    <div>${msg.message.replace(/\n/g, '<br>').replace(/\r/g, '')}</div>
                     <div class="time">${msg.timestamp}${msg.message_type && msg.message_type !== 'text' ? '<span class="message-type">' + getMessageTypeDisplay(msg.message_type) + '</span>' : ''}</div>
                 `;
                 
@@ -1869,7 +1869,7 @@
                 messageEl.setAttribute('data-message-id', msg.id);
                 messageEl.innerHTML = `
                     ${(msg.is_telegram || msg.is_outgoing) ? '<div class="user">' + msg.user + '</div>' : ''}
-                    <div>${msg.message}</div>
+                    <div>${msg.message.replace(/\n/g, '<br>').replace(/\r/g, '')}</div>
                     <div class="time">${msg.timestamp}${msg.message_type && msg.message_type !== 'text' ? '<span class="message-type">' + getMessageTypeDisplay(msg.message_type) + '</span>' : ''}</div>
                 `;
                 
