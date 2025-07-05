@@ -141,7 +141,11 @@ class CapAnalysisService
             }
         }
 
-        $caps = $query->orderBy('created_at', 'desc')->get();
+        $caps = $query->leftJoin('messages', 'caps.message_id', '=', 'messages.id')
+                     ->orderBy('messages.telegram_date', 'desc')
+                     ->orderBy('caps.id', 'desc')
+                     ->select('caps.*')
+                     ->get();
         
         $results = [];
         foreach ($caps as $cap) {
