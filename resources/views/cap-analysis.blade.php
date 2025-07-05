@@ -694,10 +694,11 @@
                 if (schedule) params.append('schedule', schedule);
                 if (total) params.append('total', total);
                 
-                const response = await fetch(`/api/cap-analysis?${params}`, {
+                const response = await fetch(`/api/cap-analysis?${params}&_t=${Date.now()}`, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Cache-Control': 'no-cache'
                     }
                 });
                 
@@ -705,9 +706,25 @@
                     const data = await response.json();
                     
                     if (data.success) {
-                        currentMessages = data.messages;
-                        renderResults(data.messages);
-                        updateStats(data.messages);
+                        // Принудительно сортируем по времени (новые сначала)
+                        const sortedMessages = data.messages.sort((a, b) => {
+                            // Конвертируем DD.MM.YYYY HH:mm в Date объект для сравнения
+                            const parseDate = (timestamp) => {
+                                const [datePart, timePart] = timestamp.split(' ');
+                                const [day, month, year] = datePart.split('.');
+                                const [hours, minutes] = timePart.split(':');
+                                return new Date(year, month - 1, day, hours, minutes);
+                            };
+                            
+                            const dateA = parseDate(a.timestamp);
+                            const dateB = parseDate(b.timestamp);
+                            
+                            return dateB.getTime() - dateA.getTime(); // Новые сначала
+                        });
+                        
+                        currentMessages = sortedMessages;
+                        renderResults(sortedMessages);
+                        updateStats(sortedMessages);
                         statsSection.style.display = 'grid';
                         const exportBtn = document.getElementById('export-btn');
                         if (exportBtn) {
@@ -1006,6 +1023,15 @@
         // Инициализация после загрузки DOM
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, initializing cap analysis...');
+            
+            // Принудительно очищаем кеш браузера
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
             
             // Проверяем наличие всех необходимых элементов
             const searchForm = document.getElementById('search-form');
