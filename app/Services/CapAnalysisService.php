@@ -438,16 +438,40 @@ class CapAnalysisService
                 $lineGeos = [];
                 $brokerName = $brokerPart;
                 
-                // Сначала проверяем, есть ли расписание в brokerPart и убираем его
+                // Сначала проверяем, есть ли расписание/даты в brokerPart и убираем их
                 $cleanBrokerPart = $brokerPart;
                 
                 // Убираем 24/7 из broker part
                 $cleanBrokerPart = preg_replace('/\s*24\/7\s*/', ' ', $cleanBrokerPart);
+                $cleanBrokerPart = preg_replace('/\s*24-7\s*/', ' ', $cleanBrokerPart);
                 
-                // Убираем время работы типа "24" если это часть "24/7"
-                if (preg_match('/24\/7|24-7/', $brokerPart)) {
-                    $cleanBrokerPart = preg_replace('/\b24\b/', '', $cleanBrokerPart);
+                // Убираем даты в формате ДД.ММ из broker part
+                $cleanBrokerPart = preg_replace('/\s*\d{1,2}\.\d{1,2}\s*/', ' ', $cleanBrokerPart);
+                
+                // Убираем время работы в формате ЧЧ-ЧЧ из broker part
+                $cleanBrokerPart = preg_replace('/\s*\d{1,2}-\d{1,2}\s*/', ' ', $cleanBrokerPart);
+                
+                // Убираем отдельные числа которые могут быть частью времени/даты
+                // Но только если они не являются частью имени брокера
+                $tempParts = preg_split('/[\s,\/]+/', $cleanBrokerPart);
+                $filteredParts = [];
+                
+                foreach ($tempParts as $part) {
+                    $part = trim($part);
+                    if (empty($part)) continue;
+                    
+                    // Пропускаем отдельные числа от 1 до 31 (вероятно дни/месяцы)
+                    if (preg_match('/^\d{1,2}$/', $part)) {
+                        $num = intval($part);
+                        if ($num >= 1 && $num <= 31) {
+                            continue; // Пропускаем числа которые могут быть частью даты
+                        }
+                    }
+                    
+                    $filteredParts[] = $part;
                 }
+                
+                $cleanBrokerPart = implode(' ', $filteredParts);
                 
                 // Сначала ищем гео в cleanBrokerPart и удаляем их из названия брокера
                 $brokerWords = preg_split('/[\s,\/]+/', $cleanBrokerPart);
