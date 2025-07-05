@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Cap;
 use App\Models\Message;
+use App\Models\CapHistory;
 
 class CapAnalysisService
 {
@@ -36,6 +37,15 @@ class CapAnalysisService
         }
         
         return ['cap_entries_count' => count($capEntries)];
+    }
+
+    /**
+     * Анализирует сообщение с обновлением существующих кап по совпадению
+     */
+    public function analyzeAndUpdateCapMessage($messageId, $messageText)
+    {
+        $capUpdateService = app(CapUpdateService::class);
+        return $capUpdateService->processNewMessage($messageId, $messageText);
     }
 
     /**
@@ -205,10 +215,97 @@ class CapAnalysisService
         }
 
         return [
-            'geos' => array_values(array_unique($geos)),
-            'brokers' => array_values(array_unique($brokers)),
-            'affiliates' => array_values(array_unique($affiliates))
+            'geos' => array_unique($geos),
+            'brokers' => array_unique($brokers),
+            'affiliates' => array_unique($affiliates)
         ];
+    }
+
+    /**
+     * Получить кап с историей изменений
+     */
+    public function getCapWithHistory($capId, $includeHidden = false)
+    {
+        $cap = Cap::with(['message' => function($q) {
+            $q->with('chat');
+        }])->find($capId);
+
+        if (!$cap) {
+            return null;
+        }
+
+        $history = CapHistory::getHistoryForCap($capId, $includeHidden);
+
+        return [
+            'cap' => $cap,
+            'history' => $history->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'action_type' => $item->action_type,
+                    'reason' => $item->reason,
+                    'updated_by' => $item->updated_by,
+                    'is_hidden' => $item->is_hidden,
+                    'created_at' => $item->created_at->format('d.m.Y H:i:s'),
+                    'description' => $item->getChangeDescription(),
+                    'old_values' => $item->old_values,
+                    'new_values' => [
+                        'cap_amounts' => $item->cap_amounts,
+                        'total_amount' => $item->total_amount,
+                        'schedule' => $item->schedule,
+                        'date' => $item->date,
+                        'is_24_7' => $item->is_24_7,
+                        'affiliate_name' => $item->affiliate_name,
+                        'broker_name' => $item->broker_name,
+                        'geos' => $item->geos,
+                        'work_hours' => $item->work_hours
+                    ]
+                ];
+            })
+        ];
+    }
+
+    /**
+     * Получить последние обновления кап
+     */
+    public function getRecentCapUpdates($limit = 10, $includeHidden = false)
+    {
+        $capUpdateService = app(CapUpdateService::class);
+        $updates = $capUpdateService->getRecentUpdates($limit, $includeHidden);
+
+        return $updates->map(function($update) {
+            return [
+                'id' => $update->id,
+                'cap_id' => $update->cap_id,
+                'action_type' => $update->action_type,
+                'reason' => $update->reason,
+                'updated_by' => $update->updated_by,
+                'is_hidden' => $update->is_hidden,
+                'created_at' => $update->created_at->format('d.m.Y H:i:s'),
+                'description' => $update->getChangeDescription(),
+                'chat_name' => $update->message->chat->display_name ?? 'Неизвестный чат',
+                'affiliate_name' => $update->affiliate_name,
+                'broker_name' => $update->broker_name,
+                'geos' => $update->geos
+            ];
+        });
+    }
+
+    /**
+     * Переключить видимость записи истории
+     */
+    public function toggleHistoryVisibility($historyId)
+    {
+        $capUpdateService = app(CapUpdateService::class);
+        return $capUpdateService->toggleHistoryVisibility($historyId);
+    }
+
+    /**
+     * Получить статистику системы кап
+     */
+    public function getCapStatistics()
+    {
+        $capUpdateService = app(CapUpdateService::class);
+        return $capUpdateService->getUpdateStatistics();
     }
 
     /**

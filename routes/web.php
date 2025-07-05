@@ -313,4 +313,59 @@ Route::middleware('auth')->group(function () {
 
 
 
+// API для работы с историей кап
+Route::middleware('auth')->group(function () {
+    // Получение истории конкретной капы
+    Route::get('/api/cap/{capId}/history', function ($capId) {
+        $capAnalysisService = app(\App\Services\CapAnalysisService::class);
+        $includeHidden = request('include_hidden', false);
+        
+        $data = $capAnalysisService->getCapWithHistory($capId, $includeHidden);
+        
+        if (!$data) {
+            return response()->json(['error' => 'Cap not found'], 404);
+        }
+        
+        return response()->json($data);
+    });
+
+    // Переключение видимости записи истории
+    Route::post('/api/cap-history/{historyId}/toggle-visibility', function ($historyId) {
+        $capAnalysisService = app(\App\Services\CapAnalysisService::class);
+        $result = $capAnalysisService->toggleHistoryVisibility($historyId);
+        
+        if (!$result) {
+            return response()->json(['error' => 'History record not found'], 404);
+        }
+        
+        return response()->json([
+            'success' => true,
+            'is_hidden' => $result->is_hidden,
+            'message' => $result->is_hidden ? 'Запись скрыта' : 'Запись показана'
+        ]);
+    });
+
+    // Получение последних обновлений
+    Route::get('/api/cap-updates/recent', function () {
+        $capAnalysisService = app(\App\Services\CapAnalysisService::class);
+        $limit = request('limit', 10);
+        $includeHidden = request('include_hidden', false);
+        
+        $updates = $capAnalysisService->getRecentCapUpdates($limit, $includeHidden);
+        
+        return response()->json([
+            'updates' => $updates,
+            'total' => count($updates)
+        ]);
+    });
+
+    // Получение статистики кап
+    Route::get('/api/cap-statistics', function () {
+        $capAnalysisService = app(\App\Services\CapAnalysisService::class);
+        $statistics = $capAnalysisService->getCapStatistics();
+        
+        return response()->json($statistics);
+    });
+});
+
 require __DIR__.'/auth.php';

@@ -39,6 +39,47 @@ class Cap extends Model
     }
 
     /**
+     * Связь с историей изменений
+     */
+    public function history()
+    {
+        return $this->hasMany(\App\Models\CapHistory::class);
+    }
+
+    /**
+     * Создать запись истории при создании капы
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::created(function ($cap) {
+            \App\Models\CapHistory::createForNewCap($cap);
+        });
+    }
+
+    /**
+     * Обновить капу с сохранением истории
+     */
+    public function updateWithHistory($newData, $reason = null)
+    {
+        // Сохраняем старые значения
+        $oldValues = $this->only([
+            'cap_amounts', 'total_amount', 'schedule', 'date', 'is_24_7',
+            'affiliate_name', 'broker_name', 'geos', 'work_hours', 'highlighted_text'
+        ]);
+
+        // Обновляем данные
+        $this->fill($newData);
+        $this->save();
+
+        // Создаем запись истории
+        \App\Models\CapHistory::createForCapUpdate($this, $oldValues, $reason);
+
+        return $this;
+    }
+
+    /**
      * Поиск кап по параметрам
      */
     public static function searchCaps($search = null, $chatId = null)
