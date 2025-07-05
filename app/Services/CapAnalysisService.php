@@ -237,7 +237,6 @@ class CapAnalysisService
         
         // Ищем CAP в сообщении
         $capAmount = null;
-        $totalAmount = null;
         
         // Поиск CAP
         foreach ($lines as $line) {
@@ -266,7 +265,8 @@ class CapAnalysisService
             }
         }
         
-        // Поиск всех чисел для определения TOTAL
+        // Поиск общего тотала для случаев когда нет специфичного
+        $globalTotalAmount = null;
         $allNumbers = [];
         foreach ($lines as $line) {
             preg_match_all('/\b(\d+)\b/', $line, $matches);
@@ -276,21 +276,16 @@ class CapAnalysisService
             }
         }
         
-        // Определяем TOTAL - число которое НЕ является CAP и больше максимального CAP
+        // Определяем общий TOTAL - число которое НЕ является CAP и больше максимального CAP
         if (!empty($allCapValues)) {
             $maxCap = max($allCapValues);
             foreach ($allNumbers as $num) {
                 // Исключаем все CAP значения из поиска total
                 if (!in_array($num, $allCapValues) && $num > $maxCap && $num >= 50 && $num < 10000) {
-                    $totalAmount = $num;
+                    $globalTotalAmount = $num;
                     break;
                 }
             }
-        }
-        
-        // Если TOTAL не найден, устанавливаем бесконечность
-        if (!$totalAmount) {
-            $totalAmount = -1; // -1 означает бесконечность
         }
         
         // Поиск глобальных параметров (применяются ко всем, если не указаны конкретно)
@@ -393,37 +388,75 @@ class CapAnalysisService
                     $lineCapAmount = intval($lineCapMatch[1]);
                 }
                 
+                // Ищем тотал специфичный для этой строки
+                $lineTotalAmount = null;
+                
+                // Ищем все числа в этой строке
+                preg_match_all('/\b(\d+)\b/', $line, $lineNumbers);
+                if (!empty($lineNumbers[1])) {
+                    $lineNumbersArray = array_map('intval', $lineNumbers[1]);
+                    
+                    // Ищем число которое НЕ является CAP и больше CAP
+                    foreach ($lineNumbersArray as $num) {
+                        if (!in_array($num, $allCapValues) && $num > $lineCapAmount && $num >= 50 && $num < 10000) {
+                            $lineTotalAmount = $num;
+                            break;
+                        }
+                    }
+                }
+                
+                // Если не найден тотал в строке, используем общий тотал
+                if (!$lineTotalAmount) {
+                    $lineTotalAmount = $globalTotalAmount ?: -1; // -1 означает бесконечность
+                }
+                
                 $affiliateName = trim($pairMatch[1]);
                 $brokerPart = trim($pairMatch[2]);
                 
+                // Очищаем имя аффилиата более аккуратно
+                $cleanAffiliateName = $affiliateName;
+                
                 // Убираем CAP из названия аффилейта (из любого места, не только начала)
-                $affiliateName = preg_replace('/(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
+                $cleanAffiliateName = preg_replace('/(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $cleanAffiliateName);
                 
                 // Убираем все найденные CAP значения
                 foreach ($allCapValues as $capValue) {
-                    $affiliateName = preg_replace('/\b' . $capValue . '\b\s*/', '', $affiliateName);
+                    $cleanAffiliateName = preg_replace('/\b' . $capValue . '\b\s*/', '', $cleanAffiliateName);
                 }
                 
-                // Убираем числа которые являются total amount
-                if ($totalAmount > 0) {
-                    $affiliateName = preg_replace('/\b' . $totalAmount . '\b\s*/', '', $affiliateName);
+                // Убираем числа которые являются total amount только если они есть в строке
+                if ($lineTotalAmount > 0) {
+                    $cleanAffiliateName = preg_replace('/\b' . $lineTotalAmount . '\b\s*/', '', $cleanAffiliateName);
                 }
                 
-                // Убираем начальные слова типа "по", "max", "до" и т.д.
-                $affiliateName = preg_replace('/^(по|max|до|макс|мах)\s+/iu', '', $affiliateName);
+                // Убираем начальные слова типа "по", "max", "до", "no" и т.д.
+                $cleanAffiliateName = preg_replace('/^(по|max|до|макс|мах|no)\s+/iu', '', $cleanAffiliateName);
                 
-                $affiliateName = trim($affiliateName);
+                $cleanAffiliateName = trim($cleanAffiliateName);
                 
                 // Разделяем брокера и гео из brokerPart
                 $lineGeos = [];
                 $brokerName = $brokerPart;
                 
-                // Сначала ищем гео в brokerPart и удаляем их из названия брокера
-                $brokerWords = preg_split('/[\s,\/]+/', $brokerPart);
+                // Сначала проверяем, есть ли расписание в brokerPart и убираем его
+                $cleanBrokerPart = $brokerPart;
+                
+                // Убираем 24/7 из broker part
+                $cleanBrokerPart = preg_replace('/\s*24\/7\s*/', ' ', $cleanBrokerPart);
+                
+                // Убираем время работы типа "24" если это часть "24/7"
+                if (preg_match('/24\/7|24-7/', $brokerPart)) {
+                    $cleanBrokerPart = preg_replace('/\b24\b/', '', $cleanBrokerPart);
+                }
+                
+                // Сначала ищем гео в cleanBrokerPart и удаляем их из названия брокера
+                $brokerWords = preg_split('/[\s,\/]+/', $cleanBrokerPart);
                 $brokerNameWords = [];
                 
                 foreach ($brokerWords as $word) {
                     $word = trim($word);
+                    if (empty($word)) continue;
+                    
                     $wordUpper = strtoupper($word);
                     if (in_array($wordUpper, $geoList)) {
                         $lineGeos[] = $wordUpper;
@@ -483,20 +516,22 @@ class CapAnalysisService
                 }
                 
                 $pairs[] = [
-                    'affiliate_name' => $affiliateName ?: null,
+                    'affiliate_name' => $cleanAffiliateName ?: null,
                     'broker_name' => $brokerName ?: null,
                     'geos' => !empty($lineGeos) ? $lineGeos : $globalGeos,
                     'schedule' => $lineSchedule,
                     'date' => $lineDate,
                     'work_hours' => $lineWorkHours,
                     'highlighted_text' => $line,
-                    'cap_amount' => $lineCapAmount // Добавляем индивидуальный CAP для каждой пары
+                    'cap_amount' => $lineCapAmount, // Добавляем индивидуальный CAP для каждой пары
+                    'total_amount' => $lineTotalAmount // Добавляем индивидуальный тотал для каждой пары
                 ];
             }
         }
         
         // Если пары не найдены, создаем одну запись с глобальными параметрами
         if (empty($pairs)) {
+            $globalTotal = $globalTotalAmount ?: -1; // -1 означает бесконечность
             $pairs[] = [
                 'affiliate_name' => null,
                 'broker_name' => null,
@@ -505,7 +540,8 @@ class CapAnalysisService
                 'date' => $globalDate,
                 'work_hours' => $globalWorkHours,
                 'highlighted_text' => $messageText,
-                'cap_amount' => $capAmount // Общий CAP для случая без пар
+                'cap_amount' => $capAmount, // Общий CAP для случая без пар
+                'total_amount' => $globalTotal // Общий тотал для случая без пар
             ];
         }
         
@@ -513,7 +549,7 @@ class CapAnalysisService
         foreach ($pairs as $pair) {
             $capEntries[] = [
                 'cap_amount' => $pair['cap_amount'], // Используем индивидуальный CAP каждой пары
-                'total_amount' => $totalAmount,
+                'total_amount' => $pair['total_amount'], // Используем индивидуальный тотал каждой пары
                 'schedule' => $pair['schedule'],
                 'date' => $pair['date'],
                 'is_24_7' => $pair['schedule'] === '24/7',
