@@ -821,7 +821,7 @@
                             </div>
                         </div>
                         `).join('')}
-                        
+                            
                         ${caps.some(cap => cap.highlighted_text) ? `
                         <div class="analysis-section" style="margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1rem;">
                             <div class="analysis-item positive" style="grid-column: 1 / -1;">
@@ -858,8 +858,8 @@
                                     .replace(/\n/g, '<br>')
                                     .replace(/\|\|\|BREAK\|\|\|/g, '<br>')}</div>
                             </div>
-                        </div>
-                        ` : ''}
+                            </div>
+                            ` : ''}
                     </div>
                 `;
             }).join('');
