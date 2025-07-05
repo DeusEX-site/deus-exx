@@ -7,7 +7,6 @@ use App\Models\Message;
 use App\Events\MessageSent;
 use App\Services\ChatPositionService;
 use App\Services\CapAnalysisService;
-use App\Services\CapUpdateService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -16,13 +15,11 @@ class TelegramWebhookController extends Controller
 {
     protected $chatPositionService;
     protected $capAnalysisService;
-    protected $capUpdateService;
 
-    public function __construct(ChatPositionService $chatPositionService, CapAnalysisService $capAnalysisService, CapUpdateService $capUpdateService)
+    public function __construct(ChatPositionService $chatPositionService, CapAnalysisService $capAnalysisService)
     {
         $this->chatPositionService = $chatPositionService;
         $this->capAnalysisService = $capAnalysisService;
-        $this->capUpdateService = $capUpdateService;
     }
 
     public function handle(Request $request)
@@ -130,30 +127,9 @@ class TelegramWebhookController extends Controller
             'telegram_raw_data' => $messageData,
         ]);
         
-        // Анализируем сообщение на наличие кап с обновлением существующих
+        // Анализируем сообщение на наличие кап
         try {
-            // Сначала проверяем, есть ли в сообщении cap слова
-            $capWords = ['cap', 'сар', 'сар', 'кап', 'CAP', 'САР', 'САР', 'КАП'];
-            $hasCapWord = false;
-            
-            foreach ($capWords as $word) {
-                if (stripos($messageText, $word) !== false) {
-                    $hasCapWord = true;
-                    break;
-                }
-            }
-            
-            if ($hasCapWord) {
-                // Используем новую систему обновления кап
-                $result = $this->capUpdateService->processNewMessage($message->id, $messageText);
-                
-                Log::info('Cap message processed', [
-                    'message_id' => $message->id,
-                    'updated_caps' => $result['updated_caps'],
-                    'new_caps' => $result['new_caps'],
-                    'total_entries' => $result['total_entries']
-                ]);
-            }
+            $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $messageText);
         } catch (\Exception $e) {
             Log::warning('Cap analysis failed for message', [
                 'message_id' => $message->id,
