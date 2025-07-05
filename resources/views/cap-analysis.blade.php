@@ -780,12 +780,10 @@
                         
                         ${caps.map((cap, capIndex) => `
                         <div class="analysis-section" style="margin-top: ${capIndex > 0 ? '1rem' : '0'}; ${capIndex > 0 ? 'border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1rem;' : ''}">
-                            ${capIndex === 0 ? `
                             <div class="analysis-item ${cap.has_cap_word ? 'positive' : 'negative'}">
                                 <div class="label">Слово CAP</div>
                                 <div class="value">${cap.has_cap_word ? '✅' : '❌'}</div>
                             </div>
-                            ` : ''}
                             
                             <div class="analysis-item ${cap.cap_amounts && cap.cap_amounts.length > 0 ? 'positive' : ''}">
                                 <div class="label">Капа ${caps.length > 1 ? `#${capIndex + 1}` : ''}</div>
@@ -821,11 +819,37 @@
                                 <div class="label">Гео</div>
                                 <div class="value">${cap.geos && cap.geos.length > 0 ? cap.geos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
-                            
-                            ${cap.highlighted_text ? `
+                        </div>
+                        `).join('')}
+                        
+                        ${caps.some(cap => cap.highlighted_text) ? `
+                        <div class="analysis-section" style="margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1rem;">
                             <div class="analysis-item positive" style="grid-column: 1 / -1;">
-                                <div class="label">Обработанный текст для блока #${capIndex + 1}</div>
-                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left;">${cap.highlighted_text
+                                <div class="label">Обработанный текст для всех блоков (${caps.length})</div>
+                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left;">${caps.map((cap, index) => {
+                                    if (!cap.highlighted_text) return '';
+                                    let result = `${index + 1}. ${cap.highlighted_text}`;
+                                    
+                                    // Добавляем дополнительную информацию
+                                    const additionalInfo = [];
+                                    if (cap.total_amount === -1) {
+                                        additionalInfo.push('∞');
+                                    } else if (cap.total_amount > 0) {
+                                        additionalInfo.push(cap.total_amount);
+                                    }
+                                    if (cap.date) {
+                                        additionalInfo.push(cap.date);
+                                    }
+                                    if (cap.schedule) {
+                                        additionalInfo.push(cap.schedule);
+                                    }
+                                    
+                                    if (additionalInfo.length > 0) {
+                                        result += ' [' + additionalInfo.join(', ') + ']';
+                                    }
+                                    
+                                    return result;
+                                }).filter(Boolean).join('<br>')
                                     .replace(/&/g, '&amp;')
                                     .replace(/</g, '&lt;')
                                     .replace(/>/g, '&gt;')
@@ -833,9 +857,8 @@
                                     .replace(/'/g, '&#39;')
                                     .replace(/\n/g, '<br>')}</div>
                             </div>
-                            ` : ''}
                         </div>
-                        `).join('')}
+                        ` : ''}
                     </div>
                 `;
             }).join('');
