@@ -293,7 +293,6 @@ class CapAnalysisService
             if (preg_match('/^(\d{1,2})-(\d{1,2})$/', $line, $matches)) {
                 $globalWorkHours = $matches[0];
                 $globalSchedule = $matches[0];
-                \Log::info('Найдено время работы: ' . $matches[0] . ' в строке: ' . $line);
                 continue; // Пропускаем дальнейшие проверки для этой строки
             }
             
@@ -367,17 +366,42 @@ class CapAnalysisService
                 if (preg_match('/^\d{1,2}$/', $part1) && preg_match('/^\d{1,2}$/', $part2)) {
                     continue;
                 }
+                
+                // Проверяем есть ли CAP в этой строке (приоритет над общим CAP)
+                $lineCapAmount = $capAmount; // по умолчанию используем общий CAP
+                if (preg_match('/(?:cap|сар|сар|кап)\s*[\s:=]*(\d+)/iu', $line, $lineCapMatch)) {
+                    $lineCapAmount = intval($lineCapMatch[1]);
+                }
+                
                 $affiliateName = trim($pairMatch[1]);
-                $brokerName = trim($pairMatch[2]);
+                $brokerPart = trim($pairMatch[2]);
                 
                 // Убираем CAP из названия аффилейта если есть
                 $affiliateName = preg_replace('/^(?:cap|сар|сар|кап)\s*[\s:=]*\d+\s*/iu', '', $affiliateName);
                 $affiliateName = trim($affiliateName);
                 
-                // Поиск гео в той же строке
+                // Разделяем брокера и гео из brokerPart
                 $lineGeos = [];
+                $brokerName = $brokerPart;
                 
-                // Поиск после двоеточия
+                // Сначала ищем гео в brokerPart и удаляем их из названия брокера
+                $brokerWords = preg_split('/[\s,\/]+/', $brokerPart);
+                $brokerNameWords = [];
+                
+                foreach ($brokerWords as $word) {
+                    $word = trim($word);
+                    $wordUpper = strtoupper($word);
+                    if (in_array($wordUpper, $geoList)) {
+                        $lineGeos[] = $wordUpper;
+                    } else {
+                        $brokerNameWords[] = $word;
+                    }
+                }
+                
+                // Собираем название брокера из оставшихся слов
+                $brokerName = trim(implode(' ', $brokerNameWords));
+                
+                // Поиск после двоеточия (дополнительные гео)
                 if (preg_match('/:([^:\r\n]+)/', $line, $geoMatch)) {
                     $geoString = trim($geoMatch[1]);
                     $words = preg_split('/[\s,\/]+/', $geoString);
@@ -389,7 +413,7 @@ class CapAnalysisService
                     }
                 }
                 
-                // Поиск гео в любом месте строки
+                // Поиск гео в остальной части строки (если ещё не найдены)
                 if (empty($lineGeos)) {
                     $words = preg_split('/[\s,\/]+/', $line);
                     foreach ($words as $word) {
@@ -399,6 +423,9 @@ class CapAnalysisService
                         }
                     }
                 }
+                
+                // Убираем дубликаты гео
+                $lineGeos = array_unique($lineGeos);
                 
                 // Поиск времени/даты в той же строке
                 $lineSchedule = $globalSchedule;
@@ -428,7 +455,8 @@ class CapAnalysisService
                     'schedule' => $lineSchedule,
                     'date' => $lineDate,
                     'work_hours' => $lineWorkHours,
-                    'highlighted_text' => $line
+                    'highlighted_text' => $line,
+                    'cap_amount' => $lineCapAmount // Добавляем индивидуальный CAP для каждой пары
                 ];
             }
         }
@@ -442,14 +470,15 @@ class CapAnalysisService
                 'schedule' => $globalSchedule,
                 'date' => $globalDate,
                 'work_hours' => $globalWorkHours,
-                'highlighted_text' => $messageText
+                'highlighted_text' => $messageText,
+                'cap_amount' => $capAmount // Общий CAP для случая без пар
             ];
         }
         
         // Создаем записи для каждой пары
         foreach ($pairs as $pair) {
             $capEntries[] = [
-                'cap_amount' => $capAmount,
+                'cap_amount' => $pair['cap_amount'], // Используем индивидуальный CAP каждой пары
                 'total_amount' => $totalAmount,
                 'schedule' => $pair['schedule'],
                 'date' => $pair['date'],
