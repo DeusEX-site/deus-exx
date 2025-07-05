@@ -52,7 +52,7 @@ class CapAnalysisService
                 'message' => $cap->message->message,
                 'user' => $cap->message->display_name,
                 'chat_name' => $cap->message->chat->display_name ?? 'Неизвестный чат',
-                'timestamp' => $cap->message->created_at->format('d.m.Y H:i'),
+                'timestamp' => $cap->created_at->format('d.m.Y H:i'),
                 'analysis' => [
                     'has_cap_word' => true, // Если запись существует, значит cap word найден
                     'cap_amounts' => $cap->cap_amounts, // Это уже массив с одной капой
@@ -141,11 +141,7 @@ class CapAnalysisService
             }
         }
 
-        $caps = $query->leftJoin('messages', 'caps.message_id', '=', 'messages.id')
-                     ->orderBy('messages.created_at', 'desc')
-                     ->orderBy('caps.id', 'desc')
-                     ->select('caps.*', 'messages.created_at as message_created_at')
-                     ->get();
+        $caps = $query->orderBy('created_at', 'desc')->get();
         
         $results = [];
         foreach ($caps as $cap) {
@@ -156,7 +152,7 @@ class CapAnalysisService
                 'message' => $cap->message->message,
                 'user' => $cap->message->display_name,
                 'chat_name' => $cap->message->chat->display_name ?? 'Неизвестный чат',
-                'timestamp' => $cap->message->created_at->format('d.m.Y H:i'),
+                'timestamp' => $cap->created_at->format('d.m.Y H:i'),
                 'analysis' => [
                     'has_cap_word' => true,
                     'cap_amounts' => $cap->cap_amounts,
