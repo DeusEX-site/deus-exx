@@ -54,6 +54,11 @@ class TestCapHistorySystem extends Command
         $result4 = $this->testMultipleSchedulesWithGMT($chat);
         $this->displayResult($result4);
         
+        // Тест 5: Обновление с пустыми полями (значения по умолчанию)
+        $this->info("\n🔧 Тест 5: Обновление с пустыми полями");
+        $result5 = $this->testUpdateWithEmptyFields($chat);
+        $this->displayResult($result5);
+        
         // Проверяем историю
         $this->info("\n📚 Проверка истории кап:");
         $this->checkHistory();
@@ -202,6 +207,39 @@ Freeze status on ACQ: No";
         ];
     }
 
+    private function testUpdateWithEmptyFields($chat)
+    {
+        // Обновляем существующую капу TestAff1+TestRec1+US с пустыми полями
+        $messageText = "Affiliate: TestAff1
+Recipient: TestRec1
+Cap: 100
+Total: 
+Geo: US
+Language: 
+Funnel: 
+Schedule: 
+Date: 
+Pending ACQ: 
+Freeze status on ACQ: ";
+
+        $message = Message::create([
+            'chat_id' => $chat->id,
+            'message' => $messageText,
+            'user' => 'TestUser5',
+            'telegram_message_id' => rand(1000, 9999),
+            'telegram_user_id' => 123460,
+            'telegram_date' => now()
+        ]);
+
+        $result = $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $messageText);
+        
+        return [
+            'type' => 'empty_fields',
+            'result' => $result,
+            'message_id' => $message->id
+        ];
+    }
+
     private function displayResult($testResult)
     {
         $result = $testResult['result'];
@@ -222,6 +260,26 @@ Freeze status on ACQ: No";
                 $geo = $cap->geos[0] ?? 'N/A';
                 $timezone = $cap->timezone ?? 'NULL';
                 $this->line("    - Гео: {$geo}, Timezone: {$timezone}");
+            }
+        }
+        
+        if ($testResult['type'] === 'empty_fields') {
+            // Проверяем, что пустые поля заменились на значения по умолчанию
+            $caps = Cap::whereHas('message', function($q) use ($testResult) {
+                $q->where('id', $testResult['message_id']);
+            })->get();
+            
+            $this->line("  🔧 Проверка значений по умолчанию:");
+            foreach ($caps as $cap) {
+                $this->line("    - Капа: " . ($cap->cap_amounts[0] ?? 'N/A'));
+                $this->line("    - Total: " . ($cap->total_amount === -1 ? 'бесконечность' : $cap->total_amount));
+                $this->line("    - Language: " . ($cap->language ?? 'NULL'));
+                $this->line("    - Funnel: " . ($cap->funnel ?? 'NULL'));
+                $this->line("    - Schedule: " . ($cap->schedule ?? 'NULL'));
+                $this->line("    - Date: " . ($cap->date ?? 'NULL'));
+                $this->line("    - Pending ACQ: " . ($cap->pending_acq ? 'true' : 'false'));
+                $this->line("    - Freeze status: " . ($cap->freeze_status_on_acq ? 'true' : 'false'));
+                break; // Показываем только первую запись
             }
         }
     }
