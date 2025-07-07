@@ -41,30 +41,16 @@ class CapAnalysisService
                 );
                 
                 if ($existingCap) {
-                    // Найден дубликат - копируем в историю и обновляем ТОЛЬКО если данные изменились
-                    $hasChanges = $this->hasCapDataChanged($existingCap, $capData, $geo, $messageText);
+                    // Найден дубликат - определяем какие поля нужно обновить
+                    $updateData = $this->getFieldsToUpdate($existingCap, $capData, $geo, $messageText, $messageText);
                     
-                    if ($hasChanges) {
+                    if (!empty($updateData)) {
                         CapHistory::createFromCap($existingCap);
                         
-                        $existingCap->update([
-                            'message_id' => $messageId,
-                            'cap_amounts' => [$capData['cap_amount']],
-                            'total_amount' => $capData['total_amount'],
-                            'schedule' => $capData['schedule'],
-                            'date' => $capData['date'],
-                            'is_24_7' => $capData['is_24_7'],
-                            'geos' => [$geo], // Одно гео
-                            'work_hours' => $capData['work_hours'],
-                            'language' => $capData['language'],
-                            'funnel' => $capData['funnel'],
-                            'pending_acq' => $capData['pending_acq'],
-                            'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
-                            'start_time' => $capData['start_time'],
-                            'end_time' => $capData['end_time'],
-                            'timezone' => $capData['timezone'],
-                            'highlighted_text' => $messageText
-                        ]);
+                        // Всегда обновляем message_id на новое сообщение
+                        $updateData['message_id'] = $messageId;
+                        
+                        $existingCap->update($updateData);
                         
                         $updatedCount++;
                     }
@@ -107,30 +93,104 @@ class CapAnalysisService
     }
 
     /**
-     * Проверяет, изменились ли данные капы
+     * Определяет, какие поля нужно обновить (только указанные в сообщении и измененные)
      */
-    private function hasCapDataChanged($existingCap, $newCapData, $geo, $messageText)
+    private function getFieldsToUpdate($existingCap, $newCapData, $geo, $messageText, $originalMessage)
     {
-        // Сравниваем ключевые поля
-        $existingGeo = $existingCap->geos[0] ?? null;
+        $updateData = [];
         
-        return (
-            $existingCap->cap_amounts[0] != $newCapData['cap_amount'] ||
-            $existingCap->total_amount != $newCapData['total_amount'] ||
-            $existingCap->schedule != $newCapData['schedule'] ||
-            $existingCap->date != $newCapData['date'] ||
-            $existingCap->is_24_7 != $newCapData['is_24_7'] ||
-            $existingGeo != $geo ||
-            $existingCap->work_hours != $newCapData['work_hours'] ||
-            $existingCap->language != $newCapData['language'] ||
-            $existingCap->funnel != $newCapData['funnel'] ||
-            $existingCap->pending_acq != $newCapData['pending_acq'] ||
-            $existingCap->freeze_status_on_acq != $newCapData['freeze_status_on_acq'] ||
-            $existingCap->start_time != $newCapData['start_time'] ||
-            $existingCap->end_time != $newCapData['end_time'] ||
-            $existingCap->timezone != $newCapData['timezone'] ||
-            $existingCap->highlighted_text != $messageText
-        );
+        // CAP amount - всегда обновляем если указан (это обязательное поле)
+        if ($existingCap->cap_amounts[0] != $newCapData['cap_amount']) {
+            $updateData['cap_amounts'] = [$newCapData['cap_amount']];
+        }
+        
+        // Total - обновляем только если указан в сообщении и отличается
+        if ($this->isFieldSpecifiedInMessage($messageText, 'total')) {
+            if ($existingCap->total_amount != $newCapData['total_amount']) {
+                $updateData['total_amount'] = $newCapData['total_amount'];
+            }
+        }
+        
+        // Schedule - обновляем только если указан в сообщении и отличается
+        if ($this->isFieldSpecifiedInMessage($messageText, 'schedule')) {
+            if ($existingCap->schedule != $newCapData['schedule']) {
+                $updateData['schedule'] = $newCapData['schedule'];
+                $updateData['work_hours'] = $newCapData['work_hours'];
+                $updateData['is_24_7'] = $newCapData['is_24_7'];
+                $updateData['start_time'] = $newCapData['start_time'];
+                $updateData['end_time'] = $newCapData['end_time'];
+                $updateData['timezone'] = $newCapData['timezone'];
+            }
+        }
+        
+        // Date - обновляем только если указан в сообщении и отличается
+        if ($this->isFieldSpecifiedInMessage($messageText, 'date')) {
+            if ($existingCap->date != $newCapData['date']) {
+                $updateData['date'] = $newCapData['date'];
+            }
+        }
+        
+        // Language - обновляем только если указан в сообщении и отличается
+        if ($this->isFieldSpecifiedInMessage($messageText, 'language')) {
+            if ($existingCap->language != $newCapData['language']) {
+                $updateData['language'] = $newCapData['language'];
+            }
+        }
+        
+        // Funnel - обновляем только если указан в сообщении и отличается
+        if ($this->isFieldSpecifiedInMessage($messageText, 'funnel')) {
+            if ($existingCap->funnel != $newCapData['funnel']) {
+                $updateData['funnel'] = $newCapData['funnel'];
+            }
+        }
+        
+        // Pending ACQ - обновляем только если указан в сообщении и отличается
+        if ($this->isFieldSpecifiedInMessage($messageText, 'pending_acq')) {
+            if ($existingCap->pending_acq != $newCapData['pending_acq']) {
+                $updateData['pending_acq'] = $newCapData['pending_acq'];
+            }
+        }
+        
+        // Freeze status - обновляем только если указан в сообщении и отличается
+        if ($this->isFieldSpecifiedInMessage($messageText, 'freeze_status')) {
+            if ($existingCap->freeze_status_on_acq != $newCapData['freeze_status_on_acq']) {
+                $updateData['freeze_status_on_acq'] = $newCapData['freeze_status_on_acq'];
+            }
+        }
+        
+        // Highlighted text - всегда обновляем при новом сообщении
+        if ($existingCap->highlighted_text != $messageText) {
+            $updateData['highlighted_text'] = $messageText;
+        }
+        
+        return $updateData;
+    }
+    
+    /**
+     * Проверяет, есть ли определенное значение в исходном тексте сообщения
+     */
+    private function isFieldSpecifiedInMessage($messageText, $fieldName)
+    {
+        $patterns = [
+            'total' => '/^Total:\s*(.+)$/m',
+            'schedule' => '/^Schedule:\s*(.+)$/m',
+            'date' => '/^Date:\s*(.+)$/m',
+            'language' => '/^Language:\s*(.+)$/m',
+            'funnel' => '/^Funnel:\s*(.+)$/m',
+            'pending_acq' => '/^Pending ACQ:\s*(.+)$/m',
+            'freeze_status' => '/^Freeze status on ACQ:\s*(.+)$/m'
+        ];
+        
+        if (!isset($patterns[$fieldName])) {
+            return false;
+        }
+        
+        if (preg_match($patterns[$fieldName], $messageText, $matches)) {
+            $value = trim($matches[1]);
+            return !$this->isEmpty($value);
+        }
+        
+        return false;
     }
 
     /**

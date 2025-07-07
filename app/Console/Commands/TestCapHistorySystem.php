@@ -56,28 +56,24 @@ Date: 24.02 25.02";
         $totalCaps = Cap::where('affiliate_name', 'G06')->where('recipient_name', 'TMedia')->count();
         $this->info("Всего кап в базе: {$totalCaps}");
         
-        // Шаг 2: Обновление одной капы
-        $this->info("\n🔄 Шаг 2: Обновление капы для DE");
+        // Шаг 2: Частичное обновление - только Total
+        $this->info("\n🔄 Шаг 2: Частичное обновление капы для DE (только Total)");
         
-        $updateMessage = "Affiliate: G06
+        $partialUpdateMessage = "Affiliate: G06
 Recipient: TMedia
 Geo: DE
 CAP: 20
-Total: 101
-Language: de
-Funnel: DeusEX
-Schedule: 18:00/01:00
-Date: 24.02";
+Total: 101";
 
         $message2 = Message::create([
             'chat_id' => $chat->id,
-            'message' => $updateMessage,
+            'message' => $partialUpdateMessage,
             'user' => 'Test User',
             'telegram_message_id' => 1002,
             'telegram_user_id' => 123456
         ]);
 
-        $result2 = $capAnalysisService->analyzeAndSaveCapMessage($message2->id, $updateMessage);
+        $result2 = $capAnalysisService->analyzeAndSaveCapMessage($message2->id, $partialUpdateMessage);
         
         $this->info("Создано кап: {$result2['cap_entries_count']}");
         $this->info("Обновлено кап: {$result2['updated_entries_count']}");
@@ -111,6 +107,13 @@ Date: 24.02";
         
         if ($deCap && $deCap->total_amount == 101) {
             $this->info("✅ DE капа обновлена (Total: {$deCap->total_amount})");
+            
+            // Проверяем, что остальные поля не изменились
+            if ($deCap->language == 'de' && $deCap->funnel == 'DeusEX') {
+                $this->info("✅ DE капа: остальные поля остались без изменений");
+            } else {
+                $this->error("❌ DE капа: другие поля были изменены неправильно (Language: {$deCap->language}, Funnel: {$deCap->funnel})");
+            }
         } else {
             $this->error("❌ DE капа не обновлена правильно");
         }
@@ -144,13 +147,13 @@ Date: 24.02";
         
         $message3 = Message::create([
             'chat_id' => $chat->id,
-            'message' => $updateMessage,
+            'message' => $partialUpdateMessage,
             'user' => 'Test User',
             'telegram_message_id' => 1003,
             'telegram_user_id' => 123456
         ]);
 
-        $result3 = $capAnalysisService->analyzeAndSaveCapMessage($message3->id, $updateMessage);
+        $result3 = $capAnalysisService->analyzeAndSaveCapMessage($message3->id, $partialUpdateMessage);
         
         $this->info("Создано кап: {$result3['cap_entries_count']}");
         $this->info("Обновлено кап: {$result3['updated_entries_count']}");
