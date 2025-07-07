@@ -142,40 +142,91 @@ Total: 101";
             $this->error("❌ Общее количество кап изменилось с {$totalCaps} на {$totalCapsAfter}");
         }
         
-        // Шаг 3: Повторное обновление той же капы (без изменений)
-        $this->info("\n🔁 Шаг 3: Повторное отправление того же сообщения");
+        // Шаг 3: Тест сброса полей до значений по умолчанию
+        $this->info("\n🔄 Шаг 3: Тест сброса полей до значений по умолчанию");
         
+        $resetFieldsMessage = "Affiliate: G06
+Recipient: TMedia
+Geo: DE
+CAP: 20
+Total:
+Language:
+Funnel:
+Schedule:
+Date:";
+
         $message3 = Message::create([
             'chat_id' => $chat->id,
-            'message' => $partialUpdateMessage,
+            'message' => $resetFieldsMessage,
             'user' => 'Test User',
             'telegram_message_id' => 1003,
             'telegram_user_id' => 123456
         ]);
 
-        $result3 = $capAnalysisService->analyzeAndSaveCapMessage($message3->id, $partialUpdateMessage);
+        $result3 = $capAnalysisService->analyzeAndSaveCapMessage($message3->id, $resetFieldsMessage);
         
         $this->info("Создано кап: {$result3['cap_entries_count']}");
         $this->info("Обновлено кап: {$result3['updated_entries_count']}");
         
-        $historyCountAfter = CapHistory::whereHas('cap', function($q) {
+        // Проверяем сброс до значений по умолчанию
+        $deCapAfterReset = Cap::where('affiliate_name', 'G06')
+                              ->where('recipient_name', 'TMedia')
+                              ->whereJsonContains('geos', 'DE')
+                              ->first();
+        
+        if ($deCapAfterReset) {
+            $this->info("\n✅ Проверка сброса до значений по умолчанию:");
+            
+            if ($deCapAfterReset->total_amount == -1) {
+                $this->info("✅ Total сброшен до значения по умолчанию (бесконечность: -1)");
+            } else {
+                $this->error("❌ Total не сброшен правильно: {$deCapAfterReset->total_amount}");
+            }
+            
+            if ($deCapAfterReset->language == 'en') {
+                $this->info("✅ Language сброшен до значения по умолчанию (en)");
+            } else {
+                $this->error("❌ Language не сброшен правильно: {$deCapAfterReset->language}");
+            }
+            
+            if ($deCapAfterReset->funnel === null) {
+                $this->info("✅ Funnel сброшен до значения по умолчанию (null)");
+            } else {
+                $this->error("❌ Funnel не сброшен правильно: {$deCapAfterReset->funnel}");
+            }
+            
+            if ($deCapAfterReset->schedule == '24/7' && $deCapAfterReset->is_24_7) {
+                $this->info("✅ Schedule сброшен до значения по умолчанию (24/7)");
+            } else {
+                $this->error("❌ Schedule не сброшен правильно: {$deCapAfterReset->schedule}");
+            }
+            
+            if ($deCapAfterReset->date === null) {
+                $this->info("✅ Date сброшен до значения по умолчанию (null)");
+            } else {
+                $this->error("❌ Date не сброшен правильно: {$deCapAfterReset->date}");
+            }
+        }
+        
+        $historyCountAfterReset = CapHistory::whereHas('cap', function($q) {
             $q->where('affiliate_name', 'G06')->where('recipient_name', 'TMedia');
         })->count();
         
-        if ($historyCountAfter == $historyCount) {
-            $this->info("✅ История не создавалась для одинаковых данных");
+        if ($historyCountAfterReset > $historyCount) {
+            $this->info("✅ Создана дополнительная запись истории при сбросе полей");
         } else {
-            $this->error("❌ История создалась для одинаковых данных");
+            $this->error("❌ История не создана при сбросе полей");
         }
         
         // Показываем историю
         $this->info("\n📜 История изменений:");
         $history = CapHistory::whereHas('cap', function($q) {
             $q->where('affiliate_name', 'G06')->where('recipient_name', 'TMedia');
-        })->with('cap')->get();
+        })->with('cap')->orderBy('archived_at')->get();
         
-        foreach ($history as $historyRecord) {
-            $this->info("- Гео: {$historyRecord->geos[0]}, Total: {$historyRecord->total_amount}, Заархивировано: {$historyRecord->archived_at}");
+        foreach ($history as $index => $historyRecord) {
+            $version = $index + 1;
+            $this->info("- Версия {$version}: Гео: {$historyRecord->geos[0]}, Total: {$historyRecord->total_amount}, Language: {$historyRecord->language}, Funnel: {$historyRecord->funnel}, Заархивировано: {$historyRecord->archived_at}");
         }
         
         // Очистка тестовых данных

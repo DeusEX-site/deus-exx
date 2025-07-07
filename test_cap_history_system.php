@@ -135,20 +135,86 @@ if ($totalCapsAfter == $totalCaps) {
     echo "❌ Общее количество кап изменилось с {$totalCaps} на {$totalCapsAfter}\n";
 }
 
+echo "\n🔄 Шаг 3: Тест сброса полей до значений по умолчанию\n";
+
+$resetFieldsMessage = "Affiliate: G06
+Recipient: TMedia
+Geo: DE
+CAP: 20
+Total:
+Language:
+Funnel:
+Schedule:
+Date:";
+
+$message3 = Message::create([
+    'chat_id' => $chat->id,
+    'message' => $resetFieldsMessage,
+    'user' => 'Test User',
+    'telegram_message_id' => 1003,
+    'telegram_user_id' => 123456
+]);
+
+$result3 = $capAnalysisService->analyzeAndSaveCapMessage($message3->id, $resetFieldsMessage);
+
+echo "Создано кап: " . $result3['cap_entries_count'] . "\n";
+echo "Обновлено кап: " . $result3['updated_entries_count'] . "\n";
+
+// Проверяем сброс до значений по умолчанию
+$deCapAfterReset = Cap::where('affiliate_name', 'G06')
+                      ->where('recipient_name', 'TMedia')
+                      ->whereJsonContains('geos', 'DE')
+                      ->first();
+
+if ($deCapAfterReset) {
+    echo "\n✅ Проверка сброса до значений по умолчанию:\n";
+    
+    if ($deCapAfterReset->total_amount == -1) {
+        echo "✅ Total сброшен до значения по умолчанию (бесконечность: -1)\n";
+    } else {
+        echo "❌ Total не сброшен правильно: {$deCapAfterReset->total_amount}\n";
+    }
+    
+    if ($deCapAfterReset->language == 'en') {
+        echo "✅ Language сброшен до значения по умолчанию (en)\n";
+    } else {
+        echo "❌ Language не сброшен правильно: {$deCapAfterReset->language}\n";
+    }
+    
+    if ($deCapAfterReset->funnel === null) {
+        echo "✅ Funnel сброшен до значения по умолчанию (null)\n";
+    } else {
+        echo "❌ Funnel не сброшен правильно: {$deCapAfterReset->funnel}\n";
+    }
+    
+    if ($deCapAfterReset->schedule == '24/7' && $deCapAfterReset->is_24_7) {
+        echo "✅ Schedule сброшен до значения по умолчанию (24/7)\n";
+    } else {
+        echo "❌ Schedule не сброшен правильно: {$deCapAfterReset->schedule}\n";
+    }
+    
+    if ($deCapAfterReset->date === null) {
+        echo "✅ Date сброшен до значения по умолчанию (null)\n";
+    } else {
+        echo "❌ Date не сброшен правильно: {$deCapAfterReset->date}\n";
+    }
+}
+
 echo "\n📜 История изменений:\n";
 $history = CapHistory::whereHas('cap', function($q) {
     $q->where('affiliate_name', 'G06')->where('recipient_name', 'TMedia');
 })->with('cap')->get();
 
-foreach ($history as $historyRecord) {
-    echo "- Гео: {$historyRecord->geos[0]}, Total: {$historyRecord->total_amount}, Заархивировано: {$historyRecord->archived_at}\n";
+foreach ($history as $index => $historyRecord) {
+    $version = $index + 1;
+    echo "- Версия {$version}: Гео: {$historyRecord->geos[0]}, Total: {$historyRecord->total_amount}, Language: {$historyRecord->language}, Funnel: {$historyRecord->funnel}, Заархивировано: {$historyRecord->archived_at}\n";
 }
 
 echo "\n🧹 Очистка тестовых данных...\n";
 
 Cap::where('affiliate_name', 'G06')->where('recipient_name', 'TMedia')->delete();
 CapHistory::whereIn('id', $history->pluck('id'))->delete();
-Message::whereIn('id', [$message1->id, $message2->id])->delete();
+Message::whereIn('id', [$message1->id, $message2->id, $message3->id])->delete();
 $chat->delete();
 
 echo "✅ Тестовые данные удалены\n";
@@ -160,5 +226,6 @@ echo "✅ Реализована проверка дубликатов по affi
 echo "✅ При обновлении капы старая версия сохраняется в истории\n";
 echo "✅ Обновляются только те поля, которые указаны в новом сообщении\n";
 echo "✅ Поля, не указанные в сообщении, остаются без изменений\n";
+echo "✅ Пустые поля сбрасываются до значений по умолчанию\n";
 echo "✅ Не создаются лишние записи при обновлении\n";
 echo "✅ Записи, не присутствующие в новом сообщении, не удаляются\n"; 

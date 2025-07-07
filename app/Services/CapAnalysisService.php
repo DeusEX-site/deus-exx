@@ -104,57 +104,89 @@ class CapAnalysisService
             $updateData['cap_amounts'] = [$newCapData['cap_amount']];
         }
         
-        // Total - обновляем только если указан в сообщении и отличается
+        // Total - обновляем если указан в сообщении (даже если пустой - сбрасываем до значения по умолчанию)
         if ($this->isFieldSpecifiedInMessage($messageText, 'total')) {
-            if ($existingCap->total_amount != $newCapData['total_amount']) {
-                $updateData['total_amount'] = $newCapData['total_amount'];
+            $rawTotalValue = $this->getRawFieldValue($messageText, 'total');
+            $newTotal = $this->isEmpty($rawTotalValue) ? -1 : $newCapData['total_amount']; // По умолчанию бесконечность
+            
+            if ($existingCap->total_amount != $newTotal) {
+                $updateData['total_amount'] = $newTotal;
             }
         }
         
-        // Schedule - обновляем только если указан в сообщении и отличается
+        // Schedule - обновляем если указан в сообщении (даже если пустой - сбрасываем до 24/7)
         if ($this->isFieldSpecifiedInMessage($messageText, 'schedule')) {
-            if ($existingCap->schedule != $newCapData['schedule']) {
-                $updateData['schedule'] = $newCapData['schedule'];
-                $updateData['work_hours'] = $newCapData['work_hours'];
-                $updateData['is_24_7'] = $newCapData['is_24_7'];
-                $updateData['start_time'] = $newCapData['start_time'];
-                $updateData['end_time'] = $newCapData['end_time'];
-                $updateData['timezone'] = $newCapData['timezone'];
+            $rawScheduleValue = $this->getRawFieldValue($messageText, 'schedule');
+            
+            if ($this->isEmpty($rawScheduleValue)) {
+                // Сбрасываем до значений по умолчанию
+                if ($existingCap->schedule != '24/7') {
+                    $updateData['schedule'] = '24/7';
+                    $updateData['work_hours'] = '24/7';
+                    $updateData['is_24_7'] = true;
+                    $updateData['start_time'] = null;
+                    $updateData['end_time'] = null;
+                    $updateData['timezone'] = null;
+                }
+            } else {
+                if ($existingCap->schedule != $newCapData['schedule']) {
+                    $updateData['schedule'] = $newCapData['schedule'];
+                    $updateData['work_hours'] = $newCapData['work_hours'];
+                    $updateData['is_24_7'] = $newCapData['is_24_7'];
+                    $updateData['start_time'] = $newCapData['start_time'];
+                    $updateData['end_time'] = $newCapData['end_time'];
+                    $updateData['timezone'] = $newCapData['timezone'];
+                }
             }
         }
         
-        // Date - обновляем только если указан в сообщении и отличается
+        // Date - обновляем если указан в сообщении (даже если пустой - сбрасываем до null)
         if ($this->isFieldSpecifiedInMessage($messageText, 'date')) {
-            if ($existingCap->date != $newCapData['date']) {
-                $updateData['date'] = $newCapData['date'];
+            $rawDateValue = $this->getRawFieldValue($messageText, 'date');
+            $newDate = $this->isEmpty($rawDateValue) ? null : $newCapData['date']; // По умолчанию бесконечность
+            
+            if ($existingCap->date != $newDate) {
+                $updateData['date'] = $newDate;
             }
         }
         
-        // Language - обновляем только если указан в сообщении и отличается
+        // Language - обновляем если указан в сообщении (даже если пустой - сбрасываем до 'en')
         if ($this->isFieldSpecifiedInMessage($messageText, 'language')) {
-            if ($existingCap->language != $newCapData['language']) {
-                $updateData['language'] = $newCapData['language'];
+            $rawLanguageValue = $this->getRawFieldValue($messageText, 'language');
+            $newLanguage = $this->isEmpty($rawLanguageValue) ? 'en' : $newCapData['language']; // По умолчанию английский
+            
+            if ($existingCap->language != $newLanguage) {
+                $updateData['language'] = $newLanguage;
             }
         }
         
-        // Funnel - обновляем только если указан в сообщении и отличается
+        // Funnel - обновляем если указан в сообщении (даже если пустой - сбрасываем до null)
         if ($this->isFieldSpecifiedInMessage($messageText, 'funnel')) {
-            if ($existingCap->funnel != $newCapData['funnel']) {
-                $updateData['funnel'] = $newCapData['funnel'];
+            $rawFunnelValue = $this->getRawFieldValue($messageText, 'funnel');
+            $newFunnel = $this->isEmpty($rawFunnelValue) ? null : $newCapData['funnel']; // По умолчанию пустое
+            
+            if ($existingCap->funnel != $newFunnel) {
+                $updateData['funnel'] = $newFunnel;
             }
         }
         
-        // Pending ACQ - обновляем только если указан в сообщении и отличается
+        // Pending ACQ - обновляем если указан в сообщении (даже если пустой - сбрасываем до false)
         if ($this->isFieldSpecifiedInMessage($messageText, 'pending_acq')) {
-            if ($existingCap->pending_acq != $newCapData['pending_acq']) {
-                $updateData['pending_acq'] = $newCapData['pending_acq'];
+            $rawPendingValue = $this->getRawFieldValue($messageText, 'pending_acq');
+            $newPending = $this->isEmpty($rawPendingValue) ? false : $newCapData['pending_acq']; // По умолчанию false
+            
+            if ($existingCap->pending_acq != $newPending) {
+                $updateData['pending_acq'] = $newPending;
             }
         }
         
-        // Freeze status - обновляем только если указан в сообщении и отличается
+        // Freeze status - обновляем если указан в сообщении (даже если пустой - сбрасываем до false)
         if ($this->isFieldSpecifiedInMessage($messageText, 'freeze_status')) {
-            if ($existingCap->freeze_status_on_acq != $newCapData['freeze_status_on_acq']) {
-                $updateData['freeze_status_on_acq'] = $newCapData['freeze_status_on_acq'];
+            $rawFreezeValue = $this->getRawFieldValue($messageText, 'freeze_status');
+            $newFreeze = $this->isEmpty($rawFreezeValue) ? false : $newCapData['freeze_status_on_acq']; // По умолчанию false
+            
+            if ($existingCap->freeze_status_on_acq != $newFreeze) {
+                $updateData['freeze_status_on_acq'] = $newFreeze;
             }
         }
         
@@ -167,30 +199,51 @@ class CapAnalysisService
     }
     
     /**
-     * Проверяет, есть ли определенное значение в исходном тексте сообщения
+     * Проверяет, есть ли определенное поле в исходном тексте сообщения (независимо от того, пустое оно или нет)
      */
     private function isFieldSpecifiedInMessage($messageText, $fieldName)
     {
         $patterns = [
-            'total' => '/^Total:\s*(.+)$/m',
-            'schedule' => '/^Schedule:\s*(.+)$/m',
-            'date' => '/^Date:\s*(.+)$/m',
-            'language' => '/^Language:\s*(.+)$/m',
-            'funnel' => '/^Funnel:\s*(.+)$/m',
-            'pending_acq' => '/^Pending ACQ:\s*(.+)$/m',
-            'freeze_status' => '/^Freeze status on ACQ:\s*(.+)$/m'
+            'total' => '/^Total:\s*(.*)$/m',
+            'schedule' => '/^Schedule:\s*(.*)$/m',
+            'date' => '/^Date:\s*(.*)$/m',
+            'language' => '/^Language:\s*(.*)$/m',
+            'funnel' => '/^Funnel:\s*(.*)$/m',
+            'pending_acq' => '/^Pending ACQ:\s*(.*)$/m',
+            'freeze_status' => '/^Freeze status on ACQ:\s*(.*)$/m'
         ];
         
         if (!isset($patterns[$fieldName])) {
             return false;
         }
         
-        if (preg_match($patterns[$fieldName], $messageText, $matches)) {
-            $value = trim($matches[1]);
-            return !$this->isEmpty($value);
+        return preg_match($patterns[$fieldName], $messageText);
+    }
+    
+    /**
+     * Получает сырое значение поля из сообщения
+     */
+    private function getRawFieldValue($messageText, $fieldName)
+    {
+        $patterns = [
+            'total' => '/^Total:\s*(.*)$/m',
+            'schedule' => '/^Schedule:\s*(.*)$/m',
+            'date' => '/^Date:\s*(.*)$/m',
+            'language' => '/^Language:\s*(.*)$/m',
+            'funnel' => '/^Funnel:\s*(.*)$/m',
+            'pending_acq' => '/^Pending ACQ:\s*(.*)$/m',
+            'freeze_status' => '/^Freeze status on ACQ:\s*(.*)$/m'
+        ];
+        
+        if (!isset($patterns[$fieldName])) {
+            return null;
         }
         
-        return false;
+        if (preg_match($patterns[$fieldName], $messageText, $matches)) {
+            return trim($matches[1]);
+        }
+        
+        return null;
     }
 
     /**
