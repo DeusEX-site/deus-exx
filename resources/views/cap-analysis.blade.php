@@ -967,6 +967,9 @@
                 'Капа (все)',
                 'Общий лимит',
                 'Расписание',
+                'Время начала',
+                'Время окончания',
+                'Часовой пояс',
                 'Дата работы',
                 'Аффилейт',
                 'Получатель',
@@ -990,6 +993,9 @@
                     const allRecipients = [...new Set(caps.map(cap => cap.recipient_name).filter(Boolean))];
                     const allGeos = [...new Set(caps.flatMap(cap => cap.geos || []))];
                     const allSchedules = [...new Set(caps.map(cap => cap.schedule).filter(Boolean))];
+                    const allStartTimes = [...new Set(caps.map(cap => cap.start_time).filter(Boolean))];
+                    const allEndTimes = [...new Set(caps.map(cap => cap.end_time).filter(Boolean))];
+                    const allTimezones = [...new Set(caps.map(cap => cap.timezone).filter(Boolean))];
                     const allDates = [...new Set(caps.map(cap => cap.date).filter(Boolean))];
                     const allTotalAmounts = [...new Set(caps.map(cap => cap.total_amount).filter(t => t !== null && t !== undefined))];
                     const allLanguages = [...new Set(caps.map(cap => cap.language).filter(Boolean))];
@@ -1005,6 +1011,9 @@
                         `"${allCaps.join(', ')}"`,
                         `"${allTotalAmounts.map(total => total === -1 ? '∞' : total).join(', ')}"`,
                         `"${allSchedules.join(', ') || '24/7'}"`,
+                        `"${allStartTimes.join(', ') || ''}"`,
+                        `"${allEndTimes.join(', ') || ''}"`,
+                        `"${allTimezones.join(', ') || ''}"`,
                         `"${allDates.join(', ') || '∞'}"`,
                         `"${allAffiliates.join(', ')}"`,
                         `"${allRecipients.join(', ')}"`,

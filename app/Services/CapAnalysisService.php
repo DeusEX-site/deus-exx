@@ -78,121 +78,73 @@ class CapAnalysisService
     }
 
     /**
-     * Парсит стандартное сообщение капы
+     * Парсит значения, разделенные запятыми или пробелами
+     */
+    private function parseMultipleValues($value, $separateByCommaOnly = false)
+    {
+        if ($this->isEmpty($value)) {
+            return [];
+        }
+        
+        if ($separateByCommaOnly) {
+            // Только запятые для Funnel, Schedule, Pending ACQ, Freeze status
+            $values = explode(',', $value);
+        } else {
+            // Запятые и пробелы для Cap, Geo, Language, Total
+            $values = preg_split('/[,\s]+/', $value);
+        }
+        
+        return array_filter(array_map('trim', $values), function($val) {
+            return !$this->isEmpty($val);
+        });
+    }
+
+    /**
+     * Парсит время из Schedule (например: "18:00/01:00 GMT+03:00")
+     */
+    private function parseScheduleTime($schedule)
+    {
+        $schedule = trim($schedule);
+        
+        if ($this->isEmpty($schedule) || preg_match('/24\/7|24-7/i', $schedule)) {
+            return [
+                'schedule' => '24/7',
+                'work_hours' => '24/7',
+                'is_24_7' => true,
+                'start_time' => null,
+                'end_time' => null,
+                'timezone' => null
+            ];
+        }
+        
+        // Парсим время вида "18:00/01:00 GMT+03:00"
+        if (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})\s*(GMT[+-]\d{1,2}:\d{2})?/i', $schedule, $matches)) {
+            return [
+                'schedule' => $schedule,
+                'work_hours' => $schedule,
+                'is_24_7' => false,
+                'start_time' => $matches[1],
+                'end_time' => $matches[2],
+                'timezone' => isset($matches[3]) ? $matches[3] : null
+            ];
+        }
+        
+        return [
+            'schedule' => $schedule,
+            'work_hours' => $schedule,
+            'is_24_7' => false,
+            'start_time' => null,
+            'end_time' => null,
+            'timezone' => null
+        ];
+    }
+
+    /**
+     * Парсит стандартное сообщение капы с привязкой по порядку
      */
     private function parseStandardCapMessage($messageText)
     {
-        $baseData = [
-            'cap_amount' => null,
-            'total_amount' => -1, // По умолчанию бесконечность
-            'schedule' => '24/7', // По умолчанию 24/7
-            'date' => null, // По умолчанию бесконечность
-            'is_24_7' => true,
-            'geos' => [],
-            'work_hours' => null,
-            'language' => 'en', // По умолчанию en
-            'funnel' => null,
-            'pending_acq' => false,
-            'freeze_status_on_acq' => false
-        ];
-
-        // Парсим поля, которые не зависят от списков
-        if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
-            $capValue = trim($matches[1]);
-            
-            // Проверяем, есть ли слеш в значении Cap (например Cap: 15/150)
-            if (strpos($capValue, '/') !== false) {
-                // Если есть слеш, Total = бесконечность, берем первое число как Cap
-                $parts = explode('/', $capValue);
-                $baseData['cap_amount'] = intval(trim($parts[0]));
-                $baseData['total_amount'] = -1; // Бесконечность
-            } else {
-                $baseData['cap_amount'] = intval($capValue);
-            }
-        }
-
-        if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
-            $totalValue = trim($matches[1]);
-            if (!$this->isEmpty($totalValue) && is_numeric($totalValue)) {
-                $baseData['total_amount'] = intval($totalValue);
-            }
-            // Если Total пустое, "-" или не число, остается -1 (бесконечность)
-        }
-
-        if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
-            $geoValue = trim($matches[1]);
-            if (!$this->isEmpty($geoValue)) {
-                // Разделяем по запятым, слешам и пробелам
-                $geos = preg_split('/[,\/\s]+/', $geoValue);
-                $baseData['geos'] = array_filter(array_map('trim', $geos), function($geo) {
-                    $trimmed = trim($geo);
-                    return $trimmed !== '' && $trimmed !== '-' && strlen($trimmed) >= 2;
-                });
-            }
-        }
-
-        if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
-            $languageValue = trim($matches[1]);
-            if (!$this->isEmpty($languageValue)) {
-                $baseData['language'] = $languageValue;
-            }
-            // Если Language пустое или "-", остается "en" (по умолчанию)
-        }
-
-        if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
-            $funnelValue = trim($matches[1]);
-            if (!$this->isEmpty($funnelValue)) {
-                $baseData['funnel'] = $funnelValue;
-            }
-            // Если Funnel пустое или "-", остается null
-        }
-
-        if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
-            $scheduleValue = trim($matches[1]);
-            if (!$this->isEmpty($scheduleValue)) {
-                $baseData['schedule'] = $scheduleValue;
-                $baseData['work_hours'] = $scheduleValue;
-                $baseData['is_24_7'] = false;
-                
-                // Проверяем, является ли это 24/7
-                if (preg_match('/24\/7|24-7/i', $scheduleValue)) {
-                    $baseData['is_24_7'] = true;
-                }
-            }
-            // Если Schedule пустое или "-", остается 24/7
-        }
-
-        if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
-            $dateValue = trim($matches[1]);
-            if (!$this->isEmpty($dateValue)) {
-                // Если в дате нет года, добавляем текущий год
-                if (preg_match('/^\d{1,2}\.\d{1,2}$/', $dateValue)) {
-                    $currentYear = date('Y');
-                    $baseData['date'] = $dateValue . '.' . $currentYear;
-                } else {
-                    $baseData['date'] = $dateValue;
-                }
-            }
-            // Если Date пустое или "-", остается null (бесконечность)
-        }
-
-        if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
-            $pendingValue = strtolower(trim($matches[1]));
-            if (!$this->isEmpty($pendingValue)) {
-                $baseData['pending_acq'] = in_array($pendingValue, ['yes', 'true', '1', 'да']);
-            }
-            // Если Pending ACQ пустое или "-", остается false
-        }
-
-        if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
-            $freezeValue = strtolower(trim($matches[1]));
-            if (!$this->isEmpty($freezeValue)) {
-                $baseData['freeze_status_on_acq'] = in_array($freezeValue, ['yes', 'true', '1', 'да']);
-            }
-            // Если Freeze status пустое или "-", остается false
-        }
-
-        // Парсим аффилейта и получателя (по одному значению)
+        // Парсим аффилейта и получателя (обязательные единичные поля)
         $affiliate = null;
         $recipient = null;
 
@@ -210,23 +162,133 @@ class CapAnalysisService
             }
         }
 
-        // Проверяем, что обязательные поля заполнены (Affiliate, Recipient, Cap, Geo)
-        if (!$baseData['cap_amount'] || !$affiliate || !$recipient) {
-            return null;
-        }
-        
-        // Проверяем, что Geo не пустое (обязательное поле)
-        if (empty($baseData['geos'])) {
+        // Проверяем обязательные единичные поля
+        if (!$affiliate || !$recipient) {
             return null;
         }
 
-        // Создаем отдельную запись для каждого гео (Geo обязательно)
+        // Парсим списки Cap и Geo (обязательные)
+        $caps = [];
+        $geos = [];
+
+        if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
+            $capValues = $this->parseMultipleValues($matches[1]);
+            foreach ($capValues as $cap) {
+                if (is_numeric($cap)) {
+                    $caps[] = intval($cap);
+                }
+            }
+        }
+
+        if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
+            $geos = $this->parseMultipleValues($matches[1]);
+        }
+
+        // Проверяем, что Cap и Geo заполнены и их количество совпадает
+        if (empty($caps) || empty($geos) || count($caps) !== count($geos)) {
+            return null;
+        }
+
+        // Парсим необязательные списки
+        $languages = [];
+        $funnels = [];
+        $totals = [];
+        $schedules = [];
+        $pendingAcqs = [];
+        $freezeStatuses = [];
+        $dates = [];
+
+        if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
+            $languages = $this->parseMultipleValues($matches[1]);
+        }
+
+        if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
+            $funnels = $this->parseMultipleValues($matches[1], true); // Только запятые
+        }
+
+        if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
+            $totalValues = $this->parseMultipleValues($matches[1]);
+            foreach ($totalValues as $total) {
+                if (is_numeric($total)) {
+                    $totals[] = intval($total);
+                } else {
+                    $totals[] = -1; // Бесконечность для нечисловых значений
+                }
+            }
+        }
+
+        if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
+            $schedules = $this->parseMultipleValues($matches[1], true); // Только запятые
+        }
+
+        if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
+            $pendingValues = $this->parseMultipleValues($matches[1], true); // Только запятые
+            foreach ($pendingValues as $pending) {
+                $pendingAcqs[] = in_array(strtolower($pending), ['yes', 'true', '1', 'да']);
+            }
+        }
+
+        if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
+            $freezeValues = $this->parseMultipleValues($matches[1], true); // Только запятые
+            foreach ($freezeValues as $freeze) {
+                $freezeStatuses[] = in_array(strtolower($freeze), ['yes', 'true', '1', 'да']);
+            }
+        }
+
+        if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
+            $dateValues = $this->parseMultipleValues($matches[1], true); // Только запятые
+            foreach ($dateValues as $date) {
+                if (!$this->isEmpty($date)) {
+                    // Если в дате нет года, добавляем текущий год
+                    if (preg_match('/^\d{1,2}\.\d{1,2}$/', $date)) {
+                        $currentYear = date('Y');
+                        $dates[] = $date . '.' . $currentYear;
+                    } else {
+                        $dates[] = $date;
+                    }
+                } else {
+                    $dates[] = null; // Бесконечность
+                }
+            }
+        }
+
+        // Определяем количество записей
+        $count = count($caps);
+
+        // Создаем записи с привязкой по порядку
         $combinations = [];
-        foreach ($baseData['geos'] as $geo) {
-            $combination = $baseData;
-            $combination['affiliate_name'] = $affiliate;
-            $combination['recipient_name'] = $recipient;
-            $combination['geos'] = [$geo]; // Каждая запись содержит только один гео
+        for ($i = 0; $i < $count; $i++) {
+            // Берем значения по индексу или значения по умолчанию
+            $language = isset($languages[$i]) ? $languages[$i] : 'en';
+            $funnel = isset($funnels[$i]) ? $funnels[$i] : null;
+            $total = isset($totals[$i]) ? $totals[$i] : -1; // Бесконечность
+            $schedule = isset($schedules[$i]) ? $schedules[$i] : '24/7';
+            $pendingAcq = isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : false;
+            $freezeStatus = isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : false;
+            $date = isset($dates[$i]) ? $dates[$i] : null;
+
+            // Парсим время из расписания
+            $scheduleData = $this->parseScheduleTime($schedule);
+
+            $combination = [
+                'affiliate_name' => $affiliate,
+                'recipient_name' => $recipient,
+                'cap_amount' => $caps[$i],
+                'geos' => [$geos[$i]],
+                'language' => $language,
+                'funnel' => $funnel,
+                'total_amount' => $total,
+                'schedule' => $scheduleData['schedule'],
+                'work_hours' => $scheduleData['work_hours'],
+                'is_24_7' => $scheduleData['is_24_7'],
+                'start_time' => $scheduleData['start_time'],
+                'end_time' => $scheduleData['end_time'],
+                'timezone' => $scheduleData['timezone'],
+                'date' => $date,
+                'pending_acq' => $pendingAcq,
+                'freeze_status_on_acq' => $freezeStatus
+            ];
+
             $combinations[] = $combination;
         }
 
@@ -253,6 +315,9 @@ class CapAnalysisService
                     'cap_amounts' => $cap->cap_amounts,
                     'total_amount' => $cap->total_amount,
                     'schedule' => $cap->schedule,
+                    'start_time' => $cap->start_time,
+                    'end_time' => $cap->end_time,
+                    'timezone' => $cap->timezone,
                     'date' => $cap->date,
                     'is_24_7' => $cap->is_24_7,
                     'affiliate_name' => $cap->affiliate_name,
@@ -377,6 +442,9 @@ class CapAnalysisService
                     'cap_amounts' => $cap->cap_amounts,
                     'total_amount' => $cap->total_amount,
                     'schedule' => $cap->schedule,
+                    'start_time' => $cap->start_time,
+                    'end_time' => $cap->end_time,
+                    'timezone' => $cap->timezone,
                     'date' => $cap->date,
                     'is_24_7' => $cap->is_24_7,
                     'affiliate_name' => $cap->affiliate_name,
@@ -467,6 +535,9 @@ class CapAnalysisService
                     'cap_amounts' => [$capData['cap_amount']],
                     'total_amount' => $capData['total_amount'],
                     'schedule' => $capData['schedule'],
+                    'start_time' => $capData['start_time'],
+                    'end_time' => $capData['end_time'],
+                    'timezone' => $capData['timezone'],
                     'date' => $capData['date'],
                     'is_24_7' => $capData['is_24_7'],
                     'affiliate_name' => $capData['affiliate_name'],
@@ -488,6 +559,9 @@ class CapAnalysisService
             'cap_amounts' => [],
             'total_amount' => null,
             'schedule' => null,
+            'start_time' => null,
+            'end_time' => null,
+            'timezone' => null,
             'date' => null,
             'is_24_7' => false,
             'affiliate_name' => null,

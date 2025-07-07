@@ -50,19 +50,23 @@ class UpdateToNewCapFormat extends Command
         $this->line('Freeze status on ACQ: No');
         $this->line('');
         
-        $this->info('📝 Правила обработки:');
+        $this->info('📝 Правила обработки (НОВАЯ ЛОГИКА ПРИВЯЗКИ ПО ПОРЯДКУ):');
         $this->line('• Обязательные поля: Affiliate, Recipient, Cap, Geo');
         $this->line('• Необязательные поля: Total, Schedule, Date, Language, Funnel, Pending ACQ, Freeze status');
-        $this->line('• Affiliate и Recipient - по одному значению (без запятых)');
-        $this->line('• Geo разделяется на отдельные капы (GT PE MX = 3 капы)');
-        $this->line('• Пустые поля или "-" считаются отсутствующими');
-        $this->line('• Значения по умолчанию для необязательных полей:');
-        $this->line('  - Total: пустое -> бесконечность');
-        $this->line('  - Schedule: пустое -> 24/7');
-        $this->line('  - Date: пустое -> бесконечность');
-        $this->line('  - Language: пустое -> en');
-        $this->line('  - Funnel: пустое -> null');
-        $this->line('  - Pending ACQ/Freeze: пустое -> false');
+        $this->line('• Affiliate и Recipient - по одному значению');
+        $this->line('• Cap и Geo должны иметь одинаковое количество значений!');
+        $this->line('• Привязка по порядку: Cap[0]↔Geo[0]↔Language[0]↔Total[0] и т.д.');
+        $this->line('• Разделители:');
+        $this->line('  - Cap, Geo, Language, Total: пробел или запятая');
+        $this->line('  - Funnel, Schedule, Date, Pending ACQ, Freeze: только запятая');
+        $this->line('• Значения по умолчанию (если меньше чем Cap):');
+        $this->line('  - Language: "en"');
+        $this->line('  - Funnel: null');
+        $this->line('  - Total: бесконечность (-1)');
+        $this->line('  - Schedule: "24/7"');
+        $this->line('  - Date: бесконечность (null)');
+        $this->line('  - Pending ACQ/Freeze: false');
+        $this->line('• Schedule: парсится время "18:00/01:00 GMT+03:00" → start_time, end_time, timezone');
         $this->line('• Date без года -> добавляется текущий год (24.02 -> 24.02.2024)');
         $this->line('');
         
@@ -171,7 +175,36 @@ Cap: 20
 Total: 50
 Geo: -
 Language: en
-Funnel: Test"
+Funnel: Test",
+
+            // Тест 8: Множественные капы с привязкой по порядку
+            "Affiliate: MultiTest
+Recipient: TestMulti
+Cap: 15 25 30
+Geo: IE DE ES
+Language: en de es
+Funnel: Funnel1, Funnel2, Funnel3
+Total: 120 150 200
+Schedule: 10:00/18:00 GMT+03:00, 12:00/20:00 GMT+03:00, 24/7
+Date: 24.02, 25.02, 26.02
+Pending ACQ: Yes, No, Yes
+Freeze status on ACQ: No, Yes, No",
+
+            // Тест 9: Капы с недостающими значениями (заполнение по умолчанию)
+            "Affiliate: DefaultTest
+Recipient: TestDefault
+Cap: 10 20
+Geo: US UK
+Language: fr
+Total: 100",
+
+            // Тест 10: Неравное количество Cap и Geo (должно быть отклонено)
+            "Affiliate: MismatchTest
+Recipient: TestMismatch
+Cap: 15 25 30
+Geo: IE DE
+Language: en de
+Total: 120 150"
         ];
 
         $capAnalysisService = new \App\Services\CapAnalysisService();
