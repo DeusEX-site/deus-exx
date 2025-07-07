@@ -457,6 +457,16 @@
                         <option value="infinity">Бесконечность</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="status-filter">Статус</label>
+                    <select id="status-filter">
+                        <option value="">Все (кроме удаленных)</option>
+                        <option value="RUN">Активные</option>
+                        <option value="STOP">Остановленные</option>
+                        <option value="DELETE">Корзина (удаленные)</option>
+                        <option value="all">Все (включая удаленные)</option>
+                    </select>
+                </div>
                 <div class="form-buttons">
                     <button type="submit" class="search-btn" id="search-btn">
                         🔍 Найти
@@ -658,7 +668,7 @@
             const elements = [
                 'search', 'chat-select', 'geo-filter', 'broker-filter', 
                 'affiliate-filter', 'language-filter', 'funnel-filter', 
-                'schedule-filter', 'total-filter'
+                'schedule-filter', 'total-filter', 'status-filter'
             ];
             
             elements.forEach(id => {
@@ -710,6 +720,7 @@
             const funnelFilter = document.getElementById('funnel-filter');
             const scheduleFilter = document.getElementById('schedule-filter');
             const totalFilter = document.getElementById('total-filter');
+            const statusFilter = document.getElementById('status-filter');
             
             const search = searchInput.value;
             const chatId = chatSelect.value;
@@ -720,9 +731,10 @@
             const funnel = funnelFilter?.value || '';
             const schedule = scheduleFilter?.value || '';
             const total = totalFilter?.value || '';
+            const status = statusFilter?.value || '';
 
             console.log('Параметры поиска:', {
-                search, chatId, geo, broker, affiliate, language, funnel, schedule, total
+                search, chatId, geo, broker, affiliate, language, funnel, schedule, total, status
             });
             
             searchBtn.disabled = true;
@@ -742,6 +754,7 @@
                 if (funnel) params.append('funnel', funnel);
                 if (schedule) params.append('schedule', schedule);
                 if (total) params.append('total', total);
+                if (status) params.append('status', status);
                 
                 const response = await fetch(`/api/cap-analysis?${params}`, {
                     headers: {
@@ -872,6 +885,17 @@
                             <div class="analysis-item ${cap.funnel ? 'positive' : 'neutral'}">
                                 <div class="label">Воронка</div>
                                 <div class="value">${cap.funnel || '—'}</div>
+                            </div>
+                            
+                            <div class="analysis-item ${cap.status === 'RUN' ? 'positive' : cap.status === 'STOP' ? 'warning' : 'negative'}">
+                                <div class="label">Статус</div>
+                                <div class="value">
+                                    <span style="display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; 
+                                        background: ${cap.status === 'RUN' ? 'rgba(16, 185, 129, 0.3)' : cap.status === 'STOP' ? 'rgba(251, 146, 60, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; 
+                                        color: ${cap.status === 'RUN' ? '#10b981' : cap.status === 'STOP' ? '#f59e0b' : '#ef4444'};">
+                                        ${cap.status === 'RUN' ? '✅ АКТИВНАЯ' : cap.status === 'STOP' ? '⏸️ ОСТАНОВЛЕНА' : '🗑️ УДАЛЕНА'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         `).join('')}

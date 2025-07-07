@@ -122,7 +122,7 @@ class Cap extends Model
     }
 
     /**
-     * Поиск кап по параметрам (по умолчанию только активные)
+     * Поиск кап по параметрам (по умолчанию RUN и STOP, скрываем DELETE)
      */
     public static function searchCaps($search = null, $chatId = null, $includeInactive = false)
     {
@@ -130,9 +130,9 @@ class Cap extends Model
             $q->with('chat');
         }]);
 
-        // По умолчанию показываем только активные капы
+        // По умолчанию показываем активные и остановленные, скрываем удаленные
         if (!$includeInactive) {
-            $query->active();
+            $query->whereIn('status', ['RUN', 'STOP']);
         }
 
         // Фильтр по чату

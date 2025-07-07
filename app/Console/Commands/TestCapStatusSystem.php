@@ -178,7 +178,86 @@ class TestCapStatusSystem extends Command
             return;
         }
         
-        $this->info('📋 Этап 6: Проверка фильтрации по статусу...');
+        $this->info('📋 Этап 6: Простая команда RESTORE (восстановление из корзины)...');
+        
+        // Восстанавливаем удаленную капу простой командой в ответ на сообщение
+        $simpleRestoreMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1006,
+            'reply_to_message_id' => $resumeMessage->id, // Отвечаем на сообщение с капой
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "RESTORE"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($simpleRestoreMessage->id, $simpleRestoreMessage->message);
+        
+        if (isset($result['status_changed']) && $result['status_changed'] === 1) {
+            $this->info("✅ Капа восстановлена из корзины: {$result['message']}");
+        } else {
+            $this->error("❌ Ошибка восстановления капы из корзины");
+            return;
+        }
+        
+        // Проверяем статус (должен быть RUN после восстановления)
+        $activeCap->refresh();
+        if ($activeCap->status === 'RUN') {
+            $this->info("✅ Статус капы изменен на RUN после RESTORE");
+        } else {
+            $this->error("❌ Ошибка: статус капы не изменен после RESTORE");
+            return;
+        }
+        
+        $this->info('📋 Этап 7: Простая команда RUN (перезапуск активной капы)...');
+        
+        // Сначала остановим капу
+        $stopMessage2 = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1007,
+            'reply_to_message_id' => $resumeMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "STOP"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($stopMessage2->id, $stopMessage2->message);
+        
+        if (isset($result['status_changed']) && $result['status_changed'] === 1) {
+            $this->info("✅ Капа остановлена для тестирования RUN");
+        } else {
+            $this->error("❌ Ошибка остановки капы для тестирования RUN");
+            return;
+        }
+        
+        // Теперь запускаем капу командой RUN
+        $simpleRunMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1008,
+            'reply_to_message_id' => $resumeMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "RUN"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($simpleRunMessage->id, $simpleRunMessage->message);
+        
+        if (isset($result['status_changed']) && $result['status_changed'] === 1) {
+            $this->info("✅ Капа запущена командой RUN: {$result['message']}");
+        } else {
+            $this->error("❌ Ошибка запуска капы командой RUN");
+            return;
+        }
+        
+        // Проверяем статус
+        $activeCap->refresh();
+        if ($activeCap->status === 'RUN') {
+            $this->info("✅ Статус капы изменен на RUN после команды RUN");
+        } else {
+            $this->error("❌ Ошибка: статус капы не изменен после команды RUN");
+            return;
+        }
+        
+        $this->info('📋 Этап 8: Проверка фильтрации по статусу...');
         
         // Проверяем что удаленная капа не показывается в поиске
         $activeCaps = $capAnalysisService->searchCaps(null, $chat->id);
@@ -200,24 +279,96 @@ class TestCapStatusSystem extends Command
             return;
         }
         
-        $this->info('📋 Этап 7: Проверка истории изменений...');
+        $this->info('📋 Этап 9: Проверка истории изменений...');
         
-        // Проверяем историю активной капы (которая была остановлена и удалена)
+                // Проверяем историю активной капы (должно быть много записей: STOP + DELETE + RESTORE + STOP + RUN)
         $historyCount = $activeCap->history()->count();
-        
-        if ($historyCount === 2) {
-            $this->info("✅ Создано {$historyCount} записей в истории (STOP + DELETE)");
+
+        if ($historyCount >= 4) {
+            $this->info("✅ Создано {$historyCount} записей в истории (STOP + DELETE + RESTORE + STOP + RUN)");
         } else {
             $this->error("❌ Ошибка: неверное количество записей в истории ({$historyCount})");
             return;
         }
         
-        $this->info('📋 Этап 8: Тестирование ошибок...');
+        $this->info('📋 Этап 10: Тестирование обновления через reply_to_message...');
+        
+        // Создаем новую капу для тестирования обновления
+        $newCapMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1010,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Affiliate: TestAffiliate\nRecipient: TestRecipient\nCap: 30\nGeo: DE\nSchedule: 24/7"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($newCapMessage->id, $newCapMessage->message);
+        
+        if ($result['cap_entries_count'] === 1) {
+            $this->info("✅ Тестовая капа создана для обновления");
+        } else {
+            $this->error("❌ Ошибка создания тестовой капы");
+            return;
+        }
+        
+        // Обновляем капу через reply_to_message (указываем только Geo)
+        $updateMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1011,
+            'reply_to_message_id' => $newCapMessage->id, // Отвечаем на сообщение с капой
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Cap: 35\nGeo: DE" // Только Geo обязательно, Cap обновляем
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($updateMessage->id, $updateMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 1) {
+            $this->info("✅ Капа обновлена через reply_to_message");
+        } else {
+            $this->error("❌ Ошибка обновления капы через reply_to_message");
+            return;
+        }
+        
+        // Проверяем что лимит изменился
+        $updatedCap = Cap::where('affiliate_name', 'TestAffiliate')
+                         ->where('recipient_name', 'TestRecipient')
+                         ->whereJsonContains('geos', 'DE')
+                         ->where('status', 'RUN')
+                         ->first();
+        
+        if ($updatedCap && $updatedCap->cap_amounts[0] === 35) {
+            $this->info("✅ Лимит капы обновлен с 30 до 35");
+        } else {
+            $this->error("❌ Ошибка: лимит капы не обновился");
+            return;
+        }
+        
+        // Тестируем ошибку - обновление с неправильным гео
+        $wrongGeoMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1012,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Cap: 40\nGeo: FR" // Неправильное гео
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($wrongGeoMessage->id, $wrongGeoMessage->message);
+        
+        if ($result['cap_entries_count'] === 1) {
+            $this->info("✅ При неправильном гео создалась новая капа (как и должно быть)");
+        } else {
+            $this->error("❌ Ошибка: при неправильном гео должна создаться новая капа");
+            return;
+        }
+        
+        $this->info('📋 Этап 11: Тестирование ошибок...');
         
         // Тестируем ошибку - попытка изменить статус несуществующей капы
         $errorMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1006,
+            'message_id' => 1013,
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "Affiliate: NonExistent\nRecipient: NonExistent\nCap: 999\nGeo: XX\nSTOP"
@@ -235,7 +386,7 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - простая команда без reply_to_message
         $noReplyMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1007,
+            'message_id' => 1014,
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "STOP"
@@ -253,24 +404,31 @@ class TestCapStatusSystem extends Command
         $this->info('🎉 Все тесты пройдены успешно!');
         
         // Выводим сводку по всем созданным капам
-        $allCaps = Cap::where('affiliate_name', 'G06')
-                     ->where('recipient_name', 'TMedia')
-                     ->whereJsonContains('geos', 'AT')
+        $allCaps = Cap::whereIn('affiliate_name', ['G06', 'TestAffiliate'])
                      ->get();
         
         $this->table([
-            'ID', 'Cap', 'Статус', 'Дата статуса', 'Записей в истории'
+            'ID', 'Affiliate', 'Recipient', 'Geo', 'Cap', 'Статус', 'Записей в истории'
         ], $allCaps->map(function($cap) {
             return [
                 $cap->id,
+                $cap->affiliate_name,
+                $cap->recipient_name,
+                implode(', ', $cap->geos),
                 $cap->cap_amounts[0],
                 $cap->status,
-                $cap->status_updated_at?->format('d.m.Y H:i:s'),
                 $cap->history()->count()
             ];
         })->toArray());
         
         $this->info('📝 Функциональность готова к использованию!');
+        $this->info('');
+        $this->info('✨ Новые возможности:');
+        $this->info('1. Команды RUN/STOP/DELETE/RESTORE полными данными или через reply_to_message');
+        $this->info('2. Обновление кап через reply_to_message (требуется только Geo)');
+        $this->info('3. Статусы кап: RUN (активные), STOP (остановленные), DELETE (удаленные)');
+        $this->info('4. RESTORE - восстановление из корзины (DELETE → RUN)');
+        $this->info('5. История изменений для всех операций');
         
         return 0;
     }

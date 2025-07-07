@@ -30,6 +30,9 @@ class CapAnalysisService
             $createdCount = 0;
             $updatedCount = 0;
             
+            // Получаем текущее сообщение для проверки reply_to_message
+            $currentMessage = Message::find($messageId);
+            
             foreach ($capCombinations as $capData) {
                 // Поскольку теперь одна капа = одно гео, берем первое гео из массива
                 $geo = $capData['geos'][0] ?? null;
@@ -38,12 +41,28 @@ class CapAnalysisService
                     continue; // Пропускаем если нет гео
                 }
                 
-                // Ищем дубликат по affiliate_name, recipient_name, geo
-                $existingCap = Cap::findDuplicate(
-                    $capData['affiliate_name'],
-                    $capData['recipient_name'], 
-                    $geo
-                );
+                $existingCap = null;
+                
+                // Проверяем есть ли reply_to_message и ищем капу по ID сообщения
+                if ($currentMessage && $currentMessage->reply_to_message_id) {
+                    $existingCap = Cap::where('message_id', $currentMessage->reply_to_message_id)
+                                     ->whereIn('status', ['RUN', 'STOP'])
+                                     ->first();
+                                     
+                    // Проверяем что гео совпадает (это обязательное условие для обновления через reply)
+                    if ($existingCap && !in_array($geo, $existingCap->geos)) {
+                        $existingCap = null; // Сбрасываем если гео не совпадает
+                    }
+                }
+                
+                // Если капа не найдена через reply_to_message, ищем дубликат обычным способом
+                if (!$existingCap) {
+                    $existingCap = Cap::findDuplicate(
+                        $capData['affiliate_name'],
+                        $capData['recipient_name'], 
+                        $geo
+                    );
+                }
                 
                 if ($existingCap) {
                     // Найден дубликат - определяем какие поля нужно обновить
@@ -220,30 +239,30 @@ class CapAnalysisService
      */
     private function isStatusCommand($messageText)
     {
-        // Простые команды (только STOP или DELETE)
-        if (preg_match('/^(STOP|DELETE)\s*$/i', trim($messageText))) {
+        // Простые команды (RUN, STOP, DELETE, RESTORE)
+        if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText))) {
             return true;
         }
         
         // Полные команды с полями
-        return preg_match('/^(STOP|DELETE)\s*$/m', $messageText) ||
+        return preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText) ||
                (preg_match('/^Affiliate:\s*(.+)$/m', $messageText) &&
                 preg_match('/^Recipient:\s*(.+)$/m', $messageText) &&
                 preg_match('/^Cap:\s*(.+)$/m', $messageText) &&
                 preg_match('/^Geo:\s*(.+)$/m', $messageText) &&
-                preg_match('/^(STOP|DELETE)\s*$/m', $messageText));
+                preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText));
     }
 
     /**
-     * Обрабатывает команды управления статусом (STOP/DELETE)
+     * Обрабатывает команды управления статусом (RUN/STOP/DELETE/RESTORE)
      */
     private function processStatusCommand($messageId, $messageText)
     {
         // Определяем команду
         $command = null;
-        if (preg_match('/^(STOP|DELETE)\s*$/i', trim($messageText))) {
+        if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText))) {
             $command = strtoupper(trim($messageText));
-        } elseif (preg_match('/^(STOP|DELETE)\s*$/m', $messageText, $matches)) {
+        } elseif (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText, $matches)) {
             $command = $matches[1];
         }
 
@@ -257,33 +276,56 @@ class CapAnalysisService
             return ['cap_entries_count' => 0, 'error' => 'Сообщение не найдено'];
         }
 
-        // Если это простая команда (только STOP или DELETE), ищем капу по reply_to_message
-        if (preg_match('/^(STOP|DELETE)\s*$/i', trim($messageText))) {
+        // Если это простая команда, ищем капу по reply_to_message
+        if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText))) {
             if (!$currentMessage->reply_to_message_id) {
                 return ['cap_entries_count' => 0, 'error' => 'Команда должна быть ответом на сообщение с капой'];
             }
 
+            // Определяем допустимые статусы для поиска в зависимости от команды
+            $allowedStatuses = match($command) {
+                'RUN' => ['STOP'], // Возобновить можно только остановленную
+                'STOP' => ['RUN'], // Остановить можно только активную
+                'DELETE' => ['RUN', 'STOP'], // Удалить можно активную или остановленную
+                'RESTORE' => ['DELETE'], // Восстановить можно только удаленную
+                default => ['RUN', 'STOP', 'DELETE']
+            };
+
             // Ищем капу по ID сообщения, на которое отвечают
             $existingCap = Cap::where('message_id', $currentMessage->reply_to_message_id)
-                              ->whereIn('status', ['RUN', 'STOP'])
+                              ->whereIn('status', $allowedStatuses)
                               ->first();
 
             if (!$existingCap) {
-                return ['cap_entries_count' => 0, 'error' => 'Капа не найдена в сообщении, на которое отвечаете'];
+                $statusText = implode(', ', $allowedStatuses);
+                return ['cap_entries_count' => 0, 'error' => "Капа не найдена или имеет неподходящий статус. Для команды {$command} требуется статус: {$statusText}"];
             }
 
             // Создаем запись в истории
             CapHistory::createFromCap($existingCap);
 
-            // Обновляем статус
-            $existingCap->update([
-                'status' => $command,
+            // Подготавливаем данные для обновления
+            $updateData = [
+                'status' => $command === 'RESTORE' ? 'RUN' : $command, // RESTORE меняет на RUN
                 'status_updated_at' => now(),
                 'message_id' => $messageId,
-                'highlighted_text' => $messageText
-            ]);
+            ];
 
-            $action = $command === 'STOP' ? 'остановлена' : 'удалена';
+            // При DELETE не меняем highlighted_text, для остальных команд обновляем
+            if ($command !== 'DELETE') {
+                $updateData['highlighted_text'] = $messageText;
+            }
+
+            // Обновляем статус
+            $existingCap->update($updateData);
+
+            $action = match($command) {
+                'RUN' => 'возобновлена',
+                'STOP' => 'остановлена', 
+                'DELETE' => 'удалена',
+                'RESTORE' => 'восстановлена из корзины',
+                default => 'обновлена'
+            };
             
             return [
                 'cap_entries_count' => 0,
@@ -323,30 +365,53 @@ class CapAnalysisService
             return ['cap_entries_count' => 0, 'error' => 'Не все обязательные поля заполнены'];
         }
 
+        // Определяем допустимые статусы для поиска в зависимости от команды
+        $allowedStatuses = match($command) {
+            'RUN' => ['STOP'], // Возобновить можно только остановленную
+            'STOP' => ['RUN'], // Остановить можно только активную
+            'DELETE' => ['RUN', 'STOP'], // Удалить можно активную или остановленную
+            'RESTORE' => ['DELETE'], // Восстановить можно только удаленную
+            default => ['RUN', 'STOP', 'DELETE']
+        };
+
         // Ищем капу для изменения статуса
         $existingCap = Cap::where('affiliate_name', $affiliate)
                           ->where('recipient_name', $recipient)
                           ->whereJsonContains('geos', $geo)
                           ->whereJsonContains('cap_amounts', $cap)
-                          ->whereIn('status', ['RUN', 'STOP']) // Можем изменить статус только для активных и остановленных
+                          ->whereIn('status', $allowedStatuses)
                           ->first();
 
         if (!$existingCap) {
-            return ['cap_entries_count' => 0, 'error' => 'Капа не найдена'];
+            $statusText = implode(', ', $allowedStatuses);
+            return ['cap_entries_count' => 0, 'error' => "Капа не найдена или имеет неподходящий статус. Для команды {$command} требуется статус: {$statusText}"];
         }
 
         // Создаем запись в истории перед изменением статуса
         CapHistory::createFromCap($existingCap);
 
-        // Обновляем статус
-        $existingCap->update([
-            'status' => $command,
+        // Подготавливаем данные для обновления
+        $updateData = [
+            'status' => $command === 'RESTORE' ? 'RUN' : $command, // RESTORE меняет на RUN
             'status_updated_at' => now(),
             'message_id' => $messageId,
-            'highlighted_text' => $messageText
-        ]);
+        ];
 
-        $action = $command === 'STOP' ? 'остановлена' : 'удалена';
+        // При DELETE не меняем highlighted_text, для остальных команд обновляем
+        if ($command !== 'DELETE') {
+            $updateData['highlighted_text'] = $messageText;
+        }
+
+        // Обновляем статус
+        $existingCap->update($updateData);
+
+        $action = match($command) {
+            'RUN' => 'возобновлена',
+            'STOP' => 'остановлена', 
+            'DELETE' => 'удалена',
+            'RESTORE' => 'восстановлена из корзины',
+            default => 'обновлена'
+        };
         
         return [
             'cap_entries_count' => 0,
@@ -779,11 +844,11 @@ class CapAnalysisService
     }
 
     /**
-     * Поиск кап из базы данных (только активные по умолчанию)
+     * Поиск кап из базы данных (RUN и STOP по умолчанию, скрываем DELETE)
      */
     public function searchCaps($search = null, $chatId = null)
     {
-        $caps = Cap::searchCaps($search, $chatId, false)->get(); // false = только активные
+        $caps = Cap::searchCaps($search, $chatId, false)->get(); // false = включаем STOP
         
         $results = [];
         foreach ($caps as $cap) {
@@ -830,17 +895,17 @@ class CapAnalysisService
             $q->with('chat');
         }]);
 
-        // Фильтр по статусу (по умолчанию только активные)
+        // Фильтр по статусу (по умолчанию RUN и STOP, скрываем DELETE)
         if (isset($filters['status'])) {
             if ($filters['status'] === 'all') {
-                // Показать все кроме удаленных
-                $query->notDeleted();
+                // Показать все включая удаленные
+                // Не добавляем дополнительных условий
             } elseif (in_array($filters['status'], ['RUN', 'STOP', 'DELETE'])) {
                 $query->where('status', $filters['status']);
             }
         } else {
-            // По умолчанию только активные
-            $query->active();
+            // По умолчанию показываем активные и остановленные, скрываем удаленные
+            $query->whereIn('status', ['RUN', 'STOP']);
         }
 
         // Фильтр по чату
@@ -968,8 +1033,8 @@ class CapAnalysisService
      */
     public function getFilterOptions()
     {
-        // Получаем опции только из активных кап
-        $caps = Cap::active()
+        // Получаем опции из активных и остановленных кап (исключаем удаленные)
+        $caps = Cap::whereIn('status', ['RUN', 'STOP'])
                    ->whereNotNull('geos')
                    ->orWhereNotNull('recipient_name')
                    ->orWhereNotNull('affiliate_name')
@@ -1017,10 +1082,11 @@ class CapAnalysisService
             'languages' => array_values(array_unique($languages)),
             'funnels' => array_values(array_unique($funnels)),
             'statuses' => [
+                ['value' => '', 'label' => 'Все (кроме удаленных)'],
                 ['value' => 'RUN', 'label' => 'Активные'],
                 ['value' => 'STOP', 'label' => 'Остановленные'], 
-                ['value' => 'DELETE', 'label' => 'Удаленные'],
-                ['value' => 'all', 'label' => 'Все (кроме удаленных)']
+                ['value' => 'DELETE', 'label' => 'Корзина (удаленные)'],
+                ['value' => 'all', 'label' => 'Все (включая удаленные)']
             ]
         ];
     }
