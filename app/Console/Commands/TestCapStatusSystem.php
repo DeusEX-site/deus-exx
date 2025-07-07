@@ -753,6 +753,171 @@ class TestCapStatusSystem extends Command
             return;
         }
         
+        // Тестируем команду статуса с указанием конкретного гео
+        $this->info("📝 Тестируем команды статуса с указанием конкретного гео...");
+        
+        $specificGeoStopMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1032,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Geo: FR\nSTOP" // Остановить только FR
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($specificGeoStopMessage->id, $specificGeoStopMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 1) {
+            $this->info("✅ Команда STOP с указанием конкретного гео работает");
+        } else {
+            $this->error("❌ Ошибка команды STOP с конкретным гео");
+            return;
+        }
+        
+        // Проверяем что только FR остановлена
+        $frCap = Cap::where('affiliate_name', 'TestAffiliate')
+                   ->where('recipient_name', 'TestRecipient')
+                   ->whereJsonContains('geos', 'FR')
+                   ->first();
+        
+        $deCap = Cap::where('affiliate_name', 'TestAffiliate')
+                   ->where('recipient_name', 'TestRecipient')
+                   ->whereJsonContains('geos', 'DE')
+                   ->first();
+        
+        if ($frCap && $frCap->status === 'STOP' && $deCap && $deCap->status === 'RUN') {
+            $this->info("✅ Только капа FR остановлена, DE остается активной");
+        } else {
+            $this->error("❌ Ошибка: неправильные статусы после команды с конкретным гео");
+            return;
+        }
+        
+        // Тестируем массовую команду (без указания гео) - должна остановить все RUN капы
+        $massStopMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1033,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "STOP" // Остановить все от этого affiliate и recipient
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($massStopMessage->id, $massStopMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] >= 1) {
+            $this->info("✅ Массовая команда STOP работает корректно");
+        } else {
+            $this->error("❌ Ошибка массовой команды STOP");
+            return;
+        }
+        
+        // Проверяем что все капы остановлены
+        $runningCaps = Cap::where('affiliate_name', 'TestAffiliate')
+                         ->where('recipient_name', 'TestRecipient')
+                         ->where('status', 'RUN')
+                         ->count();
+        
+        if ($runningCaps === 0) {
+            $this->info("✅ Все капы от TestAffiliate → TestRecipient остановлены");
+        } else {
+            $this->info("ℹ️  Осталось {$runningCaps} активных кап (возможно, уже были остановлены)");
+        }
+        
+        // Тестируем массовую команду RUN для восстановления всех
+        $massRunMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1034,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "RUN" // Возобновить все остановленные
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($massRunMessage->id, $massRunMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] >= 1) {
+            $this->info("✅ Массовая команда RUN работает корректно");
+        } else {
+            $this->error("❌ Ошибка массовой команды RUN");
+            return;
+        }
+        
+        // Проверяем что все капы снова активны
+        $runningCaps = Cap::where('affiliate_name', 'TestAffiliate')
+                         ->where('recipient_name', 'TestRecipient')
+                         ->where('status', 'RUN')
+                         ->count();
+        
+        if ($runningCaps >= 2) {
+            $this->info("✅ Все капы от TestAffiliate → TestRecipient возобновлены");
+        } else {
+            $this->info("ℹ️  Активных кап: {$runningCaps}");
+        }
+        
+        // Тестируем команду DELETE с конкретным гео
+        $specificDeleteMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1035,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Geo: IT\nDELETE" // Удалить только IT
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($specificDeleteMessage->id, $specificDeleteMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 1) {
+            $this->info("✅ Команда DELETE с указанием конкретного гео работает");
+        } else {
+            $this->error("❌ Ошибка команды DELETE с конкретным гео");
+            return;
+        }
+        
+        // Проверяем что только IT удалена
+        $itCap = Cap::where('affiliate_name', 'TestAffiliate')
+                   ->where('recipient_name', 'TestRecipient')
+                   ->whereJsonContains('geos', 'IT')
+                   ->first();
+        
+        if ($itCap && $itCap->status === 'DELETE') {
+            $this->info("✅ Только капа IT удалена");
+        } else {
+            $this->error("❌ Ошибка: капа IT не удалена");
+            return;
+        }
+        
+        // Тестируем команду RESTORE для восстановления удаленной капы
+        $restoreMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1036,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Geo: IT\nRESTORE" // Восстановить IT
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($restoreMessage->id, $restoreMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 1) {
+            $this->info("✅ Команда RESTORE с указанием конкретного гео работает");
+        } else {
+            $this->error("❌ Ошибка команды RESTORE с конкретным гео");
+            return;
+        }
+        
+        // Проверяем что IT восстановлена
+        $itCap = Cap::where('affiliate_name', 'TestAffiliate')
+                   ->where('recipient_name', 'TestRecipient')
+                   ->whereJsonContains('geos', 'IT')
+                   ->first();
+        
+        if ($itCap && $itCap->status === 'RUN') {
+            $this->info("✅ Капа IT восстановлена и активна");
+        } else {
+            $this->error("❌ Ошибка: капа IT не восстановлена");
+            return;
+        }
+        
         return 0;
     }
 } 

@@ -255,6 +255,12 @@ class CapAnalysisService
             return true;
         }
         
+        // Команды с указанием гео (Geo: XX\nSTOP)
+        if (preg_match('/^Geo:\s*(.+)$/m', $messageText) && 
+            preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText)) {
+            return true;
+        }
+        
         // Полные команды с полями
         return preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText) ||
                (preg_match('/^Affiliate:\s*(.+)$/m', $messageText) &&
@@ -329,8 +335,14 @@ class CapAnalysisService
             return ['cap_entries_count' => 0, 'error' => 'Сообщение не найдено'];
         }
 
-        // Если это простая команда, ищем капу по reply_to_message
-        if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText))) {
+        // Проверяем, указан ли конкретный гео для команды
+        $specificGeo = null;
+        if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
+            $specificGeo = trim($matches[1]);
+        }
+
+        // Если это простая команда или команда с гео, ищем капу по reply_to_message
+        if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText)) || $specificGeo) {
             if (!$currentMessage->reply_to_message_id) {
                 return ['cap_entries_count' => 0, 'error' => 'Команда должна быть ответом на сообщение с капой'];
             }
@@ -345,35 +357,68 @@ class CapAnalysisService
             };
 
             // Ищем изначальную капу через цепочку reply_to_message
-            $existingCap = $this->findOriginalCap($currentMessage->reply_to_message_id);
+            $originalCap = $this->findOriginalCap($currentMessage->reply_to_message_id);
             
-            // Проверяем, что капа найдена и имеет подходящий статус
-            if ($existingCap && !in_array($existingCap->status, $allowedStatuses)) {
-                $existingCap = null;
+            if (!$originalCap) {
+                return ['cap_entries_count' => 0, 'error' => 'Капа не найдена в сообщении, на которое отвечаете'];
             }
 
-            if (!$existingCap) {
-                $statusText = implode(', ', $allowedStatuses);
-                return ['cap_entries_count' => 0, 'error' => "Капа не найдена или имеет неподходящий статус. Для команды {$command} требуется статус: {$statusText}"];
+            // Определяем какие капы нужно обновить
+            $capsToUpdate = [];
+            $updatedCount = 0;
+            $updatedCapsInfo = [];
+
+            if ($specificGeo) {
+                // Команда с указанием конкретного гео - обновляем только этот гео
+                $targetCap = Cap::where('affiliate_name', $originalCap->affiliate_name)
+                              ->where('recipient_name', $originalCap->recipient_name)
+                              ->whereJsonContains('geos', $specificGeo)
+                              ->whereIn('status', $allowedStatuses)
+                              ->first();
+
+                if ($targetCap) {
+                    $capsToUpdate = [$targetCap];
+                } else {
+                    $statusText = implode(', ', $allowedStatuses);
+                    return ['cap_entries_count' => 0, 'error' => "Капа с гео {$specificGeo} не найдена или имеет неподходящий статус. Для команды {$command} требуется статус: {$statusText}"];
+                }
+            } else {
+                // Простая команда - обновляем все капы от того же affiliate и recipient
+                $capsToUpdate = Cap::where('affiliate_name', $originalCap->affiliate_name)
+                                  ->where('recipient_name', $originalCap->recipient_name)
+                                  ->whereIn('status', $allowedStatuses)
+                                  ->get();
+
+                if ($capsToUpdate->isEmpty()) {
+                    $statusText = implode(', ', $allowedStatuses);
+                    return ['cap_entries_count' => 0, 'error' => "Капы не найдены или имеют неподходящий статус. Для команды {$command} требуется статус: {$statusText}"];
+                }
             }
 
-            // Создаем запись в истории
-            CapHistory::createFromCap($existingCap);
+            // Применяем команду ко всем найденным капам
+            foreach ($capsToUpdate as $cap) {
+                // Создаем запись в истории
+                CapHistory::createFromCap($cap);
 
-            // Подготавливаем данные для обновления
-            $updateData = [
-                'status' => $command === 'RESTORE' ? 'RUN' : $command, // RESTORE меняет на RUN
-                'status_updated_at' => now(),
-                // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
-            ];
+                // Подготавливаем данные для обновления
+                $updateData = [
+                    'status' => $command === 'RESTORE' ? 'RUN' : $command, // RESTORE меняет на RUN
+                    'status_updated_at' => now(),
+                    // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
+                ];
 
-            // При DELETE не меняем highlighted_text, для остальных команд обновляем
-            if ($command !== 'DELETE') {
-                $updateData['highlighted_text'] = $messageText;
+                // При DELETE не меняем highlighted_text, для остальных команд обновляем
+                if ($command !== 'DELETE') {
+                    $updateData['highlighted_text'] = $messageText;
+                }
+
+                // Обновляем статус
+                $cap->update($updateData);
+
+                $updatedCount++;
+                $capGeo = $cap->geos[0] ?? 'unknown';
+                $updatedCapsInfo[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$capGeo}, {$cap->cap_amounts[0]})";
             }
-
-            // Обновляем статус
-            $existingCap->update($updateData);
 
             $action = match($command) {
                 'RUN' => 'возобновлена',
@@ -382,12 +427,18 @@ class CapAnalysisService
                 'RESTORE' => 'восстановлена из корзины',
                 default => 'обновлена'
             };
+
+            if ($updatedCount === 1) {
+                $message = "Капа {$updatedCapsInfo[0]} {$action}";
+            } else {
+                $message = "Обновлено {$updatedCount} " . $this->pluralize($updatedCount, 'капа', 'капы', 'кап') . " от {$originalCap->affiliate_name} → {$originalCap->recipient_name} - {$action}";
+            }
             
             return [
                 'cap_entries_count' => 0,
-                'updated_entries_count' => 1,
-                'status_changed' => 1,
-                'message' => "Капа {$existingCap->affiliate_name} → {$existingCap->recipient_name} ({$existingCap->geos[0]}, {$existingCap->cap_amounts[0]}) {$action}"
+                'updated_entries_count' => $updatedCount,
+                'status_changed' => $updatedCount,
+                'message' => $message
             ];
         }
 
@@ -473,7 +524,7 @@ class CapAnalysisService
             'cap_entries_count' => 0,
             'updated_entries_count' => 1,
             'status_changed' => 1,
-            'message' => "Капа {$affiliate} → {$recipient} ({$geo}, {$cap}) {$action}"
+            'message' => "Капа {$existingCap->affiliate_name} → {$existingCap->recipient_name} ({$existingCap->geos[0]}, {$existingCap->cap_amounts[0]}) {$action}"
         ];
     }
     
@@ -1211,15 +1262,31 @@ class CapAnalysisService
      */
     private function isUpdateCapMessage($messageText)
     {
-        // Проверяем, что нет обязательных полей для создания новой капы
-        $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/m', $messageText);
-        $hasRecipient = preg_match('/^Recipient:\s*(.+)$/m', $messageText);
-        
         // Проверяем, что есть хотя бы одно поле для обновления
         $hasUpdateFields = preg_match('/^(Cap|Total|Schedule|Date|Language|Funnel|Pending ACQ|Freeze status on ACQ|Geo):\s*(.*)$/m', $messageText);
         
-        // Это обновление капы если нет Affiliate/Recipient, но есть поля для обновления
-        return !$hasAffiliate && !$hasRecipient && $hasUpdateFields;
+        if (!$hasUpdateFields) {
+            return false;
+        }
+        
+        // Проверяем обязательные поля для создания новой капы
+        $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/m', $messageText);
+        $hasRecipient = preg_match('/^Recipient:\s*(.+)$/m', $messageText);
+        $hasCap = preg_match('/^Cap:\s*(.+)$/m', $messageText);
+        $hasGeo = preg_match('/^Geo:\s*(.+)$/m', $messageText);
+        
+        // Если есть все обязательные поля для создания новой капы - это стандартное сообщение
+        if ($hasAffiliate && $hasRecipient && $hasCap && $hasGeo) {
+            return false;
+        }
+        
+        // Если есть команда статуса - это тоже не обновление полей
+        if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText)) {
+            return false;
+        }
+        
+        // Это обновление капы если есть поля для обновления, но нет всех обязательных полей
+        return true;
     }
 
     /**
