@@ -119,9 +119,10 @@ class CapAnalysisService
         
         // Парсим время вида "18:00/01:00 GMT+03:00"
         if (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})\s*(GMT[+-]\d{1,2}:\d{2})?/i', $schedule, $matches)) {
+            $timeOnly = $matches[1] . '/' . $matches[2]; // Только время без GMT
             return [
-                'schedule' => $schedule,
-                'work_hours' => $schedule,
+                'schedule' => $timeOnly,
+                'work_hours' => $timeOnly,
                 'is_24_7' => false,
                 'start_time' => $matches[1],
                 'end_time' => $matches[2],
@@ -218,7 +219,7 @@ class CapAnalysisService
         }
 
         if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
-            $schedules = $this->parseMultipleValues($matches[1], true); // Только запятые
+            $schedules = $this->parseMultipleValues($matches[1]); // Пробелы и запятые
         }
 
         if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
@@ -254,6 +255,29 @@ class CapAnalysisService
 
         // Определяем количество записей
         $count = count($caps);
+
+        // Если у необязательного поля только одно значение, применяем его ко всем записям
+        if (count($languages) === 1) {
+            $languages = array_fill(0, $count, $languages[0]);
+        }
+        if (count($funnels) === 1) {
+            $funnels = array_fill(0, $count, $funnels[0]);
+        }
+        if (count($totals) === 1) {
+            $totals = array_fill(0, $count, $totals[0]);
+        }
+        if (count($schedules) === 1) {
+            $schedules = array_fill(0, $count, $schedules[0]);
+        }
+        if (count($pendingAcqs) === 1) {
+            $pendingAcqs = array_fill(0, $count, $pendingAcqs[0]);
+        }
+        if (count($freezeStatuses) === 1) {
+            $freezeStatuses = array_fill(0, $count, $freezeStatuses[0]);
+        }
+        if (count($dates) === 1) {
+            $dates = array_fill(0, $count, $dates[0]);
+        }
 
         // Создаем записи с привязкой по порядку
         $combinations = [];

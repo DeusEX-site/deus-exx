@@ -21,9 +21,31 @@
 - `Pending ACQ` - статусы по порядку (по умолчанию: false)
 - `Freeze status on ACQ` - статусы по порядку (по умолчанию: false)
 
+## Логика заполнения необязательных полей
+
+### Одно значение для всех записей
+Если необязательное поле содержит только одно значение, оно применяется ко всем записям:
+
+```
+Affiliate: G06
+Recipient: TMedia
+Cap: 15 20
+Geo: DE AT
+Language: de
+Funnel: DeusEX
+Total: 200
+```
+
+**Результат:**
+- Запись 1: Cap=15, Geo=DE, Language=de, Funnel=DeusEX, Total=200
+- Запись 2: Cap=20, Geo=AT, Language=de, Funnel=DeusEX, Total=200
+
+### Недостающие значения
+Если значений меньше чем записей, недостающие заполняются по умолчанию.
+
 ## Разделители полей
 
-### Пробелы и запятые (Cap, Geo, Language, Total):
+### Пробелы и запятые (Cap, Geo, Language, Total, Schedule):
 ```
 Cap: 15 25 30
 Geo: IE DE ES  
@@ -31,10 +53,18 @@ Language: en de es
 Total: 120 150 200
 ```
 
-### Только запятые (Funnel, Schedule, Date, Pending ACQ, Freeze status):
+### Пробелы и запятые (Cap, Geo, Language, Total, Schedule):
+```
+Cap: 15 25 30
+Geo: IE DE ES  
+Language: en de es
+Total: 120 150 200
+Schedule: 10:00/18:00 12:00/20:00 GMT+03:00 24/7
+```
+
+### Только запятые (Funnel, Date, Pending ACQ, Freeze status):
 ```
 Funnel: Funnel1, Funnel2, Funnel3
-Schedule: 10:00/18:00 GMT+03:00, 12:00/20:00 GMT+03:00, 24/7
 Date: 24.02, 25.02, 26.02
 Pending ACQ: Yes, No, Yes
 Freeze status on ACQ: No, Yes, No
@@ -50,7 +80,7 @@ Schedule: 18:00/01:00 GMT+03:00
 ```
 
 ### Результат:
-- `schedule`: "18:00/01:00 GMT+03:00"
+- `schedule`: "18:00/01:00" (без GMT)
 - `start_time`: "18:00"
 - `end_time`: "01:00"  
 - `timezone`: "GMT+03:00"
@@ -82,7 +112,23 @@ Freeze status on ACQ: No, Yes, No
 2. Cap=25, Geo=DE, Language=de, Funnel=Funnel2, Total=150, Schedule=12:00/20:00 GMT+03:00, Date=25.02.2024, Pending ACQ=No, Freeze=Yes  
 3. Cap=30, Geo=ES, Language=es, Funnel=Funnel3, Total=200, Schedule=24/7, Date=26.02.2024, Pending ACQ=Yes, Freeze=No
 
-### Пример 2: Недостающие значения (заполнение по умолчанию)
+### Пример 2: Одно значение применяется ко всем
+```
+Affiliate: G06
+Recipient: TMedia
+Cap: 15 20
+Geo: DE AT
+Language: de
+Funnel: DeusEX
+Schedule: 18:00/01:00 GMT+03:00
+Total: 200
+```
+
+**Результат - 2 записи:**
+1. Cap=15, Geo=DE, Language=de, Funnel=DeusEX, Total=200, Schedule="18:00/01:00", start_time="18:00", end_time="01:00", timezone="GMT+03:00"
+2. Cap=20, Geo=AT, Language=de, Funnel=DeusEX, Total=200, Schedule="18:00/01:00", start_time="18:00", end_time="01:00", timezone="GMT+03:00"
+
+### Пример 3: Недостающие значения (заполнение по умолчанию)
 ```
 Affiliate: DefaultTest
 Recipient: TestDefault
@@ -96,7 +142,7 @@ Total: 100
 1. Cap=10, Geo=US, Language=fr, Total=100, Schedule=24/7, Date=null, Funnel=null, Pending ACQ=false, Freeze=false
 2. Cap=20, Geo=UK, Language="en" (по умолчанию), Total=-1 (бесконечность), Schedule=24/7, Date=null, Funnel=null, Pending ACQ=false, Freeze=false
 
-### Пример 3: Ошибка - неравное количество Cap и Geo
+### Пример 4: Ошибка - неравное количество Cap и Geo
 ```
 Affiliate: MismatchTest
 Recipient: TestMismatch

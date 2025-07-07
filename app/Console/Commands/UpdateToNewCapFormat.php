@@ -57,15 +57,17 @@ class UpdateToNewCapFormat extends Command
         $this->line('• Cap и Geo должны иметь одинаковое количество значений!');
         $this->line('• Привязка по порядку: Cap[0]↔Geo[0]↔Language[0]↔Total[0] и т.д.');
         $this->line('• Разделители:');
-        $this->line('  - Cap, Geo, Language, Total: пробел или запятая');
-        $this->line('  - Funnel, Schedule, Date, Pending ACQ, Freeze: только запятая');
-        $this->line('• Значения по умолчанию (если меньше чем Cap):');
-        $this->line('  - Language: "en"');
-        $this->line('  - Funnel: null');
-        $this->line('  - Total: бесконечность (-1)');
-        $this->line('  - Schedule: "24/7"');
-        $this->line('  - Date: бесконечность (null)');
-        $this->line('  - Pending ACQ/Freeze: false');
+        $this->line('  - Cap, Geo, Language, Total, Schedule: пробел или запятая');
+        $this->line('  - Funnel, Date, Pending ACQ, Freeze: только запятая');
+        $this->line('• Логика заполнения необязательных полей:');
+        $this->line('  - Если 1 значение → применяется ко всем записям');
+        $this->line('  - Если меньше чем Cap → дополняется значениями по умолчанию:');
+        $this->line('    * Language: "en"');
+        $this->line('    * Funnel: null');
+        $this->line('    * Total: бесконечность (-1)');
+        $this->line('    * Schedule: "24/7"');
+        $this->line('    * Date: бесконечность (null)');
+        $this->line('    * Pending ACQ/Freeze: false');
         $this->line('• Schedule: парсится время "18:00/01:00 GMT+03:00" → start_time, end_time, timezone');
         $this->line('• Date без года -> добавляется текущий год (24.02 -> 24.02.2024)');
         $this->line('');
@@ -198,13 +200,31 @@ Geo: US UK
 Language: fr
 Total: 100",
 
+            // Тест 11: Одно значение применяется ко всем записям
+            "Affiliate: G06
+Recipient: TMedia
+Cap: 15 20
+Geo: DE AT
+Language: de
+Funnel: DeusEX
+Schedule: 18:00/01:00 GMT+03:00
+Total: 200",
+
             // Тест 10: Неравное количество Cap и Geo (должно быть отклонено)
             "Affiliate: MismatchTest
 Recipient: TestMismatch
 Cap: 15 25 30
 Geo: IE DE
 Language: en de
-Total: 120 150"
+Total: 120 150",
+
+            // Тест 12: Schedule через пробелы
+            "Affiliate: SpaceTest
+Recipient: TestSpace
+Cap: 10 15 20
+Geo: FR IT ES
+Schedule: 10:00/18:00 12:00/20:00 GMT+03:00 24/7
+Language: fr it es"
         ];
 
         $capAnalysisService = new \App\Services\CapAnalysisService();
