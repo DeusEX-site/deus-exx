@@ -100,14 +100,14 @@ class CapAnalysisService
         $updateData = [];
         
         // CAP amount - всегда обновляем если указан (это обязательное поле)
-        if ($existingCap->cap_amounts[0] != $newCapData['cap_amount']) {
+        if (isset($newCapData['cap_amount']) && $existingCap->cap_amounts[0] != $newCapData['cap_amount']) {
             $updateData['cap_amounts'] = [$newCapData['cap_amount']];
         }
         
         // Total - обновляем если указан в сообщении (даже если пустой - сбрасываем до значения по умолчанию)
         if ($this->isFieldSpecifiedInMessage($messageText, 'total')) {
             $rawTotalValue = $this->getRawFieldValue($messageText, 'total');
-            $newTotal = $this->isEmpty($rawTotalValue) ? -1 : $newCapData['total_amount']; // По умолчанию бесконечность
+            $newTotal = $this->isEmpty($rawTotalValue) ? -1 : (isset($newCapData['total_amount']) ? $newCapData['total_amount'] : -1); // По умолчанию бесконечность
             
             if ($existingCap->total_amount != $newTotal) {
                 $updateData['total_amount'] = $newTotal;
@@ -120,7 +120,12 @@ class CapAnalysisService
             
             if ($this->isEmpty($rawScheduleValue)) {
                 // Сбрасываем до значений по умолчанию
-                if ($existingCap->schedule != '24/7') {
+                if ($existingCap->schedule != '24/7' || 
+                    $existingCap->work_hours != '24/7' || 
+                    !$existingCap->is_24_7 || 
+                    $existingCap->start_time !== null || 
+                    $existingCap->end_time !== null || 
+                    $existingCap->timezone !== null) {
                     $updateData['schedule'] = '24/7';
                     $updateData['work_hours'] = '24/7';
                     $updateData['is_24_7'] = true;
@@ -129,13 +134,18 @@ class CapAnalysisService
                     $updateData['timezone'] = null;
                 }
             } else {
-                if ($existingCap->schedule != $newCapData['schedule']) {
-                    $updateData['schedule'] = $newCapData['schedule'];
-                    $updateData['work_hours'] = $newCapData['work_hours'];
-                    $updateData['is_24_7'] = $newCapData['is_24_7'];
-                    $updateData['start_time'] = $newCapData['start_time'];
-                    $updateData['end_time'] = $newCapData['end_time'];
-                    $updateData['timezone'] = $newCapData['timezone'];
+                if ($existingCap->schedule != (isset($newCapData['schedule']) ? $newCapData['schedule'] : '24/7') ||
+                    $existingCap->work_hours != (isset($newCapData['work_hours']) ? $newCapData['work_hours'] : '24/7') ||
+                    $existingCap->is_24_7 != (isset($newCapData['is_24_7']) ? $newCapData['is_24_7'] : true) ||
+                    $existingCap->start_time != (isset($newCapData['start_time']) ? $newCapData['start_time'] : null) ||
+                    $existingCap->end_time != (isset($newCapData['end_time']) ? $newCapData['end_time'] : null) ||
+                    $existingCap->timezone != (isset($newCapData['timezone']) ? $newCapData['timezone'] : null)) {
+                    $updateData['schedule'] = isset($newCapData['schedule']) ? $newCapData['schedule'] : '24/7';
+                    $updateData['work_hours'] = isset($newCapData['work_hours']) ? $newCapData['work_hours'] : '24/7';
+                    $updateData['is_24_7'] = isset($newCapData['is_24_7']) ? $newCapData['is_24_7'] : true;
+                    $updateData['start_time'] = isset($newCapData['start_time']) ? $newCapData['start_time'] : null;
+                    $updateData['end_time'] = isset($newCapData['end_time']) ? $newCapData['end_time'] : null;
+                    $updateData['timezone'] = isset($newCapData['timezone']) ? $newCapData['timezone'] : null;
                 }
             }
         }
@@ -143,7 +153,7 @@ class CapAnalysisService
         // Date - обновляем если указан в сообщении (даже если пустой - сбрасываем до null)
         if ($this->isFieldSpecifiedInMessage($messageText, 'date')) {
             $rawDateValue = $this->getRawFieldValue($messageText, 'date');
-            $newDate = $this->isEmpty($rawDateValue) ? null : $newCapData['date']; // По умолчанию бесконечность
+            $newDate = $this->isEmpty($rawDateValue) ? null : (isset($newCapData['date']) ? $newCapData['date'] : null); // По умолчанию бесконечность
             
             if ($existingCap->date != $newDate) {
                 $updateData['date'] = $newDate;
@@ -153,7 +163,7 @@ class CapAnalysisService
         // Language - обновляем если указан в сообщении (даже если пустой - сбрасываем до 'en')
         if ($this->isFieldSpecifiedInMessage($messageText, 'language')) {
             $rawLanguageValue = $this->getRawFieldValue($messageText, 'language');
-            $newLanguage = $this->isEmpty($rawLanguageValue) ? 'en' : $newCapData['language']; // По умолчанию английский
+            $newLanguage = $this->isEmpty($rawLanguageValue) ? 'en' : (isset($newCapData['language']) ? $newCapData['language'] : 'en'); // По умолчанию английский
             
             if ($existingCap->language != $newLanguage) {
                 $updateData['language'] = $newLanguage;
@@ -163,7 +173,7 @@ class CapAnalysisService
         // Funnel - обновляем если указан в сообщении (даже если пустой - сбрасываем до null)
         if ($this->isFieldSpecifiedInMessage($messageText, 'funnel')) {
             $rawFunnelValue = $this->getRawFieldValue($messageText, 'funnel');
-            $newFunnel = $this->isEmpty($rawFunnelValue) ? null : $newCapData['funnel']; // По умолчанию пустое
+            $newFunnel = $this->isEmpty($rawFunnelValue) ? null : (isset($newCapData['funnel']) ? $newCapData['funnel'] : null); // По умолчанию пустое
             
             if ($existingCap->funnel != $newFunnel) {
                 $updateData['funnel'] = $newFunnel;
@@ -173,7 +183,7 @@ class CapAnalysisService
         // Pending ACQ - обновляем если указан в сообщении (даже если пустой - сбрасываем до false)
         if ($this->isFieldSpecifiedInMessage($messageText, 'pending_acq')) {
             $rawPendingValue = $this->getRawFieldValue($messageText, 'pending_acq');
-            $newPending = $this->isEmpty($rawPendingValue) ? false : $newCapData['pending_acq']; // По умолчанию false
+            $newPending = $this->isEmpty($rawPendingValue) ? false : (isset($newCapData['pending_acq']) ? $newCapData['pending_acq'] : false); // По умолчанию false
             
             if ($existingCap->pending_acq != $newPending) {
                 $updateData['pending_acq'] = $newPending;
@@ -183,7 +193,7 @@ class CapAnalysisService
         // Freeze status - обновляем если указан в сообщении (даже если пустой - сбрасываем до false)
         if ($this->isFieldSpecifiedInMessage($messageText, 'freeze_status')) {
             $rawFreezeValue = $this->getRawFieldValue($messageText, 'freeze_status');
-            $newFreeze = $this->isEmpty($rawFreezeValue) ? false : $newCapData['freeze_status_on_acq']; // По умолчанию false
+            $newFreeze = $this->isEmpty($rawFreezeValue) ? false : (isset($newCapData['freeze_status_on_acq']) ? $newCapData['freeze_status_on_acq'] : false); // По умолчанию false
             
             if ($existingCap->freeze_status_on_acq != $newFreeze) {
                 $updateData['freeze_status_on_acq'] = $newFreeze;
