@@ -445,6 +445,164 @@ class TestCapStatusSystem extends Command
         $this->info('4. RESTORE - восстановление из корзины (DELETE → RUN)');
         $this->info('5. История изменений для всех операций');
         
+        // Тестируем обновление капы - правильный гео
+        $this->info("📝 Тестируем обновление капы через reply_to_message (упрощенный формат)...");
+        
+        // Создаем сообщение с капой
+        $newCapMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1021,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Affiliate: TestAffiliate\nRecipient: TestRecipient\nCap: 30\nGeo: DE"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($newCapMessage->id, $newCapMessage->message);
+        
+        if (isset($result['cap_entries_count']) && $result['cap_entries_count'] === 1) {
+            $this->info("✅ Капа создана для тестирования");
+        } else {
+            $this->error("❌ Ошибка создания капы для тестирования");
+            return;
+        }
+        
+        // Тестируем обновление капы через reply с упрощенным форматом (только Geo + поля для обновления)
+        $updateMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1022,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Geo: DE\nCap: 35\nSchedule: 10:00/18:00"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($updateMessage->id, $updateMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 1) {
+            $this->info("✅ Капа обновлена через reply с упрощенным форматом");
+        } else {
+            $this->error("❌ Ошибка обновления капы через reply с упрощенным форматом");
+            return;
+        }
+        
+        // Проверяем что лимит и расписание изменились
+        $updatedCap = Cap::where('affiliate_name', 'TestAffiliate')
+                         ->where('recipient_name', 'TestRecipient')
+                         ->whereJsonContains('geos', 'DE')
+                         ->where('status', 'RUN')
+                         ->first();
+        
+        if ($updatedCap && $updatedCap->cap_amounts[0] === 35 && $updatedCap->schedule === '10:00/18:00') {
+            $this->info("✅ Лимит и расписание капы обновлены через упрощенный формат");
+        } else {
+            $this->error("❌ Ошибка: лимит или расписание капы не обновились");
+            return;
+        }
+        
+        // Тестируем ошибку - обновление с неправильным гео
+        $errorMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1023,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Geo: FR\nCap: 40" // Неправильный гео
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($errorMessage->id, $errorMessage->message);
+        
+        if (isset($result['error']) && strpos($result['error'], 'Geo не совпадает') !== false) {
+            $this->info("✅ Ошибка неправильного гео обработана корректно");
+        } else {
+            $this->error("❌ Ошибка: неправильный гео должен генерировать ошибку");
+            return;
+        }
+        
+        // Тестируем ошибку - обновление без гео
+        $noGeoMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1024,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Cap: 50\nSchedule: 24/7" // Без гео
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($noGeoMessage->id, $noGeoMessage->message);
+        
+        if (isset($result['cap_entries_count']) && $result['cap_entries_count'] === 0) {
+            $this->info("✅ Сообщение без Geo корректно игнорируется");
+        } else {
+            $this->error("❌ Ошибка: сообщение без Geo должно игнорироваться");
+            return;
+        }
+        
+        // Тестируем обновление с пустыми полями (сброс до значений по умолчанию)
+        $resetMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1025,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Geo: DE\nTotal:\nSchedule:\nLanguage:" // Пустые поля
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($resetMessage->id, $resetMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 1) {
+            $this->info("✅ Пустые поля сброшены до значений по умолчанию");
+        } else {
+            $this->error("❌ Ошибка сброса пустых полей");
+            return;
+        }
+        
+        // Проверяем что поля сброшены
+        $resetCap = Cap::where('affiliate_name', 'TestAffiliate')
+                      ->where('recipient_name', 'TestRecipient')
+                      ->whereJsonContains('geos', 'DE')
+                      ->where('status', 'RUN')
+                      ->first();
+        
+        if ($resetCap && $resetCap->total_amount === -1 && $resetCap->schedule === '24/7' && $resetCap->language === 'en') {
+            $this->info("✅ Поля корректно сброшены до значений по умолчанию");
+        } else {
+            $this->error("❌ Ошибка: поля не сброшены до значений по умолчанию");
+            return;
+        }
+
+        // Тестируем обновление через цепочку reply (reply на reply)
+        $chainReplyMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1026,
+            'reply_to_message_id' => $updateMessage->id, // Отвечаем на сообщение с обновлением
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Geo: DE\nCap: 45\nLanguage: de"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($chainReplyMessage->id, $chainReplyMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 1) {
+            $this->info("✅ Обновление через цепочку reply работает корректно");
+        } else {
+            $this->error("❌ Ошибка обновления через цепочку reply");
+            return;
+        }
+        
+        // Проверяем что обновление прошло
+        $chainCap = Cap::where('affiliate_name', 'TestAffiliate')
+                      ->where('recipient_name', 'TestRecipient')
+                      ->whereJsonContains('geos', 'DE')
+                      ->where('status', 'RUN')
+                      ->first();
+        
+        if ($chainCap && $chainCap->cap_amounts[0] === 45 && $chainCap->language === 'de') {
+            $this->info("✅ Обновление через цепочку reply прошло успешно");
+        } else {
+            $this->error("❌ Ошибка: обновление через цепочку reply не прошло");
+            return;
+        }
+        
         return 0;
     }
 } 
