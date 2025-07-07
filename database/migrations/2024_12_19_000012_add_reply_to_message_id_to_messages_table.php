@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('messages', function (Blueprint $table) {
-            $table->unsignedBigInteger('reply_to_message_id')->nullable()->after('message_id');
+            $table->unsignedBigInteger('reply_to_message_id')->nullable()->after('telegram_message_id');
             $table->index('reply_to_message_id');
         });
     }
