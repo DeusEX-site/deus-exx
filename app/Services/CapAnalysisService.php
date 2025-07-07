@@ -45,141 +45,69 @@ class CapAnalysisService
                     $updateData = ['message_id' => $messageId];
                     $hasChanges = false;
                     
-                    // Проверяем, указаны ли поля в исходном сообщении
-                    $hasTotal = preg_match('/^Total:\s*(.+)$/m', $messageText);
-                    $hasLanguage = preg_match('/^Language:\s*(.+)$/m', $messageText);
-                    $hasFunnel = preg_match('/^Funnel:\s*(.+)$/m', $messageText);
-                    $hasSchedule = preg_match('/^Schedule:\s*(.+)$/m', $messageText);
-                    $hasDate = preg_match('/^Date:\s*(.+)$/m', $messageText);
-                    $hasPendingACQ = preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText);
-                    $hasFreezeStatus = preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText);
-                    
                     // Сравниваем каждое поле и добавляем в updateData только измененные
                     if (json_encode([$capData['cap_amount']]) !== json_encode($existingCap->cap_amounts)) {
                         $updateData['cap_amounts'] = [$capData['cap_amount']];
                         $hasChanges = true;
                     }
                     
-                    // Для необязательных полей: если поле указано и пустое, применяем значение по умолчанию
-                    $newTotalAmount = $capData['total_amount'];
-                    if ($hasTotal) {
-                        preg_match('/^Total:\s*(.*)$/m', $messageText, $matches);
-                        $totalValue = trim($matches[1] ?? '');
-                        if ($this->isEmpty($totalValue)) {
-                            $newTotalAmount = -1; // Значение по умолчанию для пустого Total
-                        }
-                    }
-                    if ($newTotalAmount !== $existingCap->total_amount) {
-                        $updateData['total_amount'] = $newTotalAmount;
+                    if ($capData['total_amount'] !== $existingCap->total_amount) {
+                        $updateData['total_amount'] = $capData['total_amount'];
                         $hasChanges = true;
                     }
                     
-                    $newLanguage = $capData['language'];
-                    if ($hasLanguage) {
-                        preg_match('/^Language:\s*(.*)$/m', $messageText, $matches);
-                        $languageValue = trim($matches[1] ?? '');
-                        if ($this->isEmpty($languageValue)) {
-                            $newLanguage = 'en'; // Значение по умолчанию для пустого Language
-                        }
-                    }
-                    if ($newLanguage !== $existingCap->language) {
-                        $updateData['language'] = $newLanguage;
+                    if ($capData['schedule'] !== $existingCap->schedule) {
+                        $updateData['schedule'] = $capData['schedule'];
                         $hasChanges = true;
                     }
                     
-                    $newFunnel = $capData['funnel'];
-                    if ($hasFunnel) {
-                        preg_match('/^Funnel:\s*(.*)$/m', $messageText, $matches);
-                        $funnelValue = trim($matches[1] ?? '');
-                        if ($this->isEmpty($funnelValue)) {
-                            $newFunnel = null; // Значение по умолчанию для пустого Funnel
-                        }
-                    }
-                    if ($newFunnel !== $existingCap->funnel) {
-                        $updateData['funnel'] = $newFunnel;
+                    if ($capData['date'] !== $existingCap->date) {
+                        $updateData['date'] = $capData['date'];
                         $hasChanges = true;
                     }
                     
-                    $newSchedule = $capData['schedule'];
-                    $newWorkHours = $capData['work_hours'];
-                    $newIs24_7 = $capData['is_24_7'];
-                    $newStartTime = $capData['start_time'];
-                    $newEndTime = $capData['end_time'];
-                    $newTimezone = $capData['timezone'];
-                    if ($hasSchedule) {
-                        preg_match('/^Schedule:\s*(.*)$/m', $messageText, $matches);
-                        $scheduleValue = trim($matches[1] ?? '');
-                        if ($this->isEmpty($scheduleValue)) {
-                            // Значения по умолчанию для пустого Schedule
-                            $newSchedule = '24/7';
-                            $newWorkHours = '24/7';
-                            $newIs24_7 = true;
-                            $newStartTime = null;
-                            $newEndTime = null;
-                            $newTimezone = null;
-                        }
-                    }
-                    if ($newSchedule !== $existingCap->schedule) {
-                        $updateData['schedule'] = $newSchedule;
-                        $hasChanges = true;
-                    }
-                    if ($newWorkHours !== $existingCap->work_hours) {
-                        $updateData['work_hours'] = $newWorkHours;
-                        $hasChanges = true;
-                    }
-                    if ($newIs24_7 !== $existingCap->is_24_7) {
-                        $updateData['is_24_7'] = $newIs24_7;
-                        $hasChanges = true;
-                    }
-                    if ($newStartTime !== $existingCap->start_time) {
-                        $updateData['start_time'] = $newStartTime;
-                        $hasChanges = true;
-                    }
-                    if ($newEndTime !== $existingCap->end_time) {
-                        $updateData['end_time'] = $newEndTime;
-                        $hasChanges = true;
-                    }
-                    if ($newTimezone !== $existingCap->timezone) {
-                        $updateData['timezone'] = $newTimezone;
+                    if ($capData['is_24_7'] !== $existingCap->is_24_7) {
+                        $updateData['is_24_7'] = $capData['is_24_7'];
                         $hasChanges = true;
                     }
                     
-                    $newDate = $capData['date'];
-                    if ($hasDate) {
-                        preg_match('/^Date:\s*(.*)$/m', $messageText, $matches);
-                        $dateValue = trim($matches[1] ?? '');
-                        if ($this->isEmpty($dateValue)) {
-                            $newDate = null; // Значение по умолчанию для пустого Date
-                        }
-                    }
-                    if ($newDate !== $existingCap->date) {
-                        $updateData['date'] = $newDate;
+                    if ($capData['work_hours'] !== $existingCap->work_hours) {
+                        $updateData['work_hours'] = $capData['work_hours'];
                         $hasChanges = true;
                     }
                     
-                    $newPendingAcq = $capData['pending_acq'];
-                    if ($hasPendingACQ) {
-                        preg_match('/^Pending ACQ:\s*(.*)$/m', $messageText, $matches);
-                        $pendingValue = trim($matches[1] ?? '');
-                        if ($this->isEmpty($pendingValue)) {
-                            $newPendingAcq = false; // Значение по умолчанию для пустого Pending ACQ
-                        }
-                    }
-                    if ($newPendingAcq !== $existingCap->pending_acq) {
-                        $updateData['pending_acq'] = $newPendingAcq;
+                    if ($capData['language'] !== $existingCap->language) {
+                        $updateData['language'] = $capData['language'];
                         $hasChanges = true;
                     }
                     
-                    $newFreezeStatus = $capData['freeze_status_on_acq'];
-                    if ($hasFreezeStatus) {
-                        preg_match('/^Freeze status on ACQ:\s*(.*)$/m', $messageText, $matches);
-                        $freezeValue = trim($matches[1] ?? '');
-                        if ($this->isEmpty($freezeValue)) {
-                            $newFreezeStatus = false; // Значение по умолчанию для пустого Freeze status
-                        }
+                    if ($capData['funnel'] !== $existingCap->funnel) {
+                        $updateData['funnel'] = $capData['funnel'];
+                        $hasChanges = true;
                     }
-                    if ($newFreezeStatus !== $existingCap->freeze_status_on_acq) {
-                        $updateData['freeze_status_on_acq'] = $newFreezeStatus;
+                    
+                    if ($capData['pending_acq'] !== $existingCap->pending_acq) {
+                        $updateData['pending_acq'] = $capData['pending_acq'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['freeze_status_on_acq'] !== $existingCap->freeze_status_on_acq) {
+                        $updateData['freeze_status_on_acq'] = $capData['freeze_status_on_acq'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['start_time'] !== $existingCap->start_time) {
+                        $updateData['start_time'] = $capData['start_time'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['end_time'] !== $existingCap->end_time) {
+                        $updateData['end_time'] = $capData['end_time'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['timezone'] !== $existingCap->timezone) {
+                        $updateData['timezone'] = $capData['timezone'];
                         $hasChanges = true;
                     }
                     
@@ -848,4 +776,5 @@ class CapAnalysisService
             'raw_numbers' => []
         ];
     }
-}
+} 
+} 
