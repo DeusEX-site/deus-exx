@@ -48,6 +48,25 @@ class Cap extends Model
     }
 
     /**
+     * Связь с историей кап
+     */
+    public function history()
+    {
+        return $this->hasMany(CapHistory::class);
+    }
+
+    /**
+     * Найти дублирующую капу по ключевым полям
+     */
+    public static function findDuplicate($affiliateName, $recipientName, $geo)
+    {
+        return self::where('affiliate_name', $affiliateName)
+                   ->where('recipient_name', $recipientName)
+                   ->whereJsonContains('geos', $geo)
+                   ->first();
+    }
+
+    /**
      * Поиск кап по параметрам
      */
     public static function searchCaps($search = null, $chatId = null)

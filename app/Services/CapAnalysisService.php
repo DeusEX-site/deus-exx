@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Cap;
+use App\Models\CapHistory;
 use App\Models\Message;
 
 class CapAnalysisService
@@ -12,9 +13,6 @@ class CapAnalysisService
      */
     public function analyzeAndSaveCapMessage($messageId, $messageText)
     {
-        // Удаляем старые записи для этого сообщения
-        Cap::where('message_id', $messageId)->delete();
-        
         // Проверяем, является ли сообщение стандартной капой
         if (!$this->isStandardCapMessage($messageText)) {
             return ['cap_entries_count' => 0];
@@ -25,29 +23,79 @@ class CapAnalysisService
         
         if ($capCombinations && is_array($capCombinations)) {
             $createdCount = 0;
+            $updatedCount = 0;
             
             foreach ($capCombinations as $capData) {
-            Cap::create([
-                'message_id' => $messageId,
-                    'cap_amounts' => [$capData['cap_amount']],
-                    'total_amount' => $capData['total_amount'],
-                    'schedule' => $capData['schedule'],
-                    'date' => $capData['date'],
-                    'is_24_7' => $capData['is_24_7'],
-                    'affiliate_name' => $capData['affiliate_name'],
-                    'recipient_name' => $capData['recipient_name'],
-                    'geos' => $capData['geos'],
-                    'work_hours' => $capData['work_hours'],
-                    'language' => $capData['language'],
-                    'funnel' => $capData['funnel'],
-                    'pending_acq' => $capData['pending_acq'],
-                    'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
-                    'highlighted_text' => $messageText
-                ]);
-                $createdCount++;
+                // Поскольку теперь одна капа = одно гео, берем первое гео из массива
+                $geo = $capData['geos'][0] ?? null;
+                
+                if (!$geo) {
+                    continue; // Пропускаем если нет гео
+                }
+                
+                // Ищем дубликат по affiliate_name, recipient_name, geo
+                $existingCap = Cap::findDuplicate(
+                    $capData['affiliate_name'],
+                    $capData['recipient_name'], 
+                    $geo
+                );
+                
+                if ($existingCap) {
+                    // Найден дубликат - копируем в историю и обновляем
+                    CapHistory::createFromCap($existingCap);
+                    
+                    $existingCap->update([
+                        'message_id' => $messageId,
+                        'cap_amounts' => [$capData['cap_amount']],
+                        'total_amount' => $capData['total_amount'],
+                        'schedule' => $capData['schedule'],
+                        'date' => $capData['date'],
+                        'is_24_7' => $capData['is_24_7'],
+                        'geos' => [$geo], // Одно гео
+                        'work_hours' => $capData['work_hours'],
+                        'language' => $capData['language'],
+                        'funnel' => $capData['funnel'],
+                        'pending_acq' => $capData['pending_acq'],
+                        'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
+                        'start_time' => $capData['start_time'],
+                        'end_time' => $capData['end_time'],
+                        'timezone' => $capData['timezone'],
+                        'highlighted_text' => $messageText
+                    ]);
+                    
+                    $updatedCount++;
+                } else {
+                    // Дубликат не найден - создаем новую запись
+                    Cap::create([
+                        'message_id' => $messageId,
+                        'cap_amounts' => [$capData['cap_amount']],
+                        'total_amount' => $capData['total_amount'],
+                        'schedule' => $capData['schedule'],
+                        'date' => $capData['date'],
+                        'is_24_7' => $capData['is_24_7'],
+                        'affiliate_name' => $capData['affiliate_name'],
+                        'recipient_name' => $capData['recipient_name'],
+                        'geos' => [$geo], // Одно гео
+                        'work_hours' => $capData['work_hours'],
+                        'language' => $capData['language'],
+                        'funnel' => $capData['funnel'],
+                        'pending_acq' => $capData['pending_acq'],
+                        'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
+                        'start_time' => $capData['start_time'],
+                        'end_time' => $capData['end_time'],
+                        'timezone' => $capData['timezone'],
+                        'highlighted_text' => $messageText
+                    ]);
+                    
+                    $createdCount++;
+                }
             }
             
-            return ['cap_entries_count' => $createdCount];
+            return [
+                'cap_entries_count' => $createdCount,
+                'updated_entries_count' => $updatedCount,
+                'total_processed' => $createdCount + $updatedCount
+            ];
         }
         
         return ['cap_entries_count' => 0];
