@@ -151,7 +151,13 @@ class CapAnalysisService
         if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
             $dateValue = trim($matches[1]);
             if (!empty($dateValue)) {
-                $baseData['date'] = $dateValue;
+                // Если в дате нет года, добавляем текущий год
+                if (preg_match('/^\d{1,2}\.\d{1,2}$/', $dateValue)) {
+                    $currentYear = date('Y');
+                    $baseData['date'] = $dateValue . '.' . $currentYear;
+                } else {
+                    $baseData['date'] = $dateValue;
+                }
             }
             // Если Date пустое, остается null (бесконечность)
         }
@@ -166,44 +172,45 @@ class CapAnalysisService
             $baseData['freeze_status_on_acq'] = in_array($freezeValue, ['yes', 'true', '1', 'да']);
         }
 
-        // Парсим списки аффилейтов и получателей
-        $affiliates = [];
-        $recipients = [];
+        // Парсим аффилейта и получателя (по одному значению)
+        $affiliate = null;
+        $recipient = null;
 
         if (preg_match('/^Affiliate:\s*(.+)$/m', $messageText, $matches)) {
             $affiliateValue = trim($matches[1]);
             if (!empty($affiliateValue)) {
-                // Разделяем по запятым
-                $affiliates = array_filter(array_map('trim', explode(',', $affiliateValue)), function($aff) {
-                    return !empty($aff);
-                });
+                $affiliate = $affiliateValue;
             }
         }
 
         if (preg_match('/^Recipient:\s*(.+)$/m', $messageText, $matches)) {
             $recipientValue = trim($matches[1]);
             if (!empty($recipientValue)) {
-                // Разделяем по запятым
-                $recipients = array_filter(array_map('trim', explode(',', $recipientValue)), function($rec) {
-                    return !empty($rec);
-                });
+                $recipient = $recipientValue;
             }
         }
 
         // Проверяем, что обязательные поля заполнены
-        if (!$baseData['cap_amount'] || empty($affiliates) || empty($recipients)) {
+        if (!$baseData['cap_amount'] || !$affiliate || !$recipient) {
             return null;
         }
 
-        // Создаем комбинации для каждого аффилейта и получателя
+        // Создаем отдельную запись для каждого гео
         $combinations = [];
-        foreach ($affiliates as $affiliate) {
-            foreach ($recipients as $recipient) {
+        if (!empty($baseData['geos'])) {
+            foreach ($baseData['geos'] as $geo) {
                 $combination = $baseData;
                 $combination['affiliate_name'] = $affiliate;
                 $combination['recipient_name'] = $recipient;
+                $combination['geos'] = [$geo]; // Каждая запись содержит только один гео
                 $combinations[] = $combination;
             }
+        } else {
+            // Если гео нет, создаем одну запись без гео
+            $combination = $baseData;
+            $combination['affiliate_name'] = $affiliate;
+            $combination['recipient_name'] = $recipient;
+            $combinations[] = $combination;
         }
 
         return $combinations;

@@ -52,9 +52,12 @@ class UpdateToNewCapFormat extends Command
         
         $this->info('📝 Правила обработки:');
         $this->line('• Ищем сообщения с полями Affiliate, Recipient, Cap');
+        $this->line('• Affiliate и Recipient - по одному значению (без запятых)');
+        $this->line('• Geo разделяется на отдельные капы (GT PE MX = 3 капы)');
         $this->line('• Если Total пустое или Cap содержит слеш -> Total = бесконечность');
         $this->line('• Если Date пустое -> бесконечность');
         $this->line('• Если Schedule пустое -> 24/7');
+        $this->line('• Date без года -> добавляется текущий год (24.02 -> 24.02.2024)');
         $this->line('• Pending ACQ и Freeze status: Yes/No или пусто (No)');
         $this->line('');
         
@@ -70,6 +73,7 @@ class UpdateToNewCapFormat extends Command
         $this->line('• Обрабатывает только стандартные сообщения');
         $this->line('• Поддерживает новые поля: Language, Funnel, Pending ACQ, Freeze status');
         $this->line('• Recipient вместо Broker');
+        $this->line('• Разделение по гео: каждое гео = отдельная запись');
         $this->line('• Автоматические значения по умолчанию для пустых полей');
         
         return Command::SUCCESS;
@@ -94,22 +98,22 @@ Date:
 Pending ACQ: No
 Freeze status on ACQ: No",
             
-            // Тест 2: Множественные аффилейты
-            "Affiliate: G06, aff2
-Recipient: TMedia
+            // Тест 2: Множественные гео (должны создаться 3 капы)
+            "Affiliate: Webgate
+Recipient: TradingM
 Cap: 20
 Total: 200
-Geo: IE, DE
-Language: en
+Geo: GT PE MX
+Language: es
 Funnel: Crypto
 Schedule: 24/7
 Date: 24.02
 Pending ACQ: Yes
 Freeze status on ACQ: No",
             
-            // Тест 3: Множественные получатели
-            "Affiliate: G06
-Recipient: TMedia, brok2
+            // Тест 3: Одно гео (должна создаться 1 капа)
+            "Affiliate: TestAffiliate
+Recipient: TestBroker
 Cap: 30
 Total: 
 Geo: RU
@@ -118,7 +122,20 @@ Funnel:
 Schedule: 
 Date: 
 Pending ACQ: 
-Freeze status on ACQ: "
+Freeze status on ACQ: ",
+
+            // Тест 4: Автоматическая подстановка года к дате
+            "Affiliate: TestAff
+Recipient: TestRec
+Cap: 25
+Total: 150
+Geo: DE, FR
+Language: en
+Funnel: Crypto
+Schedule: 10:00/18:00 GMT+03:00
+Date: 24.02
+Pending ACQ: No
+Freeze status on ACQ: Yes"
         ];
 
         $capAnalysisService = new \App\Services\CapAnalysisService();

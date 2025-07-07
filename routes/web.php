@@ -222,6 +222,8 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
         $geo = $request->get('geo', '');
         $broker = $request->get('broker', '');
         $affiliate = $request->get('affiliate', '');
+        $language = $request->get('language', '');
+        $funnel = $request->get('funnel', '');
         $schedule = $request->get('schedule', '');
         $total = $request->get('total', '');
         
@@ -231,8 +233,10 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
         // Получаем результаты из базы данных с фильтрами
         $results = $capAnalysisService->searchCapsWithFilters($search, $chatId, [
             'geo' => $geo,
-            'broker' => $broker,
+            'recipient' => $broker, // broker переименован в recipient
             'affiliate' => $affiliate,
+            'language' => $language,
+            'funnel' => $funnel,
             'schedule' => $schedule,
             'total' => $total
         ]);
@@ -265,8 +269,10 @@ Route::middleware('auth')->get('/api/cap-analysis-filters', function (Request $r
         return response()->json([
             'success' => true,
             'geos' => $filterOptions['geos'],
-            'brokers' => $filterOptions['brokers'],
-            'affiliates' => $filterOptions['affiliates']
+            'brokers' => $filterOptions['recipients'], // brokers -> recipients
+            'affiliates' => $filterOptions['affiliates'],
+            'languages' => $filterOptions['languages'],
+            'funnels' => $filterOptions['funnels']
         ]);
         
     } catch (\Exception $e) {

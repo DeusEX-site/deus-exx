@@ -23,16 +23,17 @@ Freeze status on ACQ: No
 ## Правила обработки
 
 ### Обязательные поля
-- **Affiliate**: Название аффилейта (может быть список через запятую)
-- **Recipient**: Название получателя (может быть список через запятую)
+- **Affiliate**: Название аффилейта (одно значение)
+- **Recipient**: Название получателя (одно значение)
 - **Cap**: Значение капы
 
-### Поддержка списков
-Система поддерживает списки аффилейтов и получателей через запятую. Для каждой комбинации создается отдельная запись капы:
+### Разделение по гео
+Система создает отдельную запись для каждого гео. Affiliate и Recipient содержат одно значение (без запятых):
 
-- `Affiliate: G06, aff2` + `Recipient: TMedia` = 2 записи кап
-- `Affiliate: G06` + `Recipient: TMedia, brok2` = 2 записи кап  
-- `Affiliate: G06, aff2` + `Recipient: TMedia, brok2` = 4 записи кап
+- `Geo: GT PE MX` = 3 записи кап (по одной для каждого гео)
+- `Geo: IE, DE, FR` = 3 записи кап (запятые и пробелы поддерживаются)
+- `Geo: RU/UA/KZ` = 3 записи кап (слеши поддерживаются)
+- `Geo: US` = 1 запись капы
 
 ### Логика значений по умолчанию
 
@@ -97,26 +98,26 @@ Pending ACQ: No
 Freeze status on ACQ: No
 ```
 
-### Пример 2: Множественные аффилейты
+### Пример 2: Множественные гео
 ```
-Affiliate: G06, aff2
-Recipient: TMedia
+Affiliate: Webgate
+Recipient: TradingM
 Cap: 20
 Total: 200
-Geo: IE, DE
-Language: en
+Geo: GT PE MX
+Language: es
 Funnel: Crypto
 Schedule: 24/7
 Date: 24.02
 Pending ACQ: Yes
 Freeze status on ACQ: No
 ```
-Результат: Создается 2 записи кап (G06+TMedia, aff2+TMedia)
+Результат: Создается 3 записи кап (Webgate+TradingM для GT, PE, MX)
 
-### Пример 3: Множественные получатели
+### Пример 3: Одно гео
 ```
-Affiliate: G06
-Recipient: TMedia, brok2
+Affiliate: TestAffiliate
+Recipient: TestBroker
 Cap: 30
 Total: 
 Geo: RU
@@ -127,7 +128,7 @@ Date:
 Pending ACQ: 
 Freeze status on ACQ: 
 ```
-Результат: Создается 2 записи кап (G06+TMedia, G06+brok2), с значениями по умолчанию
+Результат: Создается 1 запись капы (TestAffiliate+TestBroker для RU), с значениями по умолчанию
 
 ### Пример 4: Cap со слешем
 ```

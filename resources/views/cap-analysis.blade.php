@@ -430,6 +430,18 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="language-filter">Язык</label>
+                    <select id="language-filter">
+                        <option value="">Все языки</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="funnel-filter">Воронка</label>
+                    <select id="funnel-filter">
+                        <option value="">Все воронки</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="schedule-filter">Расписание</label>
                     <select id="schedule-filter">
                         <option value="">Все</option>
@@ -597,6 +609,36 @@
                         } else if (!affiliateFilter) {
                             console.warn('Элемент affiliate-filter не найден');
                         }
+
+                        // Загрузка языков
+                        const languageFilter = document.getElementById('language-filter');
+                        if (languageFilter && data.languages && data.languages.length > 0) {
+                            languageFilter.innerHTML = '<option value="">Все языки</option>';
+                            data.languages.forEach(language => {
+                                const option = document.createElement('option');
+                                option.value = language;
+                                option.textContent = language;
+                                languageFilter.appendChild(option);
+                            });
+                            console.log(`Загружено ${data.languages.length} языков`);
+                        } else if (!languageFilter) {
+                            console.warn('Элемент language-filter не найден');
+                        }
+
+                        // Загрузка воронок
+                        const funnelFilter = document.getElementById('funnel-filter');
+                        if (funnelFilter && data.funnels && data.funnels.length > 0) {
+                            funnelFilter.innerHTML = '<option value="">Все воронки</option>';
+                            data.funnels.forEach(funnel => {
+                                const option = document.createElement('option');
+                                option.value = funnel;
+                                option.textContent = funnel;
+                                funnelFilter.appendChild(option);
+                            });
+                            console.log(`Загружено ${data.funnels.length} воронок`);
+                        } else if (!funnelFilter) {
+                            console.warn('Элемент funnel-filter не найден');
+                        }
                         
                         console.log('Опции фильтров загружены успешно');
                     } else {
@@ -615,7 +657,8 @@
             // Очищаем элементы безопасно
             const elements = [
                 'search', 'chat-select', 'geo-filter', 'broker-filter', 
-                'affiliate-filter', 'schedule-filter', 'total-filter'
+                'affiliate-filter', 'language-filter', 'funnel-filter', 
+                'schedule-filter', 'total-filter'
             ];
             
             elements.forEach(id => {
@@ -663,6 +706,8 @@
             const geoFilter = document.getElementById('geo-filter');
             const brokerFilter = document.getElementById('broker-filter');
             const affiliateFilter = document.getElementById('affiliate-filter');
+            const languageFilter = document.getElementById('language-filter');
+            const funnelFilter = document.getElementById('funnel-filter');
             const scheduleFilter = document.getElementById('schedule-filter');
             const totalFilter = document.getElementById('total-filter');
             
@@ -671,11 +716,13 @@
             const geo = geoFilter?.value || '';
             const broker = brokerFilter?.value || '';
             const affiliate = affiliateFilter?.value || '';
+            const language = languageFilter?.value || '';
+            const funnel = funnelFilter?.value || '';
             const schedule = scheduleFilter?.value || '';
             const total = totalFilter?.value || '';
 
             console.log('Параметры поиска:', {
-                search, chatId, geo, broker, affiliate, schedule, total
+                search, chatId, geo, broker, affiliate, language, funnel, schedule, total
             });
             
             searchBtn.disabled = true;
@@ -691,6 +738,8 @@
                 if (geo) params.append('geo', geo);
                 if (broker) params.append('broker', broker);
                 if (affiliate) params.append('affiliate', affiliate);
+                if (language) params.append('language', language);
+                if (funnel) params.append('funnel', funnel);
                 if (schedule) params.append('schedule', schedule);
                 if (total) params.append('total', total);
                 
@@ -823,11 +872,6 @@
                             <div class="analysis-item ${cap.funnel ? 'positive' : 'neutral'}">
                                 <div class="label">Воронка</div>
                                 <div class="value">${cap.funnel || '—'}</div>
-                            </div>
-                            
-                            <div class="analysis-item ${(cap.pending_acq === false && cap.freeze_status_on_acq === false) ? 'positive' : 'neutral'}">
-                                <div class="label">Freeze</div>
-                                <div class="value">${(cap.pending_acq ? 'Yes' : 'No')}/${(cap.freeze_status_on_acq ? 'Yes' : 'No')}</div>
                             </div>
                         </div>
                         `).join('')}
