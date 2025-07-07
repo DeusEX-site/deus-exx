@@ -1,0 +1,194 @@
+<?php
+
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
+use App\Models\Cap;
+use App\Models\CapHistory;
+use App\Models\Message;
+use App\Models\Chat;
+use App\Services\CapAnalysisService;
+
+class TestCapHistorySystem extends Command
+{
+    protected $signature = 'test:cap-history {--cleanup : Удалить тестовые данные после теста}';
+    protected $description = 'Тестирует систему истории кап';
+
+    public function handle()
+    {
+        $this->info('🧪 Тестирование системы истории кап...');
+        
+        $capAnalysisService = app(CapAnalysisService::class);
+        
+        // Создаем тестовый чат и сообщения
+        $chat = Chat::firstOrCreate([
+            'chat_id' => -9999999,
+            'type' => 'group',
+            'title' => 'Test Cap History Chat'
+        ]);
+        
+        // Шаг 1: Создание первоначальной капы
+        $this->info("\n📝 Шаг 1: Создание первоначальных кап");
+        
+        $originalMessage = "Affiliate: G06
+Recipient: TMedia
+Geo: DE AT CH
+CAP: 20 30 30
+Total: 100 200 200
+Language: de en ru
+Funnel: DeusEX, DeusEX2
+Schedule: 18:00/01:00 18:00/02:00 GMT+03:00
+Date: 24.02 25.02";
+
+        $message1 = Message::create([
+            'chat_id' => $chat->id,
+            'message' => $originalMessage,
+            'user' => 'Test User',
+            'telegram_message_id' => 1001,
+            'telegram_user_id' => 123456
+        ]);
+
+        $result1 = $capAnalysisService->analyzeAndSaveCapMessage($message1->id, $originalMessage);
+        
+        $this->info("Создано кап: {$result1['cap_entries_count']}");
+        $this->info("Обновлено кап: {$result1['updated_entries_count']}");
+        
+        $totalCaps = Cap::where('affiliate_name', 'G06')->where('recipient_name', 'TMedia')->count();
+        $this->info("Всего кап в базе: {$totalCaps}");
+        
+        // Шаг 2: Обновление одной капы
+        $this->info("\n🔄 Шаг 2: Обновление капы для DE");
+        
+        $updateMessage = "Affiliate: G06
+Recipient: TMedia
+Geo: DE
+CAP: 20
+Total: 101
+Language: de
+Funnel: DeusEX
+Schedule: 18:00/01:00
+Date: 24.02";
+
+        $message2 = Message::create([
+            'chat_id' => $chat->id,
+            'message' => $updateMessage,
+            'user' => 'Test User',
+            'telegram_message_id' => 1002,
+            'telegram_user_id' => 123456
+        ]);
+
+        $result2 = $capAnalysisService->analyzeAndSaveCapMessage($message2->id, $updateMessage);
+        
+        $this->info("Создано кап: {$result2['cap_entries_count']}");
+        $this->info("Обновлено кап: {$result2['updated_entries_count']}");
+        
+        $totalCapsAfter = Cap::where('affiliate_name', 'G06')->where('recipient_name', 'TMedia')->count();
+        $historyCount = CapHistory::whereHas('cap', function($q) {
+            $q->where('affiliate_name', 'G06')->where('recipient_name', 'TMedia');
+        })->count();
+        
+        $this->info("Всего кап в базе после обновления: {$totalCapsAfter}");
+        $this->info("Записей в истории: {$historyCount}");
+        
+        // Проверяем конкретные записи
+        $deCap = Cap::where('affiliate_name', 'G06')
+                    ->where('recipient_name', 'TMedia')
+                    ->whereJsonContains('geos', 'DE')
+                    ->first();
+                    
+        $atCap = Cap::where('affiliate_name', 'G06')
+                    ->where('recipient_name', 'TMedia')
+                    ->whereJsonContains('geos', 'AT')
+                    ->first();
+                    
+        $chCap = Cap::where('affiliate_name', 'G06')
+                    ->where('recipient_name', 'TMedia')
+                    ->whereJsonContains('geos', 'CH')
+                    ->first();
+
+        // Результаты проверки
+        $this->info("\n✅ Результаты проверки:");
+        
+        if ($deCap && $deCap->total_amount == 101) {
+            $this->info("✅ DE капа обновлена (Total: {$deCap->total_amount})");
+        } else {
+            $this->error("❌ DE капа не обновлена правильно");
+        }
+        
+        if ($atCap && $atCap->total_amount == 200) {
+            $this->info("✅ AT капа осталась без изменений (Total: {$atCap->total_amount})");
+        } else {
+            $this->error("❌ AT капа была удалена или изменена");
+        }
+        
+        if ($chCap && $chCap->total_amount == 200) {
+            $this->info("✅ CH капа осталась без изменений (Total: {$chCap->total_amount})");
+        } else {
+            $this->error("❌ CH капа была удалена или изменена");
+        }
+        
+        if ($historyCount == 1) {
+            $this->info("✅ Создана 1 запись истории");
+        } else {
+            $this->error("❌ Неправильное количество записей истории: {$historyCount}");
+        }
+        
+        if ($totalCapsAfter == $totalCaps) {
+            $this->info("✅ Общее количество кап не изменилось");
+        } else {
+            $this->error("❌ Общее количество кап изменилось с {$totalCaps} на {$totalCapsAfter}");
+        }
+        
+        // Шаг 3: Повторное обновление той же капы (без изменений)
+        $this->info("\n🔁 Шаг 3: Повторное отправление того же сообщения");
+        
+        $message3 = Message::create([
+            'chat_id' => $chat->id,
+            'message' => $updateMessage,
+            'user' => 'Test User',
+            'telegram_message_id' => 1003,
+            'telegram_user_id' => 123456
+        ]);
+
+        $result3 = $capAnalysisService->analyzeAndSaveCapMessage($message3->id, $updateMessage);
+        
+        $this->info("Создано кап: {$result3['cap_entries_count']}");
+        $this->info("Обновлено кап: {$result3['updated_entries_count']}");
+        
+        $historyCountAfter = CapHistory::whereHas('cap', function($q) {
+            $q->where('affiliate_name', 'G06')->where('recipient_name', 'TMedia');
+        })->count();
+        
+        if ($historyCountAfter == $historyCount) {
+            $this->info("✅ История не создавалась для одинаковых данных");
+        } else {
+            $this->error("❌ История создалась для одинаковых данных");
+        }
+        
+        // Показываем историю
+        $this->info("\n📜 История изменений:");
+        $history = CapHistory::whereHas('cap', function($q) {
+            $q->where('affiliate_name', 'G06')->where('recipient_name', 'TMedia');
+        })->with('cap')->get();
+        
+        foreach ($history as $historyRecord) {
+            $this->info("- Гео: {$historyRecord->geos[0]}, Total: {$historyRecord->total_amount}, Заархивировано: {$historyRecord->archived_at}");
+        }
+        
+        // Очистка тестовых данных
+        if ($this->option('cleanup')) {
+            $this->info("\n🧹 Очистка тестовых данных...");
+            
+            Cap::where('affiliate_name', 'G06')->where('recipient_name', 'TMedia')->delete();
+            CapHistory::whereIn('id', $history->pluck('id'))->delete();
+            Message::whereIn('id', [$message1->id, $message2->id, $message3->id])->delete();
+            $chat->delete();
+            
+            $this->info("✅ Тестовые данные удалены");
+        }
+        
+        $this->info("\n🎉 Тест завершен!");
+        
+        return Command::SUCCESS;
+    }
+} 

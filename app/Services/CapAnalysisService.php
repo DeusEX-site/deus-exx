@@ -41,29 +41,34 @@ class CapAnalysisService
                 );
                 
                 if ($existingCap) {
-                    // Найден дубликат - копируем в историю и обновляем
-                    CapHistory::createFromCap($existingCap);
+                    // Найден дубликат - копируем в историю и обновляем ТОЛЬКО если данные изменились
+                    $hasChanges = $this->hasCapDataChanged($existingCap, $capData, $geo, $messageText);
                     
-                    $existingCap->update([
-                        'message_id' => $messageId,
-                        'cap_amounts' => [$capData['cap_amount']],
-                        'total_amount' => $capData['total_amount'],
-                        'schedule' => $capData['schedule'],
-                        'date' => $capData['date'],
-                        'is_24_7' => $capData['is_24_7'],
-                        'geos' => [$geo], // Одно гео
-                        'work_hours' => $capData['work_hours'],
-                        'language' => $capData['language'],
-                        'funnel' => $capData['funnel'],
-                        'pending_acq' => $capData['pending_acq'],
-                        'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
-                        'start_time' => $capData['start_time'],
-                        'end_time' => $capData['end_time'],
-                        'timezone' => $capData['timezone'],
-                        'highlighted_text' => $messageText
-                    ]);
-                    
-                    $updatedCount++;
+                    if ($hasChanges) {
+                        CapHistory::createFromCap($existingCap);
+                        
+                        $existingCap->update([
+                            'message_id' => $messageId,
+                            'cap_amounts' => [$capData['cap_amount']],
+                            'total_amount' => $capData['total_amount'],
+                            'schedule' => $capData['schedule'],
+                            'date' => $capData['date'],
+                            'is_24_7' => $capData['is_24_7'],
+                            'geos' => [$geo], // Одно гео
+                            'work_hours' => $capData['work_hours'],
+                            'language' => $capData['language'],
+                            'funnel' => $capData['funnel'],
+                            'pending_acq' => $capData['pending_acq'],
+                            'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
+                            'start_time' => $capData['start_time'],
+                            'end_time' => $capData['end_time'],
+                            'timezone' => $capData['timezone'],
+                            'highlighted_text' => $messageText
+                        ]);
+                        
+                        $updatedCount++;
+                    }
+                    // Если нет изменений - ничего не делаем, просто пропускаем
                 } else {
                     // Дубликат не найден - создаем новую запись
                     Cap::create([
@@ -99,6 +104,33 @@ class CapAnalysisService
         }
         
         return ['cap_entries_count' => 0];
+    }
+
+    /**
+     * Проверяет, изменились ли данные капы
+     */
+    private function hasCapDataChanged($existingCap, $newCapData, $geo, $messageText)
+    {
+        // Сравниваем ключевые поля
+        $existingGeo = $existingCap->geos[0] ?? null;
+        
+        return (
+            $existingCap->cap_amounts[0] != $newCapData['cap_amount'] ||
+            $existingCap->total_amount != $newCapData['total_amount'] ||
+            $existingCap->schedule != $newCapData['schedule'] ||
+            $existingCap->date != $newCapData['date'] ||
+            $existingCap->is_24_7 != $newCapData['is_24_7'] ||
+            $existingGeo != $geo ||
+            $existingCap->work_hours != $newCapData['work_hours'] ||
+            $existingCap->language != $newCapData['language'] ||
+            $existingCap->funnel != $newCapData['funnel'] ||
+            $existingCap->pending_acq != $newCapData['pending_acq'] ||
+            $existingCap->freeze_status_on_acq != $newCapData['freeze_status_on_acq'] ||
+            $existingCap->start_time != $newCapData['start_time'] ||
+            $existingCap->end_time != $newCapData['end_time'] ||
+            $existingCap->timezone != $newCapData['timezone'] ||
+            $existingCap->highlighted_text != $messageText
+        );
     }
 
     /**
