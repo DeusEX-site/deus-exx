@@ -111,34 +111,44 @@ class CapAnalysisService
         $schedules = [];
         $value = trim($value);
         
-        // Разбиваем по запятым сначала
-        $segments = explode(',', $value);
+        // Сначала разбиваем по запятым и пробелам
+        $allParts = preg_split('/[,\s]+/', $value);
         
-        foreach ($segments as $segment) {
-            $segment = trim($segment);
-            
-            // Ищем паттерн времени с возможным GMT
-            // Примеры: "18:00/01:00", "18:00/02:00 GMT+03:00", "24/7"
-            if (preg_match('/(\d{1,2}:\d{2}\/\d{1,2}:\d{2})\s*(GMT[+-]\d{1,2}:\d{2})?/i', $segment, $matches)) {
-                // Время найдено, добавляем как один элемент
-                $schedules[] = trim($matches[0]);
-            } else if (preg_match('/24\/7|24-7/i', $segment)) {
-                // 24/7 найдено
-                $schedules[] = '24/7';
-            } else {
-                // Разбиваем по пробелам для остальных случаев
-                $parts = preg_split('/\s+/', $segment);
-                foreach ($parts as $part) {
-                    $part = trim($part);
-                    if (!$this->isEmpty($part)) {
-                        // Проверяем, является ли это валидным расписанием
-                        if (preg_match('/\d{1,2}:\d{2}\/\d{1,2}:\d{2}|24\/7|24-7/i', $part)) {
-                            $schedules[] = $part;
-                        }
-                        // GMT отдельно игнорируем
-                    }
-                }
+        $i = 0;
+        while ($i < count($allParts)) {
+            $part = trim($allParts[$i]);
+            if ($this->isEmpty($part)) {
+                $i++;
+                continue;
             }
+            
+            // Проверяем на 24/7
+            if (preg_match('/^(24\/7|24-7)$/i', $part)) {
+                $schedules[] = '24/7';
+                $i++;
+                continue;
+            }
+            
+            // Проверяем на время формата HH:MM/HH:MM
+            if (preg_match('/^\d{1,2}:\d{2}\/\d{1,2}:\d{2}$/', $part)) {
+                // Проверяем следующий элемент на GMT
+                if ($i + 1 < count($allParts) && preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $allParts[$i + 1])) {
+                    $schedules[] = $part . ' ' . $allParts[$i + 1];
+                    $i += 2; // Пропускаем GMT
+                } else {
+                    $schedules[] = $part;
+                    $i++;
+                }
+                continue;
+            }
+            
+            // Если это GMT без времени перед ним, игнорируем
+            if (preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $part)) {
+                $i++;
+                continue;
+            }
+            
+            $i++;
         }
         
         return array_filter($schedules, function($val) {
@@ -284,7 +294,7 @@ class CapAnalysisService
         }
 
         if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
-            $dateValues = $this->parseMultipleValues($matches[1], true); // Только запятые
+            $dateValues = $this->parseMultipleValues($matches[1]); // Пробелы и запятые
             foreach ($dateValues as $date) {
                 if (!$this->isEmpty($date)) {
                     // Если в дате нет года, добавляем текущий год
