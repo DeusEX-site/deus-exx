@@ -31,6 +31,8 @@ class CapHistory extends Model
         'pending_acq',
         'freeze_status_on_acq',
         'highlighted_text',
+        'status',
+        'status_updated_at',
         'archived_at'
     ];
 
@@ -41,6 +43,7 @@ class CapHistory extends Model
         'total_amount' => 'integer',
         'pending_acq' => 'boolean',
         'freeze_status_on_acq' => 'boolean',
+        'status_updated_at' => 'datetime',
         'archived_at' => 'datetime'
     ];
 
@@ -85,6 +88,8 @@ class CapHistory extends Model
             'pending_acq' => $cap->pending_acq,
             'freeze_status_on_acq' => $cap->freeze_status_on_acq,
             'highlighted_text' => $cap->highlighted_text,
+            'status' => $cap->status,
+            'status_updated_at' => $cap->status_updated_at,
             'archived_at' => now()
         ]);
     }

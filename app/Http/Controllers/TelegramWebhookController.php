@@ -113,11 +113,24 @@ class TelegramWebhookController extends Controller
         $user = $messageData['from'];
         $displayName = $this->getUserDisplayName($user);
         
+        // Обрабатываем reply_to_message
+        $replyToMessageId = null;
+        if (isset($messageData['reply_to_message'])) {
+            $replyToTelegramMessageId = $messageData['reply_to_message']['message_id'];
+            $replyToMessage = Message::where('telegram_message_id', $replyToTelegramMessageId)
+                                   ->where('chat_id', $chatModel->id)
+                                   ->first();
+            if ($replyToMessage) {
+                $replyToMessageId = $replyToMessage->id;
+            }
+        }
+        
         $message = Message::create([
             'chat_id' => $chatModel->id,
             'message' => $messageText,
             'user' => $displayName,
             'telegram_message_id' => $messageData['message_id'],
+            'reply_to_message_id' => $replyToMessageId,
             'telegram_user_id' => $user['id'],
             'telegram_username' => $user['username'] ?? null,
             'telegram_first_name' => $user['first_name'] ?? null,

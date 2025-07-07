@@ -480,7 +480,7 @@
             </div>
             <div class="stat-card">
                 <h3 id="unique-affiliates">0</h3>
-                <p>Количество офферов</p>
+                <p>Количество аффилейтов</p>
             </div>
             <div class="stat-card">
                 <h3 id="unique-brokers">0</h3>

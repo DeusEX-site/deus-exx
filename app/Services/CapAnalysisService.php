@@ -13,6 +13,11 @@ class CapAnalysisService
      */
     public function analyzeAndSaveCapMessage($messageId, $messageText)
     {
+        // Проверяем команды управления статусом
+        if ($this->isStatusCommand($messageText)) {
+            return $this->processStatusCommand($messageId, $messageText);
+        }
+        
         // Проверяем, является ли сообщение стандартной капой
         if (!$this->isStandardCapMessage($messageText)) {
             return ['cap_entries_count' => 0];
@@ -75,7 +80,9 @@ class CapAnalysisService
                         'start_time' => $capData['start_time'],
                         'end_time' => $capData['end_time'],
                         'timezone' => $capData['timezone'],
-                        'highlighted_text' => $messageText
+                        'highlighted_text' => $messageText,
+                        'status' => 'RUN', // По умолчанию новые капы активны
+                        'status_updated_at' => now()
                     ]);
                     
                     $createdCount++;
@@ -206,6 +213,147 @@ class CapAnalysisService
         }
         
         return $updateData;
+    }
+
+    /**
+     * Проверяет, является ли сообщение командой управления статусом
+     */
+    private function isStatusCommand($messageText)
+    {
+        // Простые команды (только STOP или DELETE)
+        if (preg_match('/^(STOP|DELETE)\s*$/i', trim($messageText))) {
+            return true;
+        }
+        
+        // Полные команды с полями
+        return preg_match('/^(STOP|DELETE)\s*$/m', $messageText) ||
+               (preg_match('/^Affiliate:\s*(.+)$/m', $messageText) &&
+                preg_match('/^Recipient:\s*(.+)$/m', $messageText) &&
+                preg_match('/^Cap:\s*(.+)$/m', $messageText) &&
+                preg_match('/^Geo:\s*(.+)$/m', $messageText) &&
+                preg_match('/^(STOP|DELETE)\s*$/m', $messageText));
+    }
+
+    /**
+     * Обрабатывает команды управления статусом (STOP/DELETE)
+     */
+    private function processStatusCommand($messageId, $messageText)
+    {
+        // Определяем команду
+        $command = null;
+        if (preg_match('/^(STOP|DELETE)\s*$/i', trim($messageText))) {
+            $command = strtoupper(trim($messageText));
+        } elseif (preg_match('/^(STOP|DELETE)\s*$/m', $messageText, $matches)) {
+            $command = $matches[1];
+        }
+
+        if (!$command) {
+            return ['cap_entries_count' => 0, 'error' => 'Неверная команда'];
+        }
+
+        // Получаем текущее сообщение для проверки reply_to_message
+        $currentMessage = Message::find($messageId);
+        if (!$currentMessage) {
+            return ['cap_entries_count' => 0, 'error' => 'Сообщение не найдено'];
+        }
+
+        // Если это простая команда (только STOP или DELETE), ищем капу по reply_to_message
+        if (preg_match('/^(STOP|DELETE)\s*$/i', trim($messageText))) {
+            if (!$currentMessage->reply_to_message_id) {
+                return ['cap_entries_count' => 0, 'error' => 'Команда должна быть ответом на сообщение с капой'];
+            }
+
+            // Ищем капу по ID сообщения, на которое отвечают
+            $existingCap = Cap::where('message_id', $currentMessage->reply_to_message_id)
+                              ->whereIn('status', ['RUN', 'STOP'])
+                              ->first();
+
+            if (!$existingCap) {
+                return ['cap_entries_count' => 0, 'error' => 'Капа не найдена в сообщении, на которое отвечаете'];
+            }
+
+            // Создаем запись в истории
+            CapHistory::createFromCap($existingCap);
+
+            // Обновляем статус
+            $existingCap->update([
+                'status' => $command,
+                'status_updated_at' => now(),
+                'message_id' => $messageId,
+                'highlighted_text' => $messageText
+            ]);
+
+            $action = $command === 'STOP' ? 'остановлена' : 'удалена';
+            
+            return [
+                'cap_entries_count' => 0,
+                'updated_entries_count' => 1,
+                'status_changed' => 1,
+                'message' => "Капа {$existingCap->affiliate_name} → {$existingCap->recipient_name} ({$existingCap->geos[0]}, {$existingCap->cap_amounts[0]}) {$action}"
+            ];
+        }
+
+        // Полная команда с указанием всех полей
+        $affiliate = null;
+        $recipient = null;
+        $cap = null;
+        $geo = null;
+
+        if (preg_match('/^Affiliate:\s*(.+)$/m', $messageText, $matches)) {
+            $affiliate = trim($matches[1]);
+        }
+
+        if (preg_match('/^Recipient:\s*(.+)$/m', $messageText, $matches)) {
+            $recipient = trim($matches[1]);
+        }
+
+        if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
+            $capValue = trim($matches[1]);
+            if (is_numeric($capValue)) {
+                $cap = intval($capValue);
+            }
+        }
+
+        if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
+            $geo = trim($matches[1]);
+        }
+
+        // Проверяем, что все обязательные поля заполнены
+        if (!$affiliate || !$recipient || !$cap || !$geo) {
+            return ['cap_entries_count' => 0, 'error' => 'Не все обязательные поля заполнены'];
+        }
+
+        // Ищем капу для изменения статуса
+        $existingCap = Cap::where('affiliate_name', $affiliate)
+                          ->where('recipient_name', $recipient)
+                          ->whereJsonContains('geos', $geo)
+                          ->whereJsonContains('cap_amounts', $cap)
+                          ->whereIn('status', ['RUN', 'STOP']) // Можем изменить статус только для активных и остановленных
+                          ->first();
+
+        if (!$existingCap) {
+            return ['cap_entries_count' => 0, 'error' => 'Капа не найдена'];
+        }
+
+        // Создаем запись в истории перед изменением статуса
+        CapHistory::createFromCap($existingCap);
+
+        // Обновляем статус
+        $existingCap->update([
+            'status' => $command,
+            'status_updated_at' => now(),
+            'message_id' => $messageId,
+            'highlighted_text' => $messageText
+        ]);
+
+        $action = $command === 'STOP' ? 'остановлена' : 'удалена';
+        
+        return [
+            'cap_entries_count' => 0,
+            'updated_entries_count' => 1,
+            'status_changed' => 1,
+            'message' => "Капа {$affiliate} → {$recipient} ({$geo}, {$cap}) {$action}"
+        ];
     }
     
     /**
@@ -631,11 +779,11 @@ class CapAnalysisService
     }
 
     /**
-     * Поиск кап из базы данных
+     * Поиск кап из базы данных (только активные по умолчанию)
      */
     public function searchCaps($search = null, $chatId = null)
     {
-        $caps = Cap::searchCaps($search, $chatId)->get();
+        $caps = Cap::searchCaps($search, $chatId, false)->get(); // false = только активные
         
         $results = [];
         foreach ($caps as $cap) {
@@ -663,7 +811,9 @@ class CapAnalysisService
                     'funnel' => $cap->funnel,
                     'pending_acq' => $cap->pending_acq,
                     'freeze_status_on_acq' => $cap->freeze_status_on_acq,
-                    'highlighted_text' => $cap->highlighted_text
+                    'highlighted_text' => $cap->highlighted_text,
+                    'status' => $cap->status,
+                    'status_updated_at' => $cap->status_updated_at?->format('d.m.Y H:i')
                 ]
             ];
         }
@@ -679,6 +829,19 @@ class CapAnalysisService
         $query = Cap::with(['message' => function($q) {
             $q->with('chat');
         }]);
+
+        // Фильтр по статусу (по умолчанию только активные)
+        if (isset($filters['status'])) {
+            if ($filters['status'] === 'all') {
+                // Показать все кроме удаленных
+                $query->notDeleted();
+            } elseif (in_array($filters['status'], ['RUN', 'STOP', 'DELETE'])) {
+                $query->where('status', $filters['status']);
+            }
+        } else {
+            // По умолчанию только активные
+            $query->active();
+        }
 
         // Фильтр по чату
         if ($chatId) {
@@ -790,7 +953,9 @@ class CapAnalysisService
                     'funnel' => $cap->funnel,
                     'pending_acq' => $cap->pending_acq,
                     'freeze_status_on_acq' => $cap->freeze_status_on_acq,
-                    'highlighted_text' => $cap->highlighted_text
+                    'highlighted_text' => $cap->highlighted_text,
+                    'status' => $cap->status,
+                    'status_updated_at' => $cap->status_updated_at?->format('d.m.Y H:i')
                 ]
             ];
         }
@@ -803,7 +968,9 @@ class CapAnalysisService
      */
     public function getFilterOptions()
     {
-        $caps = Cap::whereNotNull('geos')
+        // Получаем опции только из активных кап
+        $caps = Cap::active()
+                   ->whereNotNull('geos')
                    ->orWhereNotNull('recipient_name')
                    ->orWhereNotNull('affiliate_name')
                    ->orWhereNotNull('language')
@@ -848,7 +1015,13 @@ class CapAnalysisService
             'recipients' => array_values(array_unique($recipients)),
             'affiliates' => array_values(array_unique($affiliates)),
             'languages' => array_values(array_unique($languages)),
-            'funnels' => array_values(array_unique($funnels))
+            'funnels' => array_values(array_unique($funnels)),
+            'statuses' => [
+                ['value' => 'RUN', 'label' => 'Активные'],
+                ['value' => 'STOP', 'label' => 'Остановленные'], 
+                ['value' => 'DELETE', 'label' => 'Удаленные'],
+                ['value' => 'all', 'label' => 'Все (кроме удаленных)']
+            ]
         ];
     }
 

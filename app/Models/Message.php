@@ -14,6 +14,7 @@ class Message extends Model
         'message',
         'user',
         'telegram_message_id',
+        'reply_to_message_id',
         'telegram_user_id',
         'telegram_username',
         'telegram_first_name',
@@ -46,6 +47,22 @@ class Message extends Model
     public function caps()
     {
         return $this->hasMany(Cap::class);
+    }
+
+    /**
+     * Связь с сообщением, на которое отвечают
+     */
+    public function replyToMessage()
+    {
+        return $this->belongsTo(Message::class, 'reply_to_message_id');
+    }
+
+    /**
+     * Связь с ответами на это сообщение
+     */
+    public function replies()
+    {
+        return $this->hasMany(Message::class, 'reply_to_message_id');
     }
 
     public function getDisplayNameAttribute()
