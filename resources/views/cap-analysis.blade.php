@@ -471,20 +471,20 @@
         <!-- Stats Section -->
         <div class="stats-section" id="stats-section" style="display: none;">
             <div class="stat-card">
-                <h3 id="total-messages">0</h3>
-                <p>Всего сообщений</p>
+                <h3 id="total-cap-amount">0</h3>
+                <p>Общая капа</p>
             </div>
             <div class="stat-card">
-                <h3 id="cap-messages">0</h3>
-                <p>Стандартный формат</p>
+                <h3 id="unique-geos">0</h3>
+                <p>Количество гео</p>
             </div>
             <div class="stat-card">
-                <h3 id="schedule-messages">0</h3>
-                <p>С расписанием</p>
+                <h3 id="unique-affiliates">0</h3>
+                <p>Количество офферов</p>
             </div>
             <div class="stat-card">
-                <h3 id="geo-messages">0</h3>
-                <p>С гео</p>
+                <h3 id="unique-brokers">0</h3>
+                <p>Количество брокеров</p>
             </div>
         </div>
 
@@ -903,30 +903,52 @@
         
         // Обновление статистики
         function updateStats(messages) {
-            // Группируем по уникальным сообщениям (по message_id)
-            const uniqueMessages = {};
+            let totalCapAmount = 0;
+            const uniqueGeos = new Set();
+            const uniqueAffiliates = new Set();
+            const uniqueBrokers = new Set();
+            
+            // Обрабатываем каждую капу отдельно (messages содержит отдельные записи для каждой капы)
             messages.forEach(msg => {
-                const messageId = msg.id.split('_')[0]; // Получаем message_id из "message_id_cap_id"
-                if (!uniqueMessages[messageId]) {
-                    uniqueMessages[messageId] = msg;
+                const analysis = msg.analysis;
+                
+                // Суммируем капы
+                if (analysis.cap_amounts && analysis.cap_amounts.length > 0) {
+                    analysis.cap_amounts.forEach(capAmount => {
+                        if (capAmount && !isNaN(capAmount)) {
+                            totalCapAmount += parseInt(capAmount);
+                        }
+                    });
+                }
+                
+                // Собираем уникальные гео
+                if (analysis.geos && analysis.geos.length > 0) {
+                    analysis.geos.forEach(geo => {
+                        if (geo) uniqueGeos.add(geo);
+                    });
+                }
+                
+                // Собираем уникальных аффилейтов
+                if (analysis.affiliate_name) {
+                    uniqueAffiliates.add(analysis.affiliate_name);
+                }
+                
+                // Собираем уникальных брокеров
+                if (analysis.recipient_name) {
+                    uniqueBrokers.add(analysis.recipient_name);
                 }
             });
             
-            const uniqueMessageArray = Object.values(uniqueMessages);
-            const totalMessages = uniqueMessageArray.length;
-            const standardCapMessages = uniqueMessageArray.filter(msg => msg.analysis.affiliate_name && msg.analysis.recipient_name && msg.analysis.cap_amounts).length;
-            const scheduleMessages = uniqueMessageArray.filter(msg => msg.analysis.schedule).length;
-            const geoMessages = uniqueMessageArray.filter(msg => msg.analysis.geos.length > 0).length;
+            // Обновляем элементы
+            const totalCapEl = document.getElementById('total-cap-amount');
+            const geosEl = document.getElementById('unique-geos');
+            const affiliatesEl = document.getElementById('unique-affiliates');
+            const brokersEl = document.getElementById('unique-brokers');
             
-            const totalEl = document.getElementById('total-messages');
-            const capEl = document.getElementById('cap-messages');
-            const scheduleEl = document.getElementById('schedule-messages');
-            const geoEl = document.getElementById('geo-messages');
-            
-            if (totalEl) totalEl.textContent = totalMessages;
-            if (capEl) capEl.textContent = standardCapMessages;
-            if (scheduleEl) scheduleEl.textContent = scheduleMessages;
-            if (geoEl) geoEl.textContent = geoMessages;
+            if (totalCapEl) totalCapEl.textContent = totalCapAmount;
+            if (geosEl) geosEl.textContent = uniqueGeos.size;
+            if (affiliatesEl) affiliatesEl.textContent = uniqueAffiliates.size;
+            if (brokersEl) brokersEl.textContent = uniqueBrokers.size;
         }
         
         // Показать ошибку
