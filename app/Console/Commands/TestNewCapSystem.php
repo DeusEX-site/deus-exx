@@ -65,7 +65,7 @@ class TestNewCapSystem extends Command
             $this->info("Пользователь: {$result['user']}");
             $this->info("Капа: " . implode(', ', $result['analysis']['cap_amounts']));
             $this->info("Аффилейт: {$result['analysis']['affiliate_name']}");
-            $this->info("Брокер: {$result['analysis']['broker_name']}");
+                            $this->info("Получатель: {$result['analysis']['recipient_name']}");
             $this->info("Гео: " . implode(', ', $result['analysis']['geos']));
             $this->info("Расписание: {$result['analysis']['schedule']}");
         }
@@ -115,14 +115,14 @@ class TestNewCapSystem extends Command
                     $this->line("  - Schedule: " . ($data['schedule'] ?: '24/7 (default)'));
                     $this->line("  - Date: " . ($data['date'] ?: 'Today'));
                     $this->line("  - Affiliate: " . ($data['affiliate_name'] ?: 'Missing (WARNING)'));
-                    $this->line("  - Broker: " . ($data['broker_name'] ?: 'Missing (CRITICAL)'));
+                    $this->line("  - Recipient: " . ($data['recipient_name'] ?: 'Missing (CRITICAL)'));
                     $this->line("  - Geo: " . (count($data['geos']) > 0 ? implode(', ', $data['geos']) : 'Missing (CRITICAL)'));
                     
                     // Check validation
                     $errors = [];
                     
-                    if (!$data['broker_name']) {
-                        $errors[] = 'Broker name is mandatory';
+                    if (!$data['recipient_name']) {
+                        $errors[] = 'Recipient name is mandatory';
                     }
                     
                     if (!$data['affiliate_name']) {

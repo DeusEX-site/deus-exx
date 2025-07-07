@@ -17,9 +17,13 @@ class Cap extends Model
         'date',
         'is_24_7',
         'affiliate_name',
-        'broker_name',
+        'recipient_name',
         'geos',
         'work_hours',
+        'language',
+        'funnel',
+        'pending_acq',
+        'freeze_status_on_acq',
         'highlighted_text'
     ];
 
@@ -27,7 +31,9 @@ class Cap extends Model
         'cap_amounts' => 'array',
         'geos' => 'array',
         'is_24_7' => 'boolean',
-        'total_amount' => 'integer'
+        'total_amount' => 'integer',
+        'pending_acq' => 'boolean',
+        'freeze_status_on_acq' => 'boolean'
     ];
 
     /**
@@ -58,8 +64,10 @@ class Cap extends Model
         if ($search) {
             $query->where(function($q) use ($search) {
                 $q->where('affiliate_name', 'LIKE', "%{$search}%")
-                  ->orWhere('broker_name', 'LIKE', "%{$search}%")
+                  ->orWhere('recipient_name', 'LIKE', "%{$search}%")
                   ->orWhere('schedule', 'LIKE', "%{$search}%")
+                  ->orWhere('language', 'LIKE', "%{$search}%")
+                  ->orWhere('funnel', 'LIKE', "%{$search}%")
                   ->orWhereHas('message', function($subQ) use ($search) {
                       $subQ->where('message', 'LIKE', "%{$search}%");
                   });

@@ -810,9 +810,9 @@
                                 <div class="value">${cap.affiliate_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
-                            <div class="analysis-item ${cap.broker_name ? 'positive' : 'critical'}">
-                                <div class="label">Брокер</div>
-                                <div class="value">${cap.broker_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
+                            <div class="analysis-item ${cap.recipient_name ? 'positive' : 'critical'}">
+                                <div class="label">Получатель</div>
+                                <div class="value">${cap.recipient_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
                             <div class="analysis-item ${cap.geos && cap.geos.length > 0 ? 'positive' : 'critical'}">
@@ -955,7 +955,7 @@
                 'Расписание',
                 'Дата работы',
                 'Аффилейт',
-                'Брокер',
+                'Получатель',
                 'Гео'
             ];
             
@@ -969,7 +969,7 @@
                     // Собираем все уникальные значения
                     const allCaps = caps.flatMap(cap => cap.cap_amounts || []);
                     const allAffiliates = [...new Set(caps.map(cap => cap.affiliate_name).filter(Boolean))];
-                    const allBrokers = [...new Set(caps.map(cap => cap.broker_name).filter(Boolean))];
+                    const allRecipients = [...new Set(caps.map(cap => cap.recipient_name).filter(Boolean))];
                     const allGeos = [...new Set(caps.flatMap(cap => cap.geos || []))];
                     const allSchedules = [...new Set(caps.map(cap => cap.schedule).filter(Boolean))];
                     const allDates = [...new Set(caps.map(cap => cap.date).filter(Boolean))];
@@ -986,7 +986,7 @@
                         `"${allSchedules.join(', ') || '24/7'}"`,
                         `"${allDates.join(', ') || '∞'}"`,
                         `"${allAffiliates.join(', ')}"`,
-                        `"${allBrokers.join(', ')}"`,
+                        `"${allRecipients.join(', ')}"`,
                         `"${allGeos.join(', ')}"`
                     ].join(',');
                 })

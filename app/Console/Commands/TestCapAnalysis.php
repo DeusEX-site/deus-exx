@@ -116,7 +116,7 @@ Third - Broker3 : FR/IT',  // Один cap, три пары
             $this->line("  - Date: " . ($analysis['date'] ?: 'Not found'));
             $this->line("  - Is 24/7: " . ($analysis['is_24_7'] ? 'Yes' : 'No'));
             $this->line("  - Affiliate: " . ($analysis['affiliate_name'] ?: 'Not found'));
-            $this->line("  - Broker: " . ($analysis['broker_name'] ?: 'Not found'));
+            $this->line("  - Recipient: " . ($analysis['recipient_name'] ?: 'Not found'));
             $this->line("  - Geos: " . (count($analysis['geos']) > 0 ? implode(', ', $analysis['geos']) : 'Not found'));
             $this->line('');
         }
