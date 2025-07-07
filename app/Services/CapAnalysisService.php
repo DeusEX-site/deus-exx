@@ -284,8 +284,8 @@ class CapAnalysisService
                 return $cap;
             }
             
-            // Ищем родительское сообщение
-            $message = Message::where('id', $currentMessageId)->first();
+            // Ищем родительское сообщение по message_id (Telegram ID)
+            $message = Message::where('message_id', $currentMessageId)->first();
             if (!$message || !$message->reply_to_message_id) {
                 // Дошли до корня или сообщение не найдено
                 break;
