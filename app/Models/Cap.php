@@ -62,7 +62,7 @@ class Cap extends Model
     {
         return self::where('affiliate_name', $affiliateName)
                    ->where('recipient_name', $recipientName)
-                   ->where('geos', json_encode([$geo])) // Поскольку теперь одно гео в массиве
+                   ->whereJsonContains('geos', $geo)
                    ->first();
     }
 

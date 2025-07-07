@@ -41,90 +41,29 @@ class CapAnalysisService
                 );
                 
                 if ($existingCap) {
-                    // Найден дубликат - проверяем, что изменилось
-                    $updateData = ['message_id' => $messageId];
-                    $hasChanges = false;
+                    // Найден дубликат - копируем в историю и обновляем
+                    CapHistory::createFromCap($existingCap);
                     
-                    // Сравниваем каждое поле и добавляем в updateData только измененные
-                    if (json_encode([$capData['cap_amount']]) !== json_encode($existingCap->cap_amounts)) {
-                        $updateData['cap_amounts'] = [$capData['cap_amount']];
-                        $hasChanges = true;
-                    }
+                    $existingCap->update([
+                        'message_id' => $messageId,
+                        'cap_amounts' => [$capData['cap_amount']],
+                        'total_amount' => $capData['total_amount'],
+                        'schedule' => $capData['schedule'],
+                        'date' => $capData['date'],
+                        'is_24_7' => $capData['is_24_7'],
+                        'geos' => [$geo], // Одно гео
+                        'work_hours' => $capData['work_hours'],
+                        'language' => $capData['language'],
+                        'funnel' => $capData['funnel'],
+                        'pending_acq' => $capData['pending_acq'],
+                        'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
+                        'start_time' => $capData['start_time'],
+                        'end_time' => $capData['end_time'],
+                        'timezone' => $capData['timezone'],
+                        'highlighted_text' => $messageText
+                    ]);
                     
-                    if ($capData['total_amount'] !== $existingCap->total_amount) {
-                        $updateData['total_amount'] = $capData['total_amount'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['schedule'] !== $existingCap->schedule) {
-                        $updateData['schedule'] = $capData['schedule'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['date'] !== $existingCap->date) {
-                        $updateData['date'] = $capData['date'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['is_24_7'] !== $existingCap->is_24_7) {
-                        $updateData['is_24_7'] = $capData['is_24_7'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['work_hours'] !== $existingCap->work_hours) {
-                        $updateData['work_hours'] = $capData['work_hours'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['language'] !== $existingCap->language) {
-                        $updateData['language'] = $capData['language'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['funnel'] !== $existingCap->funnel) {
-                        $updateData['funnel'] = $capData['funnel'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['pending_acq'] !== $existingCap->pending_acq) {
-                        $updateData['pending_acq'] = $capData['pending_acq'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['freeze_status_on_acq'] !== $existingCap->freeze_status_on_acq) {
-                        $updateData['freeze_status_on_acq'] = $capData['freeze_status_on_acq'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['start_time'] !== $existingCap->start_time) {
-                        $updateData['start_time'] = $capData['start_time'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['end_time'] !== $existingCap->end_time) {
-                        $updateData['end_time'] = $capData['end_time'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($capData['timezone'] !== $existingCap->timezone) {
-                        $updateData['timezone'] = $capData['timezone'];
-                        $hasChanges = true;
-                    }
-                    
-                    if ($messageText !== $existingCap->highlighted_text) {
-                        $updateData['highlighted_text'] = $messageText;
-                        $hasChanges = true;
-                    }
-                    
-                    // Обновляем только если есть изменения
-                    if ($hasChanges) {
-                        // Копируем в историю перед обновлением
-                        CapHistory::createFromCap($existingCap);
-                        
-                        // Обновляем только измененные поля
-                        $existingCap->update($updateData);
-                        $updatedCount++;
-                    }
+                    $updatedCount++;
                 } else {
                     // Дубликат не найден - создаем новую запись
                     Cap::create([
@@ -220,39 +159,44 @@ class CapAnalysisService
         $schedules = [];
         $value = trim($value);
         
-        // Ищем GMT в конце строки и извлекаем его
-        $timezone = null;
-        if (preg_match('/\s+(GMT[+-]\d{1,2}:\d{2})$/i', $value, $matches)) {
-            $timezone = $matches[1];
-            // Удаляем GMT из строки для дальнейшей обработки
-            $value = trim(preg_replace('/\s+GMT[+-]\d{1,2}:\d{2}$/i', '', $value));
-        }
-        
-        // Теперь разбиваем по запятым и пробелам
+        // Сначала разбиваем по запятым и пробелам
         $allParts = preg_split('/[,\s]+/', $value);
         
-        foreach ($allParts as $part) {
-            $part = trim($part);
+        $i = 0;
+        while ($i < count($allParts)) {
+            $part = trim($allParts[$i]);
             if ($this->isEmpty($part)) {
+                $i++;
                 continue;
             }
             
             // Проверяем на 24/7
             if (preg_match('/^(24\/7|24-7)$/i', $part)) {
                 $schedules[] = '24/7';
+                $i++;
                 continue;
             }
             
             // Проверяем на время формата HH:MM/HH:MM
             if (preg_match('/^\d{1,2}:\d{2}\/\d{1,2}:\d{2}$/', $part)) {
-                // Если есть общий timezone для всей строки, добавляем его к каждому времени
-                if ($timezone) {
-                    $schedules[] = $part . ' ' . $timezone;
+                // Проверяем следующий элемент на GMT
+                if ($i + 1 < count($allParts) && preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $allParts[$i + 1])) {
+                    $schedules[] = $part . ' ' . $allParts[$i + 1];
+                    $i += 2; // Пропускаем GMT
                 } else {
                     $schedules[] = $part;
+                    $i++;
                 }
                 continue;
             }
+            
+            // Если это GMT без времени перед ним, игнорируем
+            if (preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $part)) {
+                $i++;
+                continue;
+            }
+            
+            $i++;
         }
         
         return array_filter($schedules, function($val) {
@@ -776,4 +720,4 @@ class CapAnalysisService
             'raw_numbers' => []
         ];
     }
-}
+} 
