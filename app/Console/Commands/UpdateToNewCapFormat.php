@@ -224,7 +224,16 @@ Recipient: TestSpace
 Cap: 10 15 20
 Geo: FR IT ES
 Schedule: 10:00/18:00 12:00/20:00 GMT+03:00 24/7
-Language: fr it es"
+Language: fr it es",
+
+            // Тест 13: Schedule с недостающими значениями (должны заполняться 24/7)
+            "Affiliate: ScheduleTest
+Recipient: TestSchedule
+Cap: 15 20 30
+Geo: DE AT CH
+Schedule: 18:00/01:00 18:00/02:00 GMT+03:00
+Language: de
+Total: 100 200 300"
         ];
 
         $capAnalysisService = new \App\Services\CapAnalysisService();

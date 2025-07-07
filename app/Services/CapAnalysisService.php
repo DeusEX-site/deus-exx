@@ -87,7 +87,7 @@ class CapAnalysisService
         }
         
         if ($separateByCommaOnly) {
-            // Только запятые для Funnel, Schedule, Pending ACQ, Freeze status
+            // Только запятые для Funnel, Pending ACQ, Freeze status, Date
             $values = explode(',', $value);
         } else {
             // Запятые и пробелы для Cap, Geo, Language, Total
@@ -95,6 +95,53 @@ class CapAnalysisService
         }
         
         return array_filter(array_map('trim', $values), function($val) {
+            return !$this->isEmpty($val);
+        });
+    }
+
+    /**
+     * Специальный парсер для Schedule с учетом GMT
+     */
+    private function parseScheduleValues($value)
+    {
+        if ($this->isEmpty($value)) {
+            return [];
+        }
+        
+        $schedules = [];
+        $value = trim($value);
+        
+        // Разбиваем по запятым сначала
+        $segments = explode(',', $value);
+        
+        foreach ($segments as $segment) {
+            $segment = trim($segment);
+            
+            // Ищем паттерн времени с возможным GMT
+            // Примеры: "18:00/01:00", "18:00/02:00 GMT+03:00", "24/7"
+            if (preg_match('/(\d{1,2}:\d{2}\/\d{1,2}:\d{2})\s*(GMT[+-]\d{1,2}:\d{2})?/i', $segment, $matches)) {
+                // Время найдено, добавляем как один элемент
+                $schedules[] = trim($matches[0]);
+            } else if (preg_match('/24\/7|24-7/i', $segment)) {
+                // 24/7 найдено
+                $schedules[] = '24/7';
+            } else {
+                // Разбиваем по пробелам для остальных случаев
+                $parts = preg_split('/\s+/', $segment);
+                foreach ($parts as $part) {
+                    $part = trim($part);
+                    if (!$this->isEmpty($part)) {
+                        // Проверяем, является ли это валидным расписанием
+                        if (preg_match('/\d{1,2}:\d{2}\/\d{1,2}:\d{2}|24\/7|24-7/i', $part)) {
+                            $schedules[] = $part;
+                        }
+                        // GMT отдельно игнорируем
+                    }
+                }
+            }
+        }
+        
+        return array_filter($schedules, function($val) {
             return !$this->isEmpty($val);
         });
     }
@@ -219,7 +266,7 @@ class CapAnalysisService
         }
 
         if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
-            $schedules = $this->parseMultipleValues($matches[1]); // Пробелы и запятые
+            $schedules = $this->parseScheduleValues($matches[1]); // Специальный парсер для Schedule
         }
 
         if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
