@@ -120,11 +120,11 @@ class TestCapStatusSystem extends Command
         
         $this->info('📋 Этап 4: Простая команда STOP (через reply_to_message)...');
         
-        // Останавливаем капу простой командой в ответ на сообщение
+        // Останавливаем капу простой командой в ответ на изначальное сообщение с капой
         $simpleStopMessage = Message::create([
             'chat_id' => $chat->id,
             'message_id' => 1004,
-            'reply_to_message_id' => $resumeMessage->id, // Отвечаем на сообщение с капой
+            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "STOP"
@@ -152,11 +152,11 @@ class TestCapStatusSystem extends Command
         
         $this->info('📋 Этап 5: Простая команда DELETE (через reply_to_message)...');
         
-        // Удаляем капу простой командой в ответ на сообщение
+        // Удаляем капу простой командой в ответ на изначальное сообщение с капой
         $simpleDeleteMessage = Message::create([
             'chat_id' => $chat->id,
             'message_id' => 1005,
-            'reply_to_message_id' => $resumeMessage->id, // Отвечаем на сообщение с капой
+            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "DELETE"
@@ -182,11 +182,11 @@ class TestCapStatusSystem extends Command
         
         $this->info('📋 Этап 6: Простая команда RESTORE (восстановление из корзины)...');
         
-        // Восстанавливаем удаленную капу простой командой в ответ на сообщение DELETE
+        // Восстанавливаем удаленную капу простой командой в ответ на изначальное сообщение с капой
         $simpleRestoreMessage = Message::create([
             'chat_id' => $chat->id,
             'message_id' => 1006,
-            'reply_to_message_id' => $simpleDeleteMessage->id, // Отвечаем на команду DELETE
+            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "RESTORE"
@@ -219,12 +219,12 @@ class TestCapStatusSystem extends Command
         $activeCap->refresh();
         $this->info("DEBUG: Текущий статус капы: {$activeCap->status}");
         
-        // Если капа не STOP, останавливаем её
+        // Если капа не STOP, останавливаем её (отвечаем на изначальное сообщение с капой)
         if ($activeCap->status !== 'STOP') {
             $stopMessage2 = Message::create([
                 'chat_id' => $chat->id,
                 'message_id' => 1009, // Изменил с 1007 чтобы не конфликтовать
-                'reply_to_message_id' => $resumeMessage->id,
+                'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
                 'user_id' => 1,
                 'display_name' => 'Test User',
                 'message' => "STOP"
@@ -243,11 +243,11 @@ class TestCapStatusSystem extends Command
             $this->info("DEBUG: Статус после STOP: {$activeCap->status}");
         }
         
-        // Теперь запускаем капу командой RUN (отвечаем на команду STOP)
+        // Теперь запускаем капу командой RUN (отвечаем на изначальное сообщение с капой)
         $simpleRunMessage = Message::create([
             'chat_id' => $chat->id,
             'message_id' => 1010, // Изменил с 1008 
-            'reply_to_message_id' => $stopMessage2->id ?? $resumeMessage->id, // Отвечаем на команду STOP или на исходное сообщение
+            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "RUN"

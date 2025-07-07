@@ -75,8 +75,8 @@ class CapAnalysisService
                     if (!empty($updateData)) {
                         CapHistory::createFromCap($existingCap);
                         
-                        // Всегда обновляем message_id на новое сообщение
-                        $updateData['message_id'] = $messageId;
+                        // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
+                        // $updateData['message_id'] = $messageId;
                         
                         $existingCap->update($updateData);
                         
@@ -235,6 +235,8 @@ class CapAnalysisService
             $updateData['highlighted_text'] = $messageText;
         }
         
+        // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
+        
         return $updateData;
     }
 
@@ -357,7 +359,7 @@ class CapAnalysisService
             $updateData = [
                 'status' => $command === 'RESTORE' ? 'RUN' : $command, // RESTORE меняет на RUN
                 'status_updated_at' => now(),
-                'message_id' => $messageId,
+                // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
             ];
 
             // При DELETE не меняем highlighted_text, для остальных команд обновляем
@@ -443,7 +445,7 @@ class CapAnalysisService
         $updateData = [
             'status' => $command === 'RESTORE' ? 'RUN' : $command, // RESTORE меняет на RUN
             'status_updated_at' => now(),
-            'message_id' => $messageId,
+            // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
         ];
 
         // При DELETE не меняем highlighted_text, для остальных команд обновляем
