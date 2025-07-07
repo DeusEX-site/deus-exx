@@ -58,12 +58,13 @@ class CapAnalysisService
      */
     private function isStandardCapMessage($messageText)
     {
-        // Ищем ключевые поля: Affiliate, Recipient, Cap
+        // Ищем обязательные поля: Affiliate, Recipient, Cap, Geo
         $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/m', $messageText);
         $hasRecipient = preg_match('/^Recipient:\s*(.+)$/m', $messageText);
         $hasCap = preg_match('/^Cap:\s*(.+)$/m', $messageText);
+        $hasGeo = preg_match('/^Geo:\s*(.+)$/m', $messageText);
         
-        return $hasAffiliate && $hasRecipient && $hasCap;
+        return $hasAffiliate && $hasRecipient && $hasCap && $hasGeo;
     }
 
     /**
@@ -209,26 +210,23 @@ class CapAnalysisService
             }
         }
 
-        // Проверяем, что обязательные поля заполнены
+        // Проверяем, что обязательные поля заполнены (Affiliate, Recipient, Cap, Geo)
         if (!$baseData['cap_amount'] || !$affiliate || !$recipient) {
             return null;
         }
+        
+        // Проверяем, что Geo не пустое (обязательное поле)
+        if (empty($baseData['geos'])) {
+            return null;
+        }
 
-        // Создаем отдельную запись для каждого гео
+        // Создаем отдельную запись для каждого гео (Geo обязательно)
         $combinations = [];
-        if (!empty($baseData['geos'])) {
-            foreach ($baseData['geos'] as $geo) {
-                $combination = $baseData;
-                $combination['affiliate_name'] = $affiliate;
-                $combination['recipient_name'] = $recipient;
-                $combination['geos'] = [$geo]; // Каждая запись содержит только один гео
-                $combinations[] = $combination;
-            }
-        } else {
-            // Если гео нет, создаем одну запись без гео
+        foreach ($baseData['geos'] as $geo) {
             $combination = $baseData;
             $combination['affiliate_name'] = $affiliate;
             $combination['recipient_name'] = $recipient;
+            $combination['geos'] = [$geo]; // Каждая запись содержит только один гео
             $combinations[] = $combination;
         }
 

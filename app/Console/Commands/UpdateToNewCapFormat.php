@@ -51,11 +51,12 @@ class UpdateToNewCapFormat extends Command
         $this->line('');
         
         $this->info('📝 Правила обработки:');
-        $this->line('• Ищем сообщения с полями Affiliate, Recipient, Cap');
+        $this->line('• Обязательные поля: Affiliate, Recipient, Cap, Geo');
+        $this->line('• Необязательные поля: Total, Schedule, Date, Language, Funnel, Pending ACQ, Freeze status');
         $this->line('• Affiliate и Recipient - по одному значению (без запятых)');
         $this->line('• Geo разделяется на отдельные капы (GT PE MX = 3 капы)');
         $this->line('• Пустые поля или "-" считаются отсутствующими');
-        $this->line('• Значения по умолчанию:');
+        $this->line('• Значения по умолчанию для необязательных полей:');
         $this->line('  - Total: пустое -> бесконечность');
         $this->line('  - Schedule: пустое -> 24/7');
         $this->line('  - Date: пустое -> бесконечность');
@@ -152,7 +153,25 @@ Funnel: -
 Schedule: 
 Date: -
 Pending ACQ: 
-Freeze status on ACQ: -"
+Freeze status on ACQ: -",
+
+            // Тест 6: Сообщение без обязательного поля Geo (должно быть отклонено)
+            "Affiliate: NoGeoTest
+Recipient: TestNoGeo
+Cap: 5
+Total: 100
+Language: en
+Funnel: Test
+Schedule: 24/7",
+
+            // Тест 7: Сообщение с пустым Geo (должно быть отклонено)
+            "Affiliate: EmptyGeoTest
+Recipient: TestEmptyGeo
+Cap: 20
+Total: 50
+Geo: -
+Language: en
+Funnel: Test"
         ];
 
         $capAnalysisService = new \App\Services\CapAnalysisService();
