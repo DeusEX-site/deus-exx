@@ -55,7 +55,7 @@
 **Новая статистика**:
 - **Общая капа**: 450 (сумма всех кап)
 - **Количество гео**: 8 (DE, AT, CH, FR, IE, UK, ES, IT)
-- **Количество аффилейтов**: 5 (G06, WebGate, TrafficForce, DirectAff, MediaBuying)
+- **Количество офферов**: 5 (G06, WebGate, TrafficForce, DirectAff, MediaBuying)
 - **Количество брокеров**: 3 (TMedia, BrokerPro, CapitalTrade)
 
 **Выводы**:
