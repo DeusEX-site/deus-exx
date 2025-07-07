@@ -54,11 +54,15 @@ class UpdateToNewCapFormat extends Command
         $this->line('• Ищем сообщения с полями Affiliate, Recipient, Cap');
         $this->line('• Affiliate и Recipient - по одному значению (без запятых)');
         $this->line('• Geo разделяется на отдельные капы (GT PE MX = 3 капы)');
-        $this->line('• Если Total пустое или Cap содержит слеш -> Total = бесконечность');
-        $this->line('• Если Date пустое -> бесконечность');
-        $this->line('• Если Schedule пустое -> 24/7');
+        $this->line('• Пустые поля или "-" считаются отсутствующими');
+        $this->line('• Значения по умолчанию:');
+        $this->line('  - Total: пустое -> бесконечность');
+        $this->line('  - Schedule: пустое -> 24/7');
+        $this->line('  - Date: пустое -> бесконечность');
+        $this->line('  - Language: пустое -> en');
+        $this->line('  - Funnel: пустое -> null');
+        $this->line('  - Pending ACQ/Freeze: пустое -> false');
         $this->line('• Date без года -> добавляется текущий год (24.02 -> 24.02.2024)');
-        $this->line('• Pending ACQ и Freeze status: Yes/No или пусто (No)');
         $this->line('');
         
         // Шаг 4: Тестирование (если запрошено)
@@ -135,7 +139,20 @@ Funnel: Crypto
 Schedule: 10:00/18:00 GMT+03:00
 Date: 24.02
 Pending ACQ: No
-Freeze status on ACQ: Yes"
+Freeze status on ACQ: Yes",
+
+            // Тест 5: Пустые поля и значения "-"
+            "Affiliate: EmptyTest
+Recipient: TestEmpty
+Cap: 10
+Total: -
+Geo: US
+Language: 
+Funnel: -
+Schedule: 
+Date: -
+Pending ACQ: 
+Freeze status on ACQ: -"
         ];
 
         $capAnalysisService = new \App\Services\CapAnalysisService();

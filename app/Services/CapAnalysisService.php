@@ -27,8 +27,8 @@ class CapAnalysisService
             $createdCount = 0;
             
             foreach ($capCombinations as $capData) {
-                Cap::create([
-                    'message_id' => $messageId,
+            Cap::create([
+                'message_id' => $messageId,
                     'cap_amounts' => [$capData['cap_amount']],
                     'total_amount' => $capData['total_amount'],
                     'schedule' => $capData['schedule'],
@@ -67,6 +67,16 @@ class CapAnalysisService
     }
 
     /**
+     * Проверяет, является ли значение пустым (пустая строка, "-", или только пробелы)
+     */
+    private function isEmpty($value)
+    {
+        if ($value === null) return true;
+        $trimmed = trim($value);
+        return $trimmed === '' || $trimmed === '-';
+    }
+
+    /**
      * Парсит стандартное сообщение капы
      */
     private function parseStandardCapMessage($messageText)
@@ -79,7 +89,7 @@ class CapAnalysisService
             'is_24_7' => true,
             'geos' => [],
             'work_hours' => null,
-            'language' => null,
+            'language' => 'en', // По умолчанию en
             'funnel' => null,
             'pending_acq' => false,
             'freeze_status_on_acq' => false
@@ -102,40 +112,43 @@ class CapAnalysisService
 
         if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
             $totalValue = trim($matches[1]);
-            if (!empty($totalValue) && is_numeric($totalValue)) {
+            if (!$this->isEmpty($totalValue) && is_numeric($totalValue)) {
                 $baseData['total_amount'] = intval($totalValue);
             }
-            // Если Total пустое или не число, остается -1 (бесконечность)
+            // Если Total пустое, "-" или не число, остается -1 (бесконечность)
         }
 
         if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
             $geoValue = trim($matches[1]);
-            if (!empty($geoValue)) {
+            if (!$this->isEmpty($geoValue)) {
                 // Разделяем по запятым, слешам и пробелам
                 $geos = preg_split('/[,\/\s]+/', $geoValue);
                 $baseData['geos'] = array_filter(array_map('trim', $geos), function($geo) {
-                    return !empty($geo) && strlen($geo) >= 2;
+                    $trimmed = trim($geo);
+                    return $trimmed !== '' && $trimmed !== '-' && strlen($trimmed) >= 2;
                 });
             }
         }
 
         if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
             $languageValue = trim($matches[1]);
-            if (!empty($languageValue)) {
+            if (!$this->isEmpty($languageValue)) {
                 $baseData['language'] = $languageValue;
             }
+            // Если Language пустое или "-", остается "en" (по умолчанию)
         }
 
         if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
             $funnelValue = trim($matches[1]);
-            if (!empty($funnelValue)) {
+            if (!$this->isEmpty($funnelValue)) {
                 $baseData['funnel'] = $funnelValue;
             }
+            // Если Funnel пустое или "-", остается null
         }
 
         if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
             $scheduleValue = trim($matches[1]);
-            if (!empty($scheduleValue)) {
+            if (!$this->isEmpty($scheduleValue)) {
                 $baseData['schedule'] = $scheduleValue;
                 $baseData['work_hours'] = $scheduleValue;
                 $baseData['is_24_7'] = false;
@@ -145,12 +158,12 @@ class CapAnalysisService
                     $baseData['is_24_7'] = true;
                 }
             }
-            // Если Schedule пустое, остается 24/7
+            // Если Schedule пустое или "-", остается 24/7
         }
 
         if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
             $dateValue = trim($matches[1]);
-            if (!empty($dateValue)) {
+            if (!$this->isEmpty($dateValue)) {
                 // Если в дате нет года, добавляем текущий год
                 if (preg_match('/^\d{1,2}\.\d{1,2}$/', $dateValue)) {
                     $currentYear = date('Y');
@@ -159,17 +172,23 @@ class CapAnalysisService
                     $baseData['date'] = $dateValue;
                 }
             }
-            // Если Date пустое, остается null (бесконечность)
+            // Если Date пустое или "-", остается null (бесконечность)
         }
 
         if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
             $pendingValue = strtolower(trim($matches[1]));
-            $baseData['pending_acq'] = in_array($pendingValue, ['yes', 'true', '1', 'да']);
+            if (!$this->isEmpty($pendingValue)) {
+                $baseData['pending_acq'] = in_array($pendingValue, ['yes', 'true', '1', 'да']);
+            }
+            // Если Pending ACQ пустое или "-", остается false
         }
 
         if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
             $freezeValue = strtolower(trim($matches[1]));
-            $baseData['freeze_status_on_acq'] = in_array($freezeValue, ['yes', 'true', '1', 'да']);
+            if (!$this->isEmpty($freezeValue)) {
+                $baseData['freeze_status_on_acq'] = in_array($freezeValue, ['yes', 'true', '1', 'да']);
+            }
+            // Если Freeze status пустое или "-", остается false
         }
 
         // Парсим аффилейта и получателя (по одному значению)
@@ -178,14 +197,14 @@ class CapAnalysisService
 
         if (preg_match('/^Affiliate:\s*(.+)$/m', $messageText, $matches)) {
             $affiliateValue = trim($matches[1]);
-            if (!empty($affiliateValue)) {
+            if (!$this->isEmpty($affiliateValue)) {
                 $affiliate = $affiliateValue;
             }
         }
 
         if (preg_match('/^Recipient:\s*(.+)$/m', $messageText, $matches)) {
             $recipientValue = trim($matches[1]);
-            if (!empty($recipientValue)) {
+            if (!$this->isEmpty($recipientValue)) {
                 $recipient = $recipientValue;
             }
         }

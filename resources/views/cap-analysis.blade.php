@@ -875,45 +875,6 @@
                             </div>
                         </div>
                         `).join('')}
-                            
-                        ${caps.some(cap => cap.highlighted_text) ? `
-                        <div class="analysis-section" style="margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1rem;">
-                            <div class="analysis-item positive" style="grid-column: 1 / -1;">
-                                <div class="label">Обработанный текст для всех блоков (${caps.length})</div>
-                                <div class="value" style="background: rgba(245, 158, 11, 0.2); padding: 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.3); font-family: monospace; text-align: left;">${caps.map((cap, index) => {
-                                    if (!cap.highlighted_text) return '';
-                                    let result = `${index + 1}. ${cap.highlighted_text}`;
-                                    
-                                    // Добавляем дополнительную информацию
-                                    const additionalInfo = [];
-                                    if (cap.total_amount === -1) {
-                                        additionalInfo.push('∞');
-                                    } else if (cap.total_amount > 0) {
-                                        additionalInfo.push(cap.total_amount);
-                                    }
-                                    if (cap.schedule) {
-                                        additionalInfo.push(cap.schedule);
-                                    }
-                                    if (cap.date) {
-                                        additionalInfo.push(cap.date);
-                                    }
-                                    
-                                    if (additionalInfo.length > 0) {
-                                        result += ' [' + additionalInfo.join(', ') + ']';
-                                    }
-                                    
-                                    return result;
-                                }).filter(Boolean).join('|||BREAK|||')
-                                    .replace(/&/g, '&amp;')
-                                    .replace(/</g, '&lt;')
-                                    .replace(/>/g, '&gt;')
-                                    .replace(/"/g, '&quot;')
-                                    .replace(/'/g, '&#39;')
-                                    .replace(/\n/g, '<br>')
-                                    .replace(/\|\|\|BREAK\|\|\|/g, '<br>')}</div>
-                            </div>
-                            </div>
-                            ` : ''}
                     </div>
                 `;
             }).join('');
