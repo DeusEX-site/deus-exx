@@ -43,9 +43,12 @@ class CapAnalysisService
                 
                 $existingCap = null;
                 
-                // Проверяем есть ли reply_to_message и ищем капу по ID сообщения
+                // Проверяем есть ли reply_to_message и ищем капу по цепочке сообщений
                 if ($currentMessage && $currentMessage->reply_to_message_id) {
-                    $existingCap = Cap::where('message_id', $currentMessage->reply_to_message_id)
+                    // Ищем изначальное сообщение с капой через цепочку reply_to_message
+                    $originalMessageId = $this->findOriginalCapMessage($currentMessage->reply_to_message_id);
+                    
+                    $existingCap = Cap::where('message_id', $originalMessageId)
                                      ->whereIn('status', ['RUN', 'STOP'])
                                      ->first();
                                      
@@ -254,6 +257,48 @@ class CapAnalysisService
     }
 
     /**
+     * Находит изначальное сообщение с капой через цепочку reply_to_message
+     */
+    private function findOriginalCapMessage($messageId)
+    {
+        $currentMessageId = $messageId;
+        $visited = [];
+        
+        // Ограничиваем глубину поиска для избежания бесконечных циклов
+        $maxDepth = 20;
+        $depth = 0;
+        
+        while ($currentMessageId && $depth < $maxDepth) {
+            if (in_array($currentMessageId, $visited)) {
+                // Цикл обнаружен, возвращаем текущий ID
+                break;
+            }
+            
+            $visited[] = $currentMessageId;
+            
+            // Проверяем, есть ли капа для этого сообщения
+            $cap = Cap::where('message_id', $currentMessageId)->first();
+            if ($cap) {
+                // Найдено сообщение с капой
+                return $currentMessageId;
+            }
+            
+            // Ищем родительское сообщение
+            $message = Message::where('id', $currentMessageId)->first();
+            if (!$message || !$message->reply_to_message_id) {
+                // Дошли до корня или сообщение не найдено
+                break;
+            }
+            
+            $currentMessageId = $message->reply_to_message_id;
+            $depth++;
+        }
+        
+        // Если не нашли капу в цепочке, возвращаем исходный ID
+        return $messageId;
+    }
+
+    /**
      * Обрабатывает команды управления статусом (RUN/STOP/DELETE/RESTORE)
      */
     private function processStatusCommand($messageId, $messageText)
@@ -291,8 +336,11 @@ class CapAnalysisService
                 default => ['RUN', 'STOP', 'DELETE']
             };
 
-            // Ищем капу по ID сообщения, на которое отвечают
-            $existingCap = Cap::where('message_id', $currentMessage->reply_to_message_id)
+            // Ищем изначальное сообщение с капой через цепочку reply_to_message
+            $originalMessageId = $this->findOriginalCapMessage($currentMessage->reply_to_message_id);
+
+            // Ищем капу по ID изначального сообщения
+            $existingCap = Cap::where('message_id', $originalMessageId)
                               ->whereIn('status', $allowedStatuses)
                               ->first();
 

@@ -130,6 +130,8 @@ class TestCapStatusSystem extends Command
             'message' => "STOP"
         ]);
         
+        $this->info("DEBUG: Останавливаем капу ID {$activeCap->id} (статус {$activeCap->status})");
+        
         $result = $capAnalysisService->analyzeAndSaveCapMessage($simpleStopMessage->id, $simpleStopMessage->message);
         
         if (isset($result['status_changed']) && $result['status_changed'] === 1) {
@@ -180,22 +182,25 @@ class TestCapStatusSystem extends Command
         
         $this->info('📋 Этап 6: Простая команда RESTORE (восстановление из корзины)...');
         
-        // Восстанавливаем удаленную капу простой командой в ответ на сообщение
+        // Восстанавливаем удаленную капу простой командой в ответ на сообщение DELETE
         $simpleRestoreMessage = Message::create([
             'chat_id' => $chat->id,
             'message_id' => 1006,
-            'reply_to_message_id' => $resumeMessage->id, // Отвечаем на сообщение с капой
+            'reply_to_message_id' => $simpleDeleteMessage->id, // Отвечаем на команду DELETE
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "RESTORE"
         ]);
+        
+        $this->info("DEBUG: Восстанавливаем капу ID {$activeCap->id} (статус {$activeCap->status})");
         
         $result = $capAnalysisService->analyzeAndSaveCapMessage($simpleRestoreMessage->id, $simpleRestoreMessage->message);
         
         if (isset($result['status_changed']) && $result['status_changed'] === 1) {
             $this->info("✅ Капа восстановлена из корзины: {$result['message']}");
         } else {
-            $this->error("❌ Ошибка восстановления капы из корзины");
+            $this->error("❌ Ошибка восстановления капы из корзины: " . ($result['error'] ?? 'неизвестная ошибка'));
+            $this->info("DEBUG: Результат RESTORE команды: " . json_encode($result));
             return;
         }
         
@@ -208,32 +213,41 @@ class TestCapStatusSystem extends Command
             return;
         }
         
-        $this->info('📋 Этап 7: Простая команда RUN (перезапуск активной капы)...');
+        $this->info('📋 Этап 7: Тестирование цепочки команд через reply_to_message...');
         
-        // Сначала остановим капу
-        $stopMessage2 = Message::create([
-            'chat_id' => $chat->id,
-            'message_id' => 1007,
-            'reply_to_message_id' => $resumeMessage->id,
-            'user_id' => 1,
-            'display_name' => 'Test User',
-            'message' => "STOP"
-        ]);
+        // Проверяем статус перед тестированием RUN
+        $activeCap->refresh();
+        $this->info("DEBUG: Текущий статус капы: {$activeCap->status}");
         
-        $result = $capAnalysisService->analyzeAndSaveCapMessage($stopMessage2->id, $stopMessage2->message);
-        
-        if (isset($result['status_changed']) && $result['status_changed'] === 1) {
-            $this->info("✅ Капа остановлена для тестирования RUN");
-        } else {
-            $this->error("❌ Ошибка остановки капы для тестирования RUN");
-            return;
+        // Если капа не STOP, останавливаем её
+        if ($activeCap->status !== 'STOP') {
+            $stopMessage2 = Message::create([
+                'chat_id' => $chat->id,
+                'message_id' => 1009, // Изменил с 1007 чтобы не конфликтовать
+                'reply_to_message_id' => $resumeMessage->id,
+                'user_id' => 1,
+                'display_name' => 'Test User',
+                'message' => "STOP"
+            ]);
+            
+            $result = $capAnalysisService->analyzeAndSaveCapMessage($stopMessage2->id, $stopMessage2->message);
+            
+            if (isset($result['status_changed']) && $result['status_changed'] === 1) {
+                $this->info("✅ Капа остановлена для тестирования RUN");
+            } else {
+                $this->error("❌ Ошибка остановки капы для тестирования RUN: " . ($result['error'] ?? 'неизвестная ошибка'));
+                return;
+            }
+            
+            $activeCap->refresh();
+            $this->info("DEBUG: Статус после STOP: {$activeCap->status}");
         }
         
-        // Теперь запускаем капу командой RUN
+        // Теперь запускаем капу командой RUN (отвечаем на команду STOP)
         $simpleRunMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1008,
-            'reply_to_message_id' => $resumeMessage->id,
+            'message_id' => 1010, // Изменил с 1008 
+            'reply_to_message_id' => $stopMessage2->id ?? $resumeMessage->id, // Отвечаем на команду STOP или на исходное сообщение
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "RUN"
@@ -244,7 +258,8 @@ class TestCapStatusSystem extends Command
         if (isset($result['status_changed']) && $result['status_changed'] === 1) {
             $this->info("✅ Капа запущена командой RUN: {$result['message']}");
         } else {
-            $this->error("❌ Ошибка запуска капы командой RUN");
+            $this->error("❌ Ошибка запуска капы командой RUN: " . ($result['error'] ?? 'неизвестная ошибка'));
+            $this->info("DEBUG: Результат RUN команды: " . json_encode($result));
             return;
         }
         
@@ -253,7 +268,7 @@ class TestCapStatusSystem extends Command
         if ($activeCap->status === 'RUN') {
             $this->info("✅ Статус капы изменен на RUN после команды RUN");
         } else {
-            $this->error("❌ Ошибка: статус капы не изменен после команды RUN");
+            $this->error("❌ Ошибка: статус капы не изменен после команды RUN (текущий: {$activeCap->status})");
             return;
         }
         
@@ -296,7 +311,7 @@ class TestCapStatusSystem extends Command
         // Создаем новую капу для тестирования обновления
         $newCapMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1010,
+            'message_id' => 1020,
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "Affiliate: TestAffiliate\nRecipient: TestRecipient\nCap: 30\nGeo: DE\nSchedule: 24/7"
@@ -314,7 +329,7 @@ class TestCapStatusSystem extends Command
         // Обновляем капу через reply_to_message (указываем только Geo)
         $updateMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1011,
+            'message_id' => 1021,
             'reply_to_message_id' => $newCapMessage->id, // Отвечаем на сообщение с капой
             'user_id' => 1,
             'display_name' => 'Test User',
@@ -347,7 +362,7 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - обновление с неправильным гео
         $wrongGeoMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1012,
+            'message_id' => 1022,
             'reply_to_message_id' => $newCapMessage->id,
             'user_id' => 1,
             'display_name' => 'Test User',
@@ -368,7 +383,7 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - попытка изменить статус несуществующей капы
         $errorMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1013,
+            'message_id' => 1030,
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "Affiliate: NonExistent\nRecipient: NonExistent\nCap: 999\nGeo: XX\nSTOP"
@@ -386,7 +401,7 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - простая команда без reply_to_message
         $noReplyMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1014,
+            'message_id' => 1031,
             'user_id' => 1,
             'display_name' => 'Test User',
             'message' => "STOP"

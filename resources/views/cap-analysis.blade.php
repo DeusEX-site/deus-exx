@@ -835,6 +835,13 @@
                                 <span class="chat-name">${msg.chat_name}</span>
                                 <span class="message-author">👤 ${msg.user || 'Unknown'}</span>
                                 <span class="message-date">${msg.timestamp}</span>
+                                ${caps.length > 0 && caps[0].status ? `
+                                    <span style="display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; font-size: 0.75rem;
+                                        background: ${caps[0].status === 'RUN' ? 'rgba(16, 185, 129, 0.3)' : caps[0].status === 'STOP' ? 'rgba(251, 146, 60, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; 
+                                        color: ${caps[0].status === 'RUN' ? '#10b981' : caps[0].status === 'STOP' ? '#f59e0b' : '#ef4444'};">
+                                        ${caps[0].status === 'RUN' ? '✅ АКТИВНАЯ' : caps[0].status === 'STOP' ? '⏸️ ОСТАНОВЛЕНА' : '🗑️ УДАЛЕНА'}
+                                    </span>
+                                ` : ''}
                             </div>
                         </div>
                         
@@ -885,17 +892,6 @@
                             <div class="analysis-item ${cap.funnel ? 'positive' : 'neutral'}">
                                 <div class="label">Воронка</div>
                                 <div class="value">${cap.funnel || '—'}</div>
-                            </div>
-                            
-                            <div class="analysis-item ${cap.status === 'RUN' ? 'positive' : cap.status === 'STOP' ? 'warning' : 'negative'}">
-                                <div class="label">Статус</div>
-                                <div class="value">
-                                    <span style="display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; 
-                                        background: ${cap.status === 'RUN' ? 'rgba(16, 185, 129, 0.3)' : cap.status === 'STOP' ? 'rgba(251, 146, 60, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; 
-                                        color: ${cap.status === 'RUN' ? '#10b981' : cap.status === 'STOP' ? '#f59e0b' : '#ef4444'};">
-                                        ${cap.status === 'RUN' ? '✅ АКТИВНАЯ' : cap.status === 'STOP' ? '⏸️ ОСТАНОВЛЕНА' : '🗑️ УДАЛЕНА'}
-                                    </span>
-                                </div>
                             </div>
                         </div>
                         `).join('')}
