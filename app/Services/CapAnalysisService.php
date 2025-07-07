@@ -174,16 +174,32 @@ class CapAnalysisService
             ];
         }
         
-        // Парсим время вида "18:00/01:00 GMT+03:00"
-        if (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})\s*(GMT[+-]\d{1,2}:\d{2})?/i', $schedule, $matches)) {
-            $timeOnly = $matches[1] . '/' . $matches[2]; // Только время без GMT
+        // Убираем лишние пробелы
+        $schedule = preg_replace('/\s+/', ' ', $schedule);
+        
+        // Парсим время с GMT: "18:00/01:00 GMT+03:00"
+        if (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})\s+(GMT[+-]\d{1,2}:\d{2})/i', $schedule, $matches)) {
+            $timeOnly = $matches[1] . '/' . $matches[2];
             return [
                 'schedule' => $timeOnly,
                 'work_hours' => $timeOnly,
                 'is_24_7' => false,
                 'start_time' => $matches[1],
                 'end_time' => $matches[2],
-                'timezone' => isset($matches[3]) ? $matches[3] : null
+                'timezone' => $matches[3]
+            ];
+        }
+        
+        // Парсим время без GMT: "18:00/01:00"
+        if (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})/', $schedule, $matches)) {
+            $timeOnly = $matches[1] . '/' . $matches[2];
+            return [
+                'schedule' => $timeOnly,
+                'work_hours' => $timeOnly,
+                'is_24_7' => false,
+                'start_time' => $matches[1],
+                'end_time' => $matches[2],
+                'timezone' => null
             ];
         }
         
