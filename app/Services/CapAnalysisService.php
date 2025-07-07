@@ -825,5 +825,4 @@ class CapAnalysisService
             'raw_numbers' => []
         ];
     }
-} 
-} 
+}
