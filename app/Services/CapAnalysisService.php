@@ -41,29 +41,90 @@ class CapAnalysisService
                 );
                 
                 if ($existingCap) {
-                    // Найден дубликат - копируем в историю и обновляем
-                    CapHistory::createFromCap($existingCap);
+                    // Найден дубликат - проверяем, что изменилось
+                    $updateData = ['message_id' => $messageId];
+                    $hasChanges = false;
                     
-                    $existingCap->update([
-                        'message_id' => $messageId,
-                        'cap_amounts' => [$capData['cap_amount']],
-                        'total_amount' => $capData['total_amount'],
-                        'schedule' => $capData['schedule'],
-                        'date' => $capData['date'],
-                        'is_24_7' => $capData['is_24_7'],
-                        'geos' => [$geo], // Одно гео
-                        'work_hours' => $capData['work_hours'],
-                        'language' => $capData['language'],
-                        'funnel' => $capData['funnel'],
-                        'pending_acq' => $capData['pending_acq'],
-                        'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
-                        'start_time' => $capData['start_time'],
-                        'end_time' => $capData['end_time'],
-                        'timezone' => $capData['timezone'],
-                        'highlighted_text' => $messageText
-                    ]);
+                    // Сравниваем каждое поле и добавляем в updateData только измененные
+                    if (json_encode([$capData['cap_amount']]) !== json_encode($existingCap->cap_amounts)) {
+                        $updateData['cap_amounts'] = [$capData['cap_amount']];
+                        $hasChanges = true;
+                    }
                     
-                    $updatedCount++;
+                    if ($capData['total_amount'] !== $existingCap->total_amount) {
+                        $updateData['total_amount'] = $capData['total_amount'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['schedule'] !== $existingCap->schedule) {
+                        $updateData['schedule'] = $capData['schedule'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['date'] !== $existingCap->date) {
+                        $updateData['date'] = $capData['date'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['is_24_7'] !== $existingCap->is_24_7) {
+                        $updateData['is_24_7'] = $capData['is_24_7'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['work_hours'] !== $existingCap->work_hours) {
+                        $updateData['work_hours'] = $capData['work_hours'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['language'] !== $existingCap->language) {
+                        $updateData['language'] = $capData['language'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['funnel'] !== $existingCap->funnel) {
+                        $updateData['funnel'] = $capData['funnel'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['pending_acq'] !== $existingCap->pending_acq) {
+                        $updateData['pending_acq'] = $capData['pending_acq'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['freeze_status_on_acq'] !== $existingCap->freeze_status_on_acq) {
+                        $updateData['freeze_status_on_acq'] = $capData['freeze_status_on_acq'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['start_time'] !== $existingCap->start_time) {
+                        $updateData['start_time'] = $capData['start_time'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['end_time'] !== $existingCap->end_time) {
+                        $updateData['end_time'] = $capData['end_time'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($capData['timezone'] !== $existingCap->timezone) {
+                        $updateData['timezone'] = $capData['timezone'];
+                        $hasChanges = true;
+                    }
+                    
+                    if ($messageText !== $existingCap->highlighted_text) {
+                        $updateData['highlighted_text'] = $messageText;
+                        $hasChanges = true;
+                    }
+                    
+                    // Обновляем только если есть изменения
+                    if ($hasChanges) {
+                        // Копируем в историю перед обновлением
+                        CapHistory::createFromCap($existingCap);
+                        
+                        // Обновляем только измененные поля
+                        $existingCap->update($updateData);
+                        $updatedCount++;
+                    }
                 } else {
                     // Дубликат не найден - создаем новую запись
                     Cap::create([
@@ -159,44 +220,39 @@ class CapAnalysisService
         $schedules = [];
         $value = trim($value);
         
-        // Сначала разбиваем по запятым и пробелам
+        // Ищем GMT в конце строки и извлекаем его
+        $timezone = null;
+        if (preg_match('/\s+(GMT[+-]\d{1,2}:\d{2})$/i', $value, $matches)) {
+            $timezone = $matches[1];
+            // Удаляем GMT из строки для дальнейшей обработки
+            $value = trim(preg_replace('/\s+GMT[+-]\d{1,2}:\d{2}$/i', '', $value));
+        }
+        
+        // Теперь разбиваем по запятым и пробелам
         $allParts = preg_split('/[,\s]+/', $value);
         
-        $i = 0;
-        while ($i < count($allParts)) {
-            $part = trim($allParts[$i]);
+        foreach ($allParts as $part) {
+            $part = trim($part);
             if ($this->isEmpty($part)) {
-                $i++;
                 continue;
             }
             
             // Проверяем на 24/7
             if (preg_match('/^(24\/7|24-7)$/i', $part)) {
                 $schedules[] = '24/7';
-                $i++;
                 continue;
             }
             
             // Проверяем на время формата HH:MM/HH:MM
             if (preg_match('/^\d{1,2}:\d{2}\/\d{1,2}:\d{2}$/', $part)) {
-                // Проверяем следующий элемент на GMT
-                if ($i + 1 < count($allParts) && preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $allParts[$i + 1])) {
-                    $schedules[] = $part . ' ' . $allParts[$i + 1];
-                    $i += 2; // Пропускаем GMT
+                // Если есть общий timezone для всей строки, добавляем его к каждому времени
+                if ($timezone) {
+                    $schedules[] = $part . ' ' . $timezone;
                 } else {
                     $schedules[] = $part;
-                    $i++;
                 }
                 continue;
             }
-            
-            // Если это GMT без времени перед ним, игнорируем
-            if (preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $part)) {
-                $i++;
-                continue;
-            }
-            
-            $i++;
         }
         
         return array_filter($schedules, function($val) {
@@ -311,6 +367,9 @@ class CapAnalysisService
             return null;
         }
 
+        // Определяем количество записей
+        $count = count($caps);
+
         // Парсим необязательные списки
         $languages = [];
         $funnels = [];
@@ -320,62 +379,108 @@ class CapAnalysisService
         $freezeStatuses = [];
         $dates = [];
 
-        if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
-            $languages = $this->parseMultipleValues($matches[1]);
-        }
-
-        if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
-            $funnels = $this->parseMultipleValues($matches[1], true); // Только запятые
-        }
-
-        if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
-            $totalValues = $this->parseMultipleValues($matches[1]);
-            foreach ($totalValues as $total) {
-                if (is_numeric($total)) {
-                    $totals[] = intval($total);
-                } else {
-                    $totals[] = -1; // Бесконечность для нечисловых значений
-                }
+        // Language - если указано но пустое, применяем "en" ко всем
+        if (preg_match('/^Language:\s*(.*)$/m', $messageText, $matches)) {
+            $languageValue = trim($matches[1]);
+            if ($this->isEmpty($languageValue)) {
+                // Пустое поле - применяем значение по умолчанию ко всем
+                $languages = array_fill(0, $count, 'en');
+            } else {
+                $languages = $this->parseMultipleValues($languageValue);
             }
         }
 
-        if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
-            $schedules = $this->parseScheduleValues($matches[1]); // Специальный парсер для Schedule
-        }
-
-        if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
-            $pendingValues = $this->parseMultipleValues($matches[1], true); // Только запятые
-            foreach ($pendingValues as $pending) {
-                $pendingAcqs[] = in_array(strtolower($pending), ['yes', 'true', '1', 'да']);
+        // Funnel - если указано но пустое, применяем null ко всем
+        if (preg_match('/^Funnel:\s*(.*)$/m', $messageText, $matches)) {
+            $funnelValue = trim($matches[1]);
+            if ($this->isEmpty($funnelValue)) {
+                // Пустое поле - применяем значение по умолчанию ко всем
+                $funnels = array_fill(0, $count, null);
+            } else {
+                $funnels = $this->parseMultipleValues($funnelValue, true); // Только запятые
             }
         }
 
-        if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
-            $freezeValues = $this->parseMultipleValues($matches[1], true); // Только запятые
-            foreach ($freezeValues as $freeze) {
-                $freezeStatuses[] = in_array(strtolower($freeze), ['yes', 'true', '1', 'да']);
-            }
-        }
-
-        if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
-            $dateValues = $this->parseMultipleValues($matches[1]); // Пробелы и запятые
-            foreach ($dateValues as $date) {
-                if (!$this->isEmpty($date)) {
-                    // Если в дате нет года, добавляем текущий год
-                    if (preg_match('/^\d{1,2}\.\d{1,2}$/', $date)) {
-                        $currentYear = date('Y');
-                        $dates[] = $date . '.' . $currentYear;
+        // Total - если указано но пустое, применяем -1 (бесконечность) ко всем
+        if (preg_match('/^Total:\s*(.*)$/m', $messageText, $matches)) {
+            $totalValue = trim($matches[1]);
+            if ($this->isEmpty($totalValue)) {
+                // Пустое поле - применяем значение по умолчанию ко всем
+                $totals = array_fill(0, $count, -1);
+            } else {
+                $totalValues = $this->parseMultipleValues($totalValue);
+                foreach ($totalValues as $total) {
+                    if (is_numeric($total)) {
+                        $totals[] = intval($total);
                     } else {
-                        $dates[] = $date;
+                        $totals[] = -1; // Бесконечность для нечисловых значений
                     }
-                } else {
-                    $dates[] = null; // Бесконечность
                 }
             }
         }
 
-        // Определяем количество записей
-        $count = count($caps);
+        // Schedule - если указано но пустое, применяем "24/7" ко всем
+        if (preg_match('/^Schedule:\s*(.*)$/m', $messageText, $matches)) {
+            $scheduleValue = trim($matches[1]);
+            if ($this->isEmpty($scheduleValue)) {
+                // Пустое поле - применяем значение по умолчанию ко всем
+                $schedules = array_fill(0, $count, '24/7');
+            } else {
+                $schedules = $this->parseScheduleValues($scheduleValue); // Специальный парсер для Schedule
+            }
+        }
+
+        // Pending ACQ - если указано но пустое, применяем false ко всем
+        if (preg_match('/^Pending ACQ:\s*(.*)$/m', $messageText, $matches)) {
+            $pendingValue = trim($matches[1]);
+            if ($this->isEmpty($pendingValue)) {
+                // Пустое поле - применяем значение по умолчанию ко всем
+                $pendingAcqs = array_fill(0, $count, false);
+            } else {
+                $pendingValues = $this->parseMultipleValues($pendingValue, true); // Только запятые
+                foreach ($pendingValues as $pending) {
+                    $pendingAcqs[] = in_array(strtolower($pending), ['yes', 'true', '1', 'да']);
+                }
+            }
+        }
+
+        // Freeze status on ACQ - если указано но пустое, применяем false ко всем
+        if (preg_match('/^Freeze status on ACQ:\s*(.*)$/m', $messageText, $matches)) {
+            $freezeValue = trim($matches[1]);
+            if ($this->isEmpty($freezeValue)) {
+                // Пустое поле - применяем значение по умолчанию ко всем
+                $freezeStatuses = array_fill(0, $count, false);
+            } else {
+                $freezeValues = $this->parseMultipleValues($freezeValue, true); // Только запятые
+                foreach ($freezeValues as $freeze) {
+                    $freezeStatuses[] = in_array(strtolower($freeze), ['yes', 'true', '1', 'да']);
+                }
+            }
+        }
+
+        // Date - если указано но пустое, применяем null ко всем
+        if (preg_match('/^Date:\s*(.*)$/m', $messageText, $matches)) {
+            $dateValue = trim($matches[1]);
+            if ($this->isEmpty($dateValue)) {
+                // Пустое поле - применяем значение по умолчанию ко всем
+                $dates = array_fill(0, $count, null);
+            } else {
+                $dateValues = $this->parseMultipleValues($dateValue); // Пробелы и запятые
+                foreach ($dateValues as $date) {
+                    if (!$this->isEmpty($date)) {
+                        // Если в дате нет года, добавляем текущий год
+                        if (preg_match('/^\d{1,2}\.\d{1,2}$/', $date)) {
+                            $currentYear = date('Y');
+                            $dates[] = $date . '.' . $currentYear;
+                        } else {
+                            $dates[] = $date;
+                        }
+                    } else {
+                        $dates[] = null; // Бесконечность
+                    }
+                }
+            }
+        }
 
         // Если у необязательного поля только одно значение, применяем его ко всем записям
         if (count($languages) === 1) {
@@ -720,4 +825,5 @@ class CapAnalysisService
             'raw_numbers' => []
         ];
     }
+} 
 } 
