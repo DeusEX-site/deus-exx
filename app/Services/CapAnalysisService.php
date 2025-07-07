@@ -367,9 +367,6 @@ class CapAnalysisService
             return null;
         }
 
-        // Определяем количество записей
-        $count = count($caps);
-
         // Парсим необязательные списки
         $languages = [];
         $funnels = [];
@@ -379,108 +376,62 @@ class CapAnalysisService
         $freezeStatuses = [];
         $dates = [];
 
-        // Language - если указано но пустое, применяем "en" ко всем
-        if (preg_match('/^Language:\s*(.*)$/m', $messageText, $matches)) {
-            $languageValue = trim($matches[1]);
-            if ($this->isEmpty($languageValue)) {
-                // Пустое поле - применяем значение по умолчанию ко всем
-                $languages = array_fill(0, $count, 'en');
-            } else {
-                $languages = $this->parseMultipleValues($languageValue);
+        if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
+            $languages = $this->parseMultipleValues($matches[1]);
+        }
+
+        if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
+            $funnels = $this->parseMultipleValues($matches[1], true); // Только запятые
+        }
+
+        if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
+            $totalValues = $this->parseMultipleValues($matches[1]);
+            foreach ($totalValues as $total) {
+                if (is_numeric($total)) {
+                    $totals[] = intval($total);
+                } else {
+                    $totals[] = -1; // Бесконечность для нечисловых значений
+                }
             }
         }
 
-        // Funnel - если указано но пустое, применяем null ко всем
-        if (preg_match('/^Funnel:\s*(.*)$/m', $messageText, $matches)) {
-            $funnelValue = trim($matches[1]);
-            if ($this->isEmpty($funnelValue)) {
-                // Пустое поле - применяем значение по умолчанию ко всем
-                $funnels = array_fill(0, $count, null);
-            } else {
-                $funnels = $this->parseMultipleValues($funnelValue, true); // Только запятые
+        if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
+            $schedules = $this->parseScheduleValues($matches[1]); // Специальный парсер для Schedule
+        }
+
+        if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
+            $pendingValues = $this->parseMultipleValues($matches[1], true); // Только запятые
+            foreach ($pendingValues as $pending) {
+                $pendingAcqs[] = in_array(strtolower($pending), ['yes', 'true', '1', 'да']);
             }
         }
 
-        // Total - если указано но пустое, применяем -1 (бесконечность) ко всем
-        if (preg_match('/^Total:\s*(.*)$/m', $messageText, $matches)) {
-            $totalValue = trim($matches[1]);
-            if ($this->isEmpty($totalValue)) {
-                // Пустое поле - применяем значение по умолчанию ко всем
-                $totals = array_fill(0, $count, -1);
-            } else {
-                $totalValues = $this->parseMultipleValues($totalValue);
-                foreach ($totalValues as $total) {
-                    if (is_numeric($total)) {
-                        $totals[] = intval($total);
+        if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
+            $freezeValues = $this->parseMultipleValues($matches[1], true); // Только запятые
+            foreach ($freezeValues as $freeze) {
+                $freezeStatuses[] = in_array(strtolower($freeze), ['yes', 'true', '1', 'да']);
+            }
+        }
+
+        if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
+            $dateValues = $this->parseMultipleValues($matches[1]); // Пробелы и запятые
+            foreach ($dateValues as $date) {
+                if (!$this->isEmpty($date)) {
+                    // Если в дате нет года, добавляем текущий год
+                    if (preg_match('/^\d{1,2}\.\d{1,2}$/', $date)) {
+                        $currentYear = date('Y');
+                        $dates[] = $date . '.' . $currentYear;
                     } else {
-                        $totals[] = -1; // Бесконечность для нечисловых значений
+                        $dates[] = $date;
                     }
+                } else {
+                    $dates[] = null; // Бесконечность
                 }
             }
         }
 
-        // Schedule - если указано но пустое, применяем "24/7" ко всем
-        if (preg_match('/^Schedule:\s*(.*)$/m', $messageText, $matches)) {
-            $scheduleValue = trim($matches[1]);
-            if ($this->isEmpty($scheduleValue)) {
-                // Пустое поле - применяем значение по умолчанию ко всем
-                $schedules = array_fill(0, $count, '24/7');
-            } else {
-                $schedules = $this->parseScheduleValues($scheduleValue); // Специальный парсер для Schedule
-            }
-        }
-
-        // Pending ACQ - если указано но пустое, применяем false ко всем
-        if (preg_match('/^Pending ACQ:\s*(.*)$/m', $messageText, $matches)) {
-            $pendingValue = trim($matches[1]);
-            if ($this->isEmpty($pendingValue)) {
-                // Пустое поле - применяем значение по умолчанию ко всем
-                $pendingAcqs = array_fill(0, $count, false);
-            } else {
-                $pendingValues = $this->parseMultipleValues($pendingValue, true); // Только запятые
-                foreach ($pendingValues as $pending) {
-                    $pendingAcqs[] = in_array(strtolower($pending), ['yes', 'true', '1', 'да']);
-                }
-            }
-        }
-
-        // Freeze status on ACQ - если указано но пустое, применяем false ко всем
-        if (preg_match('/^Freeze status on ACQ:\s*(.*)$/m', $messageText, $matches)) {
-            $freezeValue = trim($matches[1]);
-            if ($this->isEmpty($freezeValue)) {
-                // Пустое поле - применяем значение по умолчанию ко всем
-                $freezeStatuses = array_fill(0, $count, false);
-            } else {
-                $freezeValues = $this->parseMultipleValues($freezeValue, true); // Только запятые
-                foreach ($freezeValues as $freeze) {
-                    $freezeStatuses[] = in_array(strtolower($freeze), ['yes', 'true', '1', 'да']);
-                }
-            }
-        }
-
-        // Date - если указано но пустое, применяем null ко всем
-        if (preg_match('/^Date:\s*(.*)$/m', $messageText, $matches)) {
-            $dateValue = trim($matches[1]);
-            if ($this->isEmpty($dateValue)) {
-                // Пустое поле - применяем значение по умолчанию ко всем
-                $dates = array_fill(0, $count, null);
-            } else {
-                $dateValues = $this->parseMultipleValues($dateValue); // Пробелы и запятые
-                foreach ($dateValues as $date) {
-                    if (!$this->isEmpty($date)) {
-                        // Если в дате нет года, добавляем текущий год
-                        if (preg_match('/^\d{1,2}\.\d{1,2}$/', $date)) {
-                            $currentYear = date('Y');
-                            $dates[] = $date . '.' . $currentYear;
-                        } else {
-                            $dates[] = $date;
-                        }
-                    } else {
-                        $dates[] = null; // Бесконечность
-                    }
-                }
-            }
-        }
+        // Определяем количество записей
+        $count = count($caps);
 
         // Если у необязательного поля только одно значение, применяем его ко всем записям
         if (count($languages) === 1) {
@@ -825,4 +776,5 @@ class CapAnalysisService
             'raw_numbers' => []
         ];
     }
-}
+} 
+} 
