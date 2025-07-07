@@ -29,8 +29,9 @@ if %errorlevel%==0 (
     echo    • Broker переименован в Recipient
     echo    • Автоматические значения по умолчанию для пустых полей
     echo.
-    echo 📄 Пример нового формата сообщения:
+    echo 📄 Примеры нового формата сообщений:
     echo.
+    echo    === Одиночная капа ===
     echo    Affiliate: G06
     echo    Recipient: TMedia
     echo    Cap: 15
@@ -42,6 +43,18 @@ if %errorlevel%==0 (
     echo    Date: 
     echo    Pending ACQ: No
     echo    Freeze status on ACQ: No
+    echo.
+    echo    === Несколько аффилейтов ===
+    echo    Affiliate: G06, aff2
+    echo    Recipient: TMedia
+    echo    Cap: 20
+    echo    ^(создает 2 записи кап^)
+    echo.
+    echo    === Несколько получателей ===
+    echo    Affiliate: G06
+    echo    Recipient: TMedia, brok2
+    echo    Cap: 30
+    echo    ^(создает 2 записи кап^)
     echo.
     echo ✅ Система готова к работе с новым форматом!
 ) else (

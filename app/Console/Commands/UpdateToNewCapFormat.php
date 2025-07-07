@@ -79,8 +79,10 @@ class UpdateToNewCapFormat extends Command
     {
         $this->line('Тестирование нового формата...');
         
-        // Создаем тестовое сообщение в новом формате
-        $testMessage = "Affiliate: G06
+        // Создаем тестовые сообщения в новом формате
+        $testMessages = [
+            // Тест 1: Одиночная капа
+            "Affiliate: G06
 Recipient: TMedia
 Cap: 15
 Total: 
@@ -90,36 +92,76 @@ Funnel:
 Schedule: 10:00/18:00 GMT+03:00
 Date: 
 Pending ACQ: No
-Freeze status on ACQ: No";
-
-        $this->line('');
-        $this->line('Тестовое сообщение:');
-        $this->line($testMessage);
-        $this->line('');
+Freeze status on ACQ: No",
+            
+            // Тест 2: Множественные аффилейты
+            "Affiliate: G06, aff2
+Recipient: TMedia
+Cap: 20
+Total: 200
+Geo: IE, DE
+Language: en
+Funnel: Crypto
+Schedule: 24/7
+Date: 24.02
+Pending ACQ: Yes
+Freeze status on ACQ: No",
+            
+            // Тест 3: Множественные получатели
+            "Affiliate: G06
+Recipient: TMedia, brok2
+Cap: 30
+Total: 
+Geo: RU
+Language: ru
+Funnel: 
+Schedule: 
+Date: 
+Pending ACQ: 
+Freeze status on ACQ: "
+        ];
 
         $capAnalysisService = new \App\Services\CapAnalysisService();
         
-        // Тестируем парсинг
-        $analysis = $capAnalysisService->analyzeCapMessage($testMessage);
-        
-        $this->line('Результат парсинга:');
-        $this->line("• Является стандартной капой: " . ($analysis['has_cap_word'] ? 'Да' : 'Нет'));
-        $this->line("• Affiliate: " . ($analysis['affiliate_name'] ?: 'Не найдено'));
-        $this->line("• Recipient: " . ($analysis['recipient_name'] ?: 'Не найдено'));
-        $this->line("• Cap: " . ($analysis['cap_amount'] ?: 'Не найдено'));
-        $this->line("• Total: " . ($analysis['total_amount'] === -1 ? 'Бесконечность' : ($analysis['total_amount'] ?: 'Не найдено')));
-        $this->line("• Geo: " . (count($analysis['geos']) > 0 ? implode(', ', $analysis['geos']) : 'Не найдено'));
-        $this->line("• Language: " . ($analysis['language'] ?: 'Не найдено'));
-        $this->line("• Funnel: " . ($analysis['funnel'] ?: 'Не найдено'));
-        $this->line("• Schedule: " . ($analysis['schedule'] ?: 'Не найдено'));
-        $this->line("• Date: " . ($analysis['date'] ?: 'Бесконечность'));
-        $this->line("• Pending ACQ: " . ($analysis['pending_acq'] ? 'Да' : 'Нет'));
-        $this->line("• Freeze status: " . ($analysis['freeze_status_on_acq'] ? 'Да' : 'Нет'));
-        
-        if ($analysis['has_cap_word']) {
-            $this->info('✅ Тест прошел успешно!');
-        } else {
-            $this->error('❌ Тест не прошел - сообщение не распознано как стандартная капа');
+        foreach ($testMessages as $index => $testMessage) {
+            $testNumber = $index + 1;
+            $this->line('');
+            $this->line("=== Тест {$testNumber} ===");
+            $this->line($testMessage);
+            $this->line('');
+
+            // Тестируем анализ и сохранение
+            $result = $capAnalysisService->analyzeAndSaveCapMessage(999 + $index, $testMessage);
+            
+            $this->line("Создано записей кап: " . $result['cap_entries_count']);
+            
+            if ($result['cap_entries_count'] > 0) {
+                // Получаем созданные записи
+                $caps = \App\Models\Cap::where('message_id', 999 + $index)->get();
+                
+                foreach ($caps as $capIndex => $cap) {
+                    $this->line("  Запись " . ($capIndex + 1) . ":");
+                    $this->line("  • Affiliate: " . ($cap->affiliate_name ?: 'Не найдено'));
+                    $this->line("  • Recipient: " . ($cap->recipient_name ?: 'Не найдено'));
+                    $this->line("  • Cap: " . ($cap->cap_amounts ? implode(', ', $cap->cap_amounts) : 'Не найдено'));
+                    $this->line("  • Total: " . ($cap->total_amount === -1 ? 'Бесконечность' : ($cap->total_amount ?: 'Не найдено')));
+                    $this->line("  • Geo: " . (count($cap->geos ?: []) > 0 ? implode(', ', $cap->geos) : 'Не найдено'));
+                    $this->line("  • Language: " . ($cap->language ?: 'Пусто'));
+                    $this->line("  • Funnel: " . ($cap->funnel ?: 'Пусто'));
+                    $this->line("  • Schedule: " . ($cap->schedule ?: '24/7'));
+                    $this->line("  • Date: " . ($cap->date ?: 'Бесконечность'));
+                    $this->line("  • Pending ACQ: " . ($cap->pending_acq ? 'Да' : 'Нет'));
+                    $this->line("  • Freeze status: " . ($cap->freeze_status_on_acq ? 'Да' : 'Нет'));
+                    $this->line('');
+                }
+                
+                $this->info("✅ Тест {$testNumber} прошел успешно!");
+                
+                // Очищаем тестовые данные
+                \App\Models\Cap::where('message_id', 999 + $index)->delete();
+            } else {
+                $this->error("❌ Тест {$testNumber} не прошел - записи не созданы");
+            }
         }
     }
 } 

@@ -464,7 +464,7 @@
             </div>
             <div class="stat-card">
                 <h3 id="cap-messages">0</h3>
-                <p>С капой</p>
+                <p>Стандартный формат</p>
             </div>
             <div class="stat-card">
                 <h3 id="schedule-messages">0</h3>
@@ -780,11 +780,6 @@
                         
                         ${caps.map((cap, capIndex) => `
                         <div class="analysis-section" style="margin-top: ${capIndex > 0 ? '1rem' : '0'}; ${capIndex > 0 ? 'border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1rem;' : ''}">
-                            <div class="analysis-item ${cap.has_cap_word ? 'positive' : 'negative'}">
-                                <div class="label">Слово CAP</div>
-                                <div class="value">${cap.has_cap_word ? '✅' : '❌'}</div>
-                            </div>
-                            
                             <div class="analysis-item ${cap.cap_amounts && cap.cap_amounts.length > 0 ? 'positive' : ''}">
                                 <div class="label">Капа ${caps.length > 1 ? `#${capIndex + 1}` : ''}</div>
                                 <div class="value">${cap.cap_amounts && cap.cap_amounts.length > 0 ? cap.cap_amounts.map(capAmt => `<span style="display: inline-block; margin: 0 0.25rem; padding: 0.125rem 0.5rem; background: rgba(16, 185, 129, 0.3); border-radius: 0.25rem;">${capAmt}</span>`).join('') : '—'}</div>
@@ -818,6 +813,21 @@
                             <div class="analysis-item ${cap.geos && cap.geos.length > 0 ? 'positive' : 'critical'}">
                                 <div class="label">Гео</div>
                                 <div class="value">${cap.geos && cap.geos.length > 0 ? cap.geos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
+                            </div>
+                            
+                            <div class="analysis-item ${cap.language ? 'positive' : 'neutral'}">
+                                <div class="label">Язык</div>
+                                <div class="value">${cap.language || '—'}</div>
+                            </div>
+                            
+                            <div class="analysis-item ${cap.funnel ? 'positive' : 'neutral'}">
+                                <div class="label">Воронка</div>
+                                <div class="value">${cap.funnel || '—'}</div>
+                            </div>
+                            
+                            <div class="analysis-item ${(cap.pending_acq === false && cap.freeze_status_on_acq === false) ? 'positive' : 'neutral'}">
+                                <div class="label">Freeze</div>
+                                <div class="value">${(cap.pending_acq ? 'Yes' : 'No')}/${(cap.freeze_status_on_acq ? 'Yes' : 'No')}</div>
                             </div>
                         </div>
                         `).join('')}
@@ -899,7 +909,7 @@
             
             const uniqueMessageArray = Object.values(uniqueMessages);
             const totalMessages = uniqueMessageArray.length;
-            const capMessages = uniqueMessageArray.filter(msg => msg.analysis.has_cap_word).length;
+            const standardCapMessages = uniqueMessageArray.filter(msg => msg.analysis.affiliate_name && msg.analysis.recipient_name && msg.analysis.cap_amounts).length;
             const scheduleMessages = uniqueMessageArray.filter(msg => msg.analysis.schedule).length;
             const geoMessages = uniqueMessageArray.filter(msg => msg.analysis.geos.length > 0).length;
             
@@ -909,7 +919,7 @@
             const geoEl = document.getElementById('geo-messages');
             
             if (totalEl) totalEl.textContent = totalMessages;
-            if (capEl) capEl.textContent = capMessages;
+            if (capEl) capEl.textContent = standardCapMessages;
             if (scheduleEl) scheduleEl.textContent = scheduleMessages;
             if (geoEl) geoEl.textContent = geoMessages;
         }
@@ -949,14 +959,17 @@
                 'Чат',
                 'Автор',
                 'Сообщение',
-                'Слово CAP',
                 'Капа (все)',
                 'Общий лимит',
                 'Расписание',
                 'Дата работы',
                 'Аффилейт',
                 'Получатель',
-                'Гео'
+                'Гео',
+                'Язык',
+                'Воронка',
+                'Pending ACQ',
+                'Freeze Status'
             ];
             
             const csvContent = [
@@ -974,20 +987,27 @@
                     const allSchedules = [...new Set(caps.map(cap => cap.schedule).filter(Boolean))];
                     const allDates = [...new Set(caps.map(cap => cap.date).filter(Boolean))];
                     const allTotalAmounts = [...new Set(caps.map(cap => cap.total_amount).filter(t => t !== null && t !== undefined))];
+                    const allLanguages = [...new Set(caps.map(cap => cap.language).filter(Boolean))];
+                    const allFunnels = [...new Set(caps.map(cap => cap.funnel).filter(Boolean))];
+                    const allPendingACQ = [...new Set(caps.map(cap => cap.pending_acq))];
+                    const allFreezeStatus = [...new Set(caps.map(cap => cap.freeze_status_on_acq))];
                     
                     return [
                         `"${msg.timestamp}"`,
                         `"${msg.chat_name}"`,
                         `"${msg.user || 'Unknown'}"`,
                         `"${msg.message.replace(/"/g, '""')}"`,
-                        firstCap.has_cap_word ? 'Да' : 'Нет',
                         `"${allCaps.join(', ')}"`,
                         `"${allTotalAmounts.map(total => total === -1 ? '∞' : total).join(', ')}"`,
                         `"${allSchedules.join(', ') || '24/7'}"`,
                         `"${allDates.join(', ') || '∞'}"`,
                         `"${allAffiliates.join(', ')}"`,
                         `"${allRecipients.join(', ')}"`,
-                        `"${allGeos.join(', ')}"`
+                        `"${allGeos.join(', ')}"`,
+                        `"${allLanguages.join(', ') || ''}"`,
+                        `"${allFunnels.join(', ') || ''}"`,
+                        `"${allPendingACQ.includes(true) ? 'Yes' : 'No'}"`,
+                        `"${allFreezeStatus.includes(true) ? 'Yes' : 'No'}"`
                     ].join(',');
                 })
             ].join('\n');

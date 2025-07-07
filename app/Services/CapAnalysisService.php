@@ -21,28 +21,33 @@ class CapAnalysisService
         }
         
         // Парсим стандартное сообщение
-        $capData = $this->parseStandardCapMessage($messageText);
+        $capCombinations = $this->parseStandardCapMessage($messageText);
         
-        if ($capData) {
-            Cap::create([
-                'message_id' => $messageId,
-                'cap_amounts' => [$capData['cap_amount']],
-                'total_amount' => $capData['total_amount'],
-                'schedule' => $capData['schedule'],
-                'date' => $capData['date'],
-                'is_24_7' => $capData['is_24_7'],
-                'affiliate_name' => $capData['affiliate_name'],
-                'recipient_name' => $capData['recipient_name'],
-                'geos' => $capData['geos'],
-                'work_hours' => $capData['work_hours'],
-                'language' => $capData['language'],
-                'funnel' => $capData['funnel'],
-                'pending_acq' => $capData['pending_acq'],
-                'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
-                'highlighted_text' => $messageText
-            ]);
+        if ($capCombinations && is_array($capCombinations)) {
+            $createdCount = 0;
             
-            return ['cap_entries_count' => 1];
+            foreach ($capCombinations as $capData) {
+                Cap::create([
+                    'message_id' => $messageId,
+                    'cap_amounts' => [$capData['cap_amount']],
+                    'total_amount' => $capData['total_amount'],
+                    'schedule' => $capData['schedule'],
+                    'date' => $capData['date'],
+                    'is_24_7' => $capData['is_24_7'],
+                    'affiliate_name' => $capData['affiliate_name'],
+                    'recipient_name' => $capData['recipient_name'],
+                    'geos' => $capData['geos'],
+                    'work_hours' => $capData['work_hours'],
+                    'language' => $capData['language'],
+                    'funnel' => $capData['funnel'],
+                    'pending_acq' => $capData['pending_acq'],
+                    'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
+                    'highlighted_text' => $messageText
+                ]);
+                $createdCount++;
+            }
+            
+            return ['cap_entries_count' => $createdCount];
         }
         
         return ['cap_entries_count' => 0];
@@ -66,9 +71,7 @@ class CapAnalysisService
      */
     private function parseStandardCapMessage($messageText)
     {
-        $data = [
-            'affiliate_name' => null,
-            'recipient_name' => null,
+        $baseData = [
             'cap_amount' => null,
             'total_amount' => -1, // По умолчанию бесконечность
             'schedule' => '24/7', // По умолчанию 24/7
@@ -82,15 +85,7 @@ class CapAnalysisService
             'freeze_status_on_acq' => false
         ];
 
-        // Парсим каждое поле
-        if (preg_match('/^Affiliate:\s*(.+)$/m', $messageText, $matches)) {
-            $data['affiliate_name'] = trim($matches[1]);
-        }
-
-        if (preg_match('/^Recipient:\s*(.+)$/m', $messageText, $matches)) {
-            $data['recipient_name'] = trim($matches[1]);
-        }
-
+        // Парсим поля, которые не зависят от списков
         if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
             $capValue = trim($matches[1]);
             
@@ -98,17 +93,17 @@ class CapAnalysisService
             if (strpos($capValue, '/') !== false) {
                 // Если есть слеш, Total = бесконечность, берем первое число как Cap
                 $parts = explode('/', $capValue);
-                $data['cap_amount'] = intval(trim($parts[0]));
-                $data['total_amount'] = -1; // Бесконечность
+                $baseData['cap_amount'] = intval(trim($parts[0]));
+                $baseData['total_amount'] = -1; // Бесконечность
             } else {
-                $data['cap_amount'] = intval($capValue);
+                $baseData['cap_amount'] = intval($capValue);
             }
         }
 
         if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
             $totalValue = trim($matches[1]);
             if (!empty($totalValue) && is_numeric($totalValue)) {
-                $data['total_amount'] = intval($totalValue);
+                $baseData['total_amount'] = intval($totalValue);
             }
             // Если Total пустое или не число, остается -1 (бесконечность)
         }
@@ -118,30 +113,36 @@ class CapAnalysisService
             if (!empty($geoValue)) {
                 // Разделяем по запятым, слешам и пробелам
                 $geos = preg_split('/[,\/\s]+/', $geoValue);
-                $data['geos'] = array_filter(array_map('trim', $geos), function($geo) {
+                $baseData['geos'] = array_filter(array_map('trim', $geos), function($geo) {
                     return !empty($geo) && strlen($geo) >= 2;
                 });
             }
         }
 
         if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
-            $data['language'] = trim($matches[1]);
+            $languageValue = trim($matches[1]);
+            if (!empty($languageValue)) {
+                $baseData['language'] = $languageValue;
+            }
         }
 
         if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
-            $data['funnel'] = trim($matches[1]);
+            $funnelValue = trim($matches[1]);
+            if (!empty($funnelValue)) {
+                $baseData['funnel'] = $funnelValue;
+            }
         }
 
         if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
             $scheduleValue = trim($matches[1]);
             if (!empty($scheduleValue)) {
-                $data['schedule'] = $scheduleValue;
-                $data['work_hours'] = $scheduleValue;
-                $data['is_24_7'] = false;
+                $baseData['schedule'] = $scheduleValue;
+                $baseData['work_hours'] = $scheduleValue;
+                $baseData['is_24_7'] = false;
                 
                 // Проверяем, является ли это 24/7
                 if (preg_match('/24\/7|24-7/i', $scheduleValue)) {
-                    $data['is_24_7'] = true;
+                    $baseData['is_24_7'] = true;
                 }
             }
             // Если Schedule пустое, остается 24/7
@@ -150,27 +151,62 @@ class CapAnalysisService
         if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
             $dateValue = trim($matches[1]);
             if (!empty($dateValue)) {
-                $data['date'] = $dateValue;
+                $baseData['date'] = $dateValue;
             }
             // Если Date пустое, остается null (бесконечность)
         }
 
         if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
             $pendingValue = strtolower(trim($matches[1]));
-            $data['pending_acq'] = in_array($pendingValue, ['yes', 'true', '1', 'да']);
+            $baseData['pending_acq'] = in_array($pendingValue, ['yes', 'true', '1', 'да']);
         }
 
         if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
             $freezeValue = strtolower(trim($matches[1]));
-            $data['freeze_status_on_acq'] = in_array($freezeValue, ['yes', 'true', '1', 'да']);
+            $baseData['freeze_status_on_acq'] = in_array($freezeValue, ['yes', 'true', '1', 'да']);
+        }
+
+        // Парсим списки аффилейтов и получателей
+        $affiliates = [];
+        $recipients = [];
+
+        if (preg_match('/^Affiliate:\s*(.+)$/m', $messageText, $matches)) {
+            $affiliateValue = trim($matches[1]);
+            if (!empty($affiliateValue)) {
+                // Разделяем по запятым
+                $affiliates = array_filter(array_map('trim', explode(',', $affiliateValue)), function($aff) {
+                    return !empty($aff);
+                });
+            }
+        }
+
+        if (preg_match('/^Recipient:\s*(.+)$/m', $messageText, $matches)) {
+            $recipientValue = trim($matches[1]);
+            if (!empty($recipientValue)) {
+                // Разделяем по запятым
+                $recipients = array_filter(array_map('trim', explode(',', $recipientValue)), function($rec) {
+                    return !empty($rec);
+                });
+            }
         }
 
         // Проверяем, что обязательные поля заполнены
-        if ($data['cap_amount'] && $data['affiliate_name'] && $data['recipient_name']) {
-            return $data;
+        if (!$baseData['cap_amount'] || empty($affiliates) || empty($recipients)) {
+            return null;
         }
 
-        return null;
+        // Создаем комбинации для каждого аффилейта и получателя
+        $combinations = [];
+        foreach ($affiliates as $affiliate) {
+            foreach ($recipients as $recipient) {
+                $combination = $baseData;
+                $combination['affiliate_name'] = $affiliate;
+                $combination['recipient_name'] = $recipient;
+                $combinations[] = $combination;
+            }
+        }
+
+        return $combinations;
     }
 
     /**
@@ -395,9 +431,12 @@ class CapAnalysisService
     public function analyzeCapMessage($message)
     {
         if ($this->isStandardCapMessage($message)) {
-            $capData = $this->parseStandardCapMessage($message);
+            $capCombinations = $this->parseStandardCapMessage($message);
             
-            if ($capData) {
+            if ($capCombinations && is_array($capCombinations) && count($capCombinations) > 0) {
+                // Возвращаем данные первой комбинации для обратной совместимости
+                $capData = $capCombinations[0];
+                
                 return [
                     'has_cap_word' => true,
                     'cap_amount' => $capData['cap_amount'],

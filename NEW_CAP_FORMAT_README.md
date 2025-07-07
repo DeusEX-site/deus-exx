@@ -23,9 +23,16 @@ Freeze status on ACQ: No
 ## Правила обработки
 
 ### Обязательные поля
-- **Affiliate**: Название аффилейта
-- **Recipient**: Название получателя (ранее Broker)
+- **Affiliate**: Название аффилейта (может быть список через запятую)
+- **Recipient**: Название получателя (может быть список через запятую)
 - **Cap**: Значение капы
+
+### Поддержка списков
+Система поддерживает списки аффилейтов и получателей через запятую. Для каждой комбинации создается отдельная запись капы:
+
+- `Affiliate: G06, aff2` + `Recipient: TMedia` = 2 записи кап
+- `Affiliate: G06` + `Recipient: TMedia, brok2` = 2 записи кап  
+- `Affiliate: G06, aff2` + `Recipient: TMedia, brok2` = 4 записи кап
 
 ### Логика значений по умолчанию
 
@@ -90,23 +97,39 @@ Pending ACQ: No
 Freeze status on ACQ: No
 ```
 
-### Пример 2: Минимальное сообщение
+### Пример 2: Множественные аффилейты
 ```
-Affiliate: TestAff
-Recipient: TestRec
-Cap: 10
+Affiliate: G06, aff2
+Recipient: TMedia
+Cap: 20
+Total: 200
+Geo: IE, DE
+Language: en
+Funnel: Crypto
+Schedule: 24/7
+Date: 24.02
+Pending ACQ: Yes
+Freeze status on ACQ: No
+```
+Результат: Создается 2 записи кап (G06+TMedia, aff2+TMedia)
+
+### Пример 3: Множественные получатели
+```
+Affiliate: G06
+Recipient: TMedia, brok2
+Cap: 30
 Total: 
 Geo: RU
-Language: 
+Language: ru
 Funnel: 
 Schedule: 
 Date: 
 Pending ACQ: 
 Freeze status on ACQ: 
 ```
-Результат: Total=бесконечность, Schedule=24/7, Date=бесконечность, остальные поля=false
+Результат: Создается 2 записи кап (G06+TMedia, G06+brok2), с значениями по умолчанию
 
-### Пример 3: Cap со слешем
+### Пример 4: Cap со слешем
 ```
 Affiliate: Partner
 Recipient: Broker
