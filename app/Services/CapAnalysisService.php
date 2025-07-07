@@ -250,24 +250,38 @@ class CapAnalysisService
      */
     private function isStatusCommand($messageText)
     {
-        // Простые команды (RUN, STOP, DELETE, RESTORE)
+        // Простые команды (RUN, STOP, DELETE, RESTORE) - только эти команды и ничего больше
         if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText))) {
             return true;
         }
         
-        // Команды с указанием гео (Geo: XX\nSTOP)
+        // Команды с указанием гео (Geo: XX\nSTOP) - без других обязательных полей
         if (preg_match('/^Geo:\s*(.+)$/m', $messageText) && 
             preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText)) {
+            
+            // Проверяем, что НЕТ обязательных полей для создания новой капы
+            $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/m', $messageText);
+            $hasRecipient = preg_match('/^Recipient:\s*(.+)$/m', $messageText);
+            $hasCap = preg_match('/^Cap:\s*(.+)$/m', $messageText);
+            
+            // Если есть хотя бы одно обязательное поле для создания капы - это НЕ команда статуса
+            if ($hasAffiliate || $hasRecipient || $hasCap) {
+                return false;
+            }
+            
             return true;
         }
         
-        // Полные команды с полями
-        return preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText) ||
-               (preg_match('/^Affiliate:\s*(.+)$/m', $messageText) &&
-                preg_match('/^Recipient:\s*(.+)$/m', $messageText) &&
-                preg_match('/^Cap:\s*(.+)$/m', $messageText) &&
-                preg_match('/^Geo:\s*(.+)$/m', $messageText) &&
-                preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText));
+        // Полные команды с полями (Affiliate, Recipient, Cap, Geo + команда)
+        if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText) &&
+            preg_match('/^Affiliate:\s*(.+)$/m', $messageText) &&
+            preg_match('/^Recipient:\s*(.+)$/m', $messageText) &&
+            preg_match('/^Cap:\s*(.+)$/m', $messageText) &&
+            preg_match('/^Geo:\s*(.+)$/m', $messageText)) {
+            return true;
+        }
+        
+        return false;
     }
 
     /**
