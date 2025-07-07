@@ -518,7 +518,7 @@ class TestCapStatusSystem extends Command
             return;
         }
         
-        // Тестируем ошибку - обновление без гео
+        // Тестируем обновление без гео (должно обновить все капы от того же affiliate и recipient)
         $noGeoMessage = Message::create([
             'chat_id' => $chat->id,
             'message_id' => 1024,
@@ -530,10 +530,10 @@ class TestCapStatusSystem extends Command
         
         $result = $capAnalysisService->analyzeAndSaveCapMessage($noGeoMessage->id, $noGeoMessage->message);
         
-        if (isset($result['cap_entries_count']) && $result['cap_entries_count'] === 0) {
-            $this->info("✅ Сообщение без Geo корректно игнорируется");
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] >= 1) {
+            $this->info("✅ Обновление без Geo работает корректно (массовое обновление)");
         } else {
-            $this->error("❌ Ошибка: сообщение без Geo должно игнорироваться");
+            $this->error("❌ Ошибка: обновление без Geo должно работать");
             return;
         }
         
@@ -600,6 +600,156 @@ class TestCapStatusSystem extends Command
             $this->info("✅ Обновление через цепочку reply прошло успешно");
         } else {
             $this->error("❌ Ошибка: обновление через цепочку reply не прошло");
+            return;
+        }
+
+        // Тестируем массовое обновление всех кап (без указания Geo)
+        $this->info("📝 Тестируем массовое обновление всех кап (без указания Geo)...");
+        
+        // Создаем еще несколько кап от того же affiliate и recipient
+        $secondCapMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1027,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Affiliate: TestAffiliate\nRecipient: TestRecipient\nCap: 20\nGeo: FR"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($secondCapMessage->id, $secondCapMessage->message);
+        
+        if (isset($result['cap_entries_count']) && $result['cap_entries_count'] === 1) {
+            $this->info("✅ Вторая капа создана для тестирования массового обновления");
+        } else {
+            $this->error("❌ Ошибка создания второй капы");
+            return;
+        }
+        
+        $thirdCapMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1028,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Affiliate: TestAffiliate\nRecipient: TestRecipient\nCap: 15\nGeo: IT"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($thirdCapMessage->id, $thirdCapMessage->message);
+        
+        if (isset($result['cap_entries_count']) && $result['cap_entries_count'] === 1) {
+            $this->info("✅ Третья капа создана для тестирования массового обновления");
+        } else {
+            $this->error("❌ Ошибка создания третьей капы");
+            return;
+        }
+        
+        // Проверяем что у нас есть 3 капы от TestAffiliate → TestRecipient
+        $allCaps = Cap::where('affiliate_name', 'TestAffiliate')
+                     ->where('recipient_name', 'TestRecipient')
+                     ->where('status', 'RUN')
+                     ->get();
+        
+        if ($allCaps->count() === 3) {
+            $this->info("✅ Создано 3 капы для тестирования массового обновления");
+        } else {
+            $this->error("❌ Ошибка: должно быть 3 капы, найдено " . $allCaps->count());
+            return;
+        }
+        
+        // Тестируем массовое обновление без указания Geo
+        $massUpdateMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1029,
+            'reply_to_message_id' => $newCapMessage->id, // Отвечаем на любое сообщение с капой
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Schedule: 08:00/20:00\nLanguage: ru" // Без Geo - должно обновить все
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($massUpdateMessage->id, $massUpdateMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 3) {
+            $this->info("✅ Массовое обновление всех кап прошло успешно");
+        } else {
+            $this->error("❌ Ошибка массового обновления. Обновлено: " . ($result['updated_entries_count'] ?? 0));
+            return;
+        }
+        
+        // Проверяем что все капы обновились
+        $updatedCaps = Cap::where('affiliate_name', 'TestAffiliate')
+                         ->where('recipient_name', 'TestRecipient')
+                         ->where('status', 'RUN')
+                         ->get();
+        
+        $allUpdated = true;
+        foreach ($updatedCaps as $cap) {
+            if ($cap->schedule !== '08:00/20:00' || $cap->language !== 'ru') {
+                $allUpdated = false;
+                break;
+            }
+        }
+        
+        if ($allUpdated) {
+            $this->info("✅ Все капы обновлены с новым расписанием и языком");
+        } else {
+            $this->error("❌ Ошибка: не все капы обновились");
+            return;
+        }
+        
+        // Тестируем массовое обновление с пустыми полями (сброс)
+        $massResetMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1030,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Schedule:\nLanguage:" // Сброс всех полей для всех кап
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($massResetMessage->id, $massResetMessage->message);
+        
+        if (isset($result['updated_entries_count']) && $result['updated_entries_count'] === 3) {
+            $this->info("✅ Массовый сброс полей прошел успешно");
+        } else {
+            $this->error("❌ Ошибка массового сброса полей");
+            return;
+        }
+        
+        // Проверяем что все поля сброшены
+        $resetCaps = Cap::where('affiliate_name', 'TestAffiliate')
+                       ->where('recipient_name', 'TestRecipient')
+                       ->where('status', 'RUN')
+                       ->get();
+        
+        $allReset = true;
+        foreach ($resetCaps as $cap) {
+            if ($cap->schedule !== '24/7' || $cap->language !== 'en') {
+                $allReset = false;
+                break;
+            }
+        }
+        
+        if ($allReset) {
+            $this->info("✅ Все поля сброшены до значений по умолчанию");
+        } else {
+            $this->error("❌ Ошибка: не все поля сброшены");
+            return;
+        }
+        
+        // Тестируем обновление без полей для обновления (должно быть проигнорировано)
+        $noFieldsMessage = Message::create([
+            'chat_id' => $chat->id,
+            'message_id' => 1031,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user_id' => 1,
+            'display_name' => 'Test User',
+            'message' => "Просто текст без полей" // Нет полей для обновления
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($noFieldsMessage->id, $noFieldsMessage->message);
+        
+        if (isset($result['cap_entries_count']) && $result['cap_entries_count'] === 0) {
+            $this->info("✅ Сообщение без полей для обновления корректно проигнорировано");
+        } else {
+            $this->error("❌ Ошибка: сообщение без полей должно игнорироваться");
             return;
         }
         

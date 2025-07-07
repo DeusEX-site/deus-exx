@@ -1207,19 +1207,19 @@ class CapAnalysisService
     }
 
     /**
-     * Проверяет, является ли сообщение обновлением капы через reply (только Geo + поля для обновления)
+     * Проверяет, является ли сообщение обновлением капы через reply (только поля для обновления)
      */
     private function isUpdateCapMessage($messageText)
     {
-        // Проверяем, что есть Geo (обязательно для обновления)
-        $hasGeo = preg_match('/^Geo:\s*(.+)$/m', $messageText);
-        
         // Проверяем, что нет обязательных полей для создания новой капы
         $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/m', $messageText);
         $hasRecipient = preg_match('/^Recipient:\s*(.+)$/m', $messageText);
         
-        // Это обновление капы если есть Geo, но нет Affiliate или Recipient
-        return $hasGeo && (!$hasAffiliate || !$hasRecipient);
+        // Проверяем, что есть хотя бы одно поле для обновления
+        $hasUpdateFields = preg_match('/^(Cap|Total|Schedule|Date|Language|Funnel|Pending ACQ|Freeze status on ACQ|Geo):\s*(.*)$/m', $messageText);
+        
+        // Это обновление капы если нет Affiliate/Recipient, но есть поля для обновления
+        return !$hasAffiliate && !$hasRecipient && $hasUpdateFields;
     }
 
     /**
@@ -1227,7 +1227,7 @@ class CapAnalysisService
      */
     private function processCapUpdate($messageId, $messageText, $currentMessage)
     {
-        // Парсим Geo из сообщения
+        // Парсим Geo из сообщения (необязательно)
         $geo = null;
         if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
             $geoValue = trim($matches[1]);
@@ -1236,120 +1236,172 @@ class CapAnalysisService
             }
         }
         
-        if (!$geo) {
-            return ['cap_entries_count' => 0, 'error' => 'Geo обязателен для обновления капы'];
-        }
-        
         // Ищем изначальную капу через цепочку reply_to_message
-        $existingCap = $this->findOriginalCap($currentMessage->reply_to_message_id);
+        $originalCap = $this->findOriginalCap($currentMessage->reply_to_message_id);
         
-        if (!$existingCap) {
+        if (!$originalCap) {
             return ['cap_entries_count' => 0, 'error' => 'Капа не найдена в сообщении, на которое отвечаете'];
         }
         
         // Проверяем, что капа имеет подходящий статус
-        if (!in_array($existingCap->status, ['RUN', 'STOP'])) {
-            return ['cap_entries_count' => 0, 'error' => 'Нельзя обновить капу со статусом ' . $existingCap->status];
+        if (!in_array($originalCap->status, ['RUN', 'STOP'])) {
+            return ['cap_entries_count' => 0, 'error' => 'Нельзя обновить капу со статусом ' . $originalCap->status];
         }
         
-        // Проверяем что гео совпадает (это обязательное условие для обновления через reply)
-        if (!in_array($geo, $existingCap->geos)) {
-            return ['cap_entries_count' => 0, 'error' => 'Geo не совпадает с оригинальной капой'];
-        }
+        // Определяем какие капы обновлять
+        $capsToUpdate = [];
         
-        // Создаем временные данные для обновления, используя существующие значения как базу
-        $updateCapData = [
-            'cap_amount' => $existingCap->cap_amounts[0] ?? 0,
-            'total_amount' => $existingCap->total_amount,
-            'schedule' => $existingCap->schedule,
-            'work_hours' => $existingCap->work_hours,
-            'is_24_7' => $existingCap->is_24_7,
-            'start_time' => $existingCap->start_time,
-            'end_time' => $existingCap->end_time,
-            'timezone' => $existingCap->timezone,
-            'date' => $existingCap->date,
-            'language' => $existingCap->language,
-            'funnel' => $existingCap->funnel,
-            'pending_acq' => $existingCap->pending_acq,
-            'freeze_status_on_acq' => $existingCap->freeze_status_on_acq,
-        ];
-        
-        // Парсим поля для обновления из сообщения
-        if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
-            $capValue = trim($matches[1]);
-            if (!$this->isEmpty($capValue) && is_numeric($capValue)) {
-                $updateCapData['cap_amount'] = intval($capValue);
+        if ($geo) {
+            // Если Geo указан - обновляем только эту капу, проверяя совпадение
+            if (!in_array($geo, $originalCap->geos)) {
+                return ['cap_entries_count' => 0, 'error' => 'Geo не совпадает с оригинальной капой'];
             }
+            $capsToUpdate = [$originalCap];
+        } else {
+            // Если Geo не указан - обновляем все капы от того же affiliate и recipient
+            $capsToUpdate = Cap::where('affiliate_name', $originalCap->affiliate_name)
+                              ->where('recipient_name', $originalCap->recipient_name)
+                              ->whereIn('status', ['RUN', 'STOP'])
+                              ->get();
         }
         
-        if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
-            $totalValue = trim($matches[1]);
-            $updateCapData['total_amount'] = $this->isEmpty($totalValue) ? -1 : intval($totalValue);
+        if (empty($capsToUpdate)) {
+            return ['cap_entries_count' => 0, 'error' => 'Нет кап для обновления'];
         }
         
-        if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
-            $scheduleValue = trim($matches[1]);
-            if ($this->isEmpty($scheduleValue)) {
-                $updateCapData['schedule'] = '24/7';
-                $updateCapData['work_hours'] = '24/7';
-                $updateCapData['is_24_7'] = true;
-                $updateCapData['start_time'] = null;
-                $updateCapData['end_time'] = null;
-                $updateCapData['timezone'] = null;
-            } else {
-                $scheduleData = $this->parseScheduleTime($scheduleValue);
-                $updateCapData['schedule'] = $scheduleData['schedule'];
-                $updateCapData['work_hours'] = $scheduleData['work_hours'];
-                $updateCapData['is_24_7'] = $scheduleData['is_24_7'];
-                $updateCapData['start_time'] = $scheduleData['start_time'];
-                $updateCapData['end_time'] = $scheduleData['end_time'];
-                $updateCapData['timezone'] = $scheduleData['timezone'];
-            }
-        }
+        $updatedCount = 0;
+        $updatedCaps = [];
         
-        if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
-            $dateValue = trim($matches[1]);
-            $updateCapData['date'] = $this->isEmpty($dateValue) ? null : $dateValue;
-        }
-        
-        if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
-            $langValue = trim($matches[1]);
-            $updateCapData['language'] = $this->isEmpty($langValue) ? 'en' : $langValue;
-        }
-        
-        if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
-            $funnelValue = trim($matches[1]);
-            $updateCapData['funnel'] = $this->isEmpty($funnelValue) ? null : $funnelValue;
-        }
-        
-        if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
-            $pendingValue = trim($matches[1]);
-            $updateCapData['pending_acq'] = $this->isEmpty($pendingValue) ? false : 
-                in_array(strtolower($pendingValue), ['yes', 'true', '1', 'да']);
-        }
-        
-        if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
-            $freezeValue = trim($matches[1]);
-            $updateCapData['freeze_status_on_acq'] = $this->isEmpty($freezeValue) ? false : 
-                in_array(strtolower($freezeValue), ['yes', 'true', '1', 'да']);
-        }
-        
-        // Определяем какие поля нужно обновить
-        $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText);
-        
-        if (!empty($updateData)) {
-            CapHistory::createFromCap($existingCap);
+        foreach ($capsToUpdate as $existingCap) {
+            // Создаем временные данные для обновления, используя существующие значения как базу
+            $updateCapData = [
+                'cap_amount' => $existingCap->cap_amounts[0] ?? 0,
+                'total_amount' => $existingCap->total_amount,
+                'schedule' => $existingCap->schedule,
+                'work_hours' => $existingCap->work_hours,
+                'is_24_7' => $existingCap->is_24_7,
+                'start_time' => $existingCap->start_time,
+                'end_time' => $existingCap->end_time,
+                'timezone' => $existingCap->timezone,
+                'date' => $existingCap->date,
+                'language' => $existingCap->language,
+                'funnel' => $existingCap->funnel,
+                'pending_acq' => $existingCap->pending_acq,
+                'freeze_status_on_acq' => $existingCap->freeze_status_on_acq,
+            ];
             
-            // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
-            $existingCap->update($updateData);
+            // Парсим поля для обновления из сообщения
+            if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
+                $capValue = trim($matches[1]);
+                if (!$this->isEmpty($capValue) && is_numeric($capValue)) {
+                    $updateCapData['cap_amount'] = intval($capValue);
+                }
+            }
+            
+            if (preg_match('/^Total:\s*(.+)$/m', $messageText, $matches)) {
+                $totalValue = trim($matches[1]);
+                $updateCapData['total_amount'] = $this->isEmpty($totalValue) ? -1 : intval($totalValue);
+            }
+            
+            if (preg_match('/^Schedule:\s*(.+)$/m', $messageText, $matches)) {
+                $scheduleValue = trim($matches[1]);
+                if ($this->isEmpty($scheduleValue)) {
+                    $updateCapData['schedule'] = '24/7';
+                    $updateCapData['work_hours'] = '24/7';
+                    $updateCapData['is_24_7'] = true;
+                    $updateCapData['start_time'] = null;
+                    $updateCapData['end_time'] = null;
+                    $updateCapData['timezone'] = null;
+                } else {
+                    $scheduleData = $this->parseScheduleTime($scheduleValue);
+                    $updateCapData['schedule'] = $scheduleData['schedule'];
+                    $updateCapData['work_hours'] = $scheduleData['work_hours'];
+                    $updateCapData['is_24_7'] = $scheduleData['is_24_7'];
+                    $updateCapData['start_time'] = $scheduleData['start_time'];
+                    $updateCapData['end_time'] = $scheduleData['end_time'];
+                    $updateCapData['timezone'] = $scheduleData['timezone'];
+                }
+            }
+            
+            if (preg_match('/^Date:\s*(.+)$/m', $messageText, $matches)) {
+                $dateValue = trim($matches[1]);
+                $updateCapData['date'] = $this->isEmpty($dateValue) ? null : $dateValue;
+            }
+            
+            if (preg_match('/^Language:\s*(.+)$/m', $messageText, $matches)) {
+                $langValue = trim($matches[1]);
+                $updateCapData['language'] = $this->isEmpty($langValue) ? 'en' : $langValue;
+            }
+            
+            if (preg_match('/^Funnel:\s*(.+)$/m', $messageText, $matches)) {
+                $funnelValue = trim($matches[1]);
+                $updateCapData['funnel'] = $this->isEmpty($funnelValue) ? null : $funnelValue;
+            }
+            
+            if (preg_match('/^Pending ACQ:\s*(.+)$/m', $messageText, $matches)) {
+                $pendingValue = trim($matches[1]);
+                $updateCapData['pending_acq'] = $this->isEmpty($pendingValue) ? false : 
+                    in_array(strtolower($pendingValue), ['yes', 'true', '1', 'да']);
+            }
+            
+            if (preg_match('/^Freeze status on ACQ:\s*(.+)$/m', $messageText, $matches)) {
+                $freezeValue = trim($matches[1]);
+                $updateCapData['freeze_status_on_acq'] = $this->isEmpty($freezeValue) ? false : 
+                    in_array(strtolower($freezeValue), ['yes', 'true', '1', 'да']);
+            }
+            
+            // Определяем какие поля нужно обновить
+            $capGeo = $existingCap->geos[0] ?? 'unknown';
+            $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $capGeo, $messageText, $messageText);
+            
+            if (!empty($updateData)) {
+                CapHistory::createFromCap($existingCap);
+                
+                // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
+                $existingCap->update($updateData);
+                
+                $updatedCount++;
+                $updatedCaps[] = "{$existingCap->affiliate_name} → {$existingCap->recipient_name} ({$capGeo}, {$existingCap->cap_amounts[0]})";
+            }
+        }
+        
+        if ($updatedCount > 0) {
+            if ($geo) {
+                $message = "Капа {$updatedCaps[0]} обновлена через reply";
+            } else {
+                $message = "Обновлено {$updatedCount} " . $this->pluralize($updatedCount, 'капа', 'капы', 'кап') . " от {$originalCap->affiliate_name} → {$originalCap->recipient_name}";
+            }
             
             return [
                 'cap_entries_count' => 0,
-                'updated_entries_count' => 1,
-                'message' => "Капа {$existingCap->affiliate_name} → {$existingCap->recipient_name} ({$geo}, {$existingCap->cap_amounts[0]}) обновлена через reply"
+                'updated_entries_count' => $updatedCount,
+                'message' => $message
             ];
         }
         
         return ['cap_entries_count' => 0, 'message' => 'Нет изменений для обновления'];
+    }
+
+    /**
+     * Помощник для склонения слов
+     */
+    private function pluralize($count, $singular, $plural2, $plural5)
+    {
+        $lastDigit = $count % 10;
+        $lastTwoDigits = $count % 100;
+        
+        if ($lastTwoDigits >= 11 && $lastTwoDigits <= 14) {
+            return $plural5;
+        }
+        
+        if ($lastDigit == 1) {
+            return $singular;
+        }
+        
+        if ($lastDigit >= 2 && $lastDigit <= 4) {
+            return $plural2;
+        }
+        
+        return $plural5;
     }
 } 
