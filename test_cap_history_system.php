@@ -136,6 +136,7 @@ if ($totalCapsAfter == $totalCaps) {
 }
 
 echo "\n🔄 Шаг 3: Тест сброса полей до значений по умолчанию\n";
+echo "Примечание: сбрасываются только необязательные поля (Total, Language, Funnel, Schedule, Date)\n";
 
 $resetFieldsMessage = "Affiliate: G06
 Recipient: TMedia
