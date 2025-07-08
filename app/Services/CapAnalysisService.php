@@ -745,6 +745,20 @@ class CapAnalysisService
             ];
         }
         
+        // Поддержка формата 24/X (24 часа в сутки, X дней в неделю)
+        if (preg_match('/24[\/\-]([1-7])/i', $schedule, $matches)) {
+            $days = $matches[1];
+            $scheduleFormat = "24/{$days}";
+            return [
+                'schedule' => $scheduleFormat,
+                'work_hours' => $scheduleFormat,
+                'is_24_7' => ($days == '7'),
+                'start_time' => null,
+                'end_time' => null,
+                'timezone' => null
+            ];
+        }
+        
         // Убираем лишние пробелы
         $schedule = preg_replace('/\s+/', ' ', $schedule);
         
