@@ -564,11 +564,11 @@
                 <div class="form-group">
                     <label for="status-filter">Статус</label>
                     <select id="status-filter">
-                        <option value="">Все (кроме удаленных)</option>
-                        <option value="RUN">Активные</option>
+                        <option value="RUN" selected>Активные</option>
                         <option value="STOP">Остановленные</option>
                         <option value="DELETE">Корзина (удаленные)</option>
                         <option value="all">Все (включая удаленные)</option>
+                        <option value="">Все (кроме удаленных)</option>
                     </select>
                 </div>
                 <div class="form-buttons">
@@ -772,7 +772,7 @@
             const elements = [
                 'search', 'chat-select', 'geo-filter', 'broker-filter', 
                 'affiliate-filter', 'language-filter', 'funnel-filter', 
-                'schedule-filter', 'total-filter', 'status-filter'
+                'schedule-filter', 'total-filter'
             ];
             
             elements.forEach(id => {
@@ -783,6 +783,12 @@
                     console.warn(`Элемент ${id} не найден при очистке фильтров`);
                 }
             });
+            
+            // Статус возвращаем к "Активные" по умолчанию
+            const statusFilter = document.getElementById('status-filter');
+            if (statusFilter) {
+                statusFilter.value = 'RUN';
+            }
             
             // Очистка результатов
             const messageList = document.getElementById('message-list');
