@@ -19,6 +19,7 @@ class Chat extends Model
         'last_message_at',
         'message_count',
         'display_order',
+        'display_name',
     ];
 
     protected $casts = [
@@ -38,7 +39,8 @@ class Chat extends Model
 
     public function getDisplayNameAttribute()
     {
-        return $this->title ?: $this->username ?: 'Чат #' . $this->chat_id;
+        // Приоритет: сохраненное display_name -> title -> username -> по умолчанию
+        return $this->attributes['display_name'] ?: $this->title ?: $this->username ?: 'Чат #' . $this->chat_id;
     }
 
     public function getTypeDisplayAttribute()

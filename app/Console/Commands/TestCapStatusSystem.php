@@ -22,7 +22,7 @@ class TestCapStatusSystem extends Command
         // Создаем тестовый чат
         $chat = Chat::firstOrCreate([
             'chat_id' => -1001234567890,
-            'display_name' => 'Test Chat (Status System)',
+            'title' => 'Test Chat (Status System)',
             'display_order' => 1
         ]);
         
@@ -34,9 +34,8 @@ class TestCapStatusSystem extends Command
         // Создаем капу
         $createMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1001,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'telegram_message_id' => 1001,
+            'user' => 'Test User',
             'message' => "Affiliate: G06\nRecipient: TMedia\nCap: 20\nGeo: AT\nSchedule: 24/7"
         ]);
         
@@ -62,9 +61,8 @@ class TestCapStatusSystem extends Command
         // Останавливаем капу полной командой
         $stopMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1002,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'telegram_message_id' => 1002,
+            'user' => 'Test User',
             'message' => "Affiliate: G06\nRecipient: TMedia\nCap: 20\nGeo: AT\nSTOP"
         ]);
         
@@ -91,9 +89,8 @@ class TestCapStatusSystem extends Command
         // Создаем новую капу (так как остановленная исключается из дубликатов)
         $resumeMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1003,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'telegram_message_id' => 1003,
+            'user' => 'Test User',
             'message' => "Affiliate: G06\nRecipient: TMedia\nCap: 25\nGeo: AT\nSchedule: 24/7"
         ]);
         
@@ -123,10 +120,9 @@ class TestCapStatusSystem extends Command
         // Останавливаем капу простой командой в ответ на изначальное сообщение с капой
         $simpleStopMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1004,
+            'telegram_message_id' => 1004,
             'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "STOP"
         ]);
         
@@ -155,10 +151,9 @@ class TestCapStatusSystem extends Command
         // Удаляем капу простой командой в ответ на изначальное сообщение с капой
         $simpleDeleteMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1005,
+            'telegram_message_id' => 1005,
             'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "DELETE"
         ]);
         
@@ -185,10 +180,9 @@ class TestCapStatusSystem extends Command
         // Восстанавливаем удаленную капу простой командой в ответ на изначальное сообщение с капой
         $simpleRestoreMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1006,
+            'telegram_message_id' => 1006,
             'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "RESTORE"
         ]);
         

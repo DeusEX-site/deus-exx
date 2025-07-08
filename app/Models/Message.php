@@ -13,6 +13,7 @@ class Message extends Model
         'chat_id',
         'message',
         'user',
+        'message_id', // For compatibility with tests
         'telegram_message_id',
         'reply_to_message_id',
         'telegram_user_id',
@@ -23,6 +24,8 @@ class Message extends Model
         'message_type',
         'telegram_raw_data',
         'is_outgoing',
+        'display_name',
+        'user_id', // For compatibility with tests
     ];
 
     protected $casts = [
@@ -67,6 +70,11 @@ class Message extends Model
 
     public function getDisplayNameAttribute()
     {
+        // Приоритет: сохраненное display_name -> telegram поля -> user -> по умолчанию
+        if ($this->attributes['display_name']) {
+            return $this->attributes['display_name'];
+        }
+        
         if ($this->telegram_first_name || $this->telegram_last_name) {
             return trim($this->telegram_first_name . ' ' . $this->telegram_last_name);
         }
