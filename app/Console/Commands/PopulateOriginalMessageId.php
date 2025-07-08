@@ -20,7 +20,7 @@ class PopulateOriginalMessageId extends Command
         $caps = Cap::whereNull('original_message_id')->get();
         
         foreach ($caps as $cap) {
-            $cap->update(['original_message_id' => $cap->message_id]);
+            $cap->update(['original_message_id' => $cap->original_message_id]);
             $capsUpdated++;
         }
         
@@ -31,7 +31,7 @@ class PopulateOriginalMessageId extends Command
         $history = CapHistory::whereNull('original_message_id')->get();
         
         foreach ($history as $historyRecord) {
-            $historyRecord->update(['original_message_id' => $historyRecord->message_id]);
+            $historyRecord->update(['original_message_id' => $historyRecord->original_message_id]);
             $historyUpdated++;
         }
         
