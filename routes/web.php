@@ -299,16 +299,21 @@ Route::middleware('auth')->get('/api/cap-history/{capId}', function (Request $re
         $history = \App\Models\CapHistory::where('cap_id', $capId)
             ->with(['message' => function($q) {
                 $q->with('chat');
+            }, 'originalMessage' => function($q) {
+                $q->with('chat');
             }])
             ->orderBy('created_at', 'desc')
             ->get();
         
         $historyData = $history->map(function($item) {
+            // Используем original_message_id если есть, иначе fallback на message_id
+            $messageToShow = $item->originalMessage ?? $item->message;
+            
             return [
                 'id' => $item->id,
-                'message' => $item->message->message ?? 'Сообщение удалено',
-                'user' => $item->message->display_name ?? 'Неизвестный',
-                'chat_name' => $item->message->chat->display_name ?? 'Неизвестный чат',
+                'message' => $messageToShow->message ?? 'Сообщение удалено',
+                'user' => $messageToShow->display_name ?? 'Неизвестный',
+                'chat_name' => $messageToShow->chat->display_name ?? 'Неизвестный чат',
                 'timestamp' => $item->created_at->format('d.m.Y H:i'),
                 'archived_at' => $item->archived_at->format('d.m.Y H:i'),
                 'status' => $item->status,
