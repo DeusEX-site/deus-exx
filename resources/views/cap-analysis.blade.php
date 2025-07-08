@@ -1339,9 +1339,8 @@
                             </div>
                         </div>
                         
-                        <div class="history-item-text">${item.highlighted_text || item.message}</div>
+                        <div class="history-item-text">${highlightCapWords(item.message)}</div>
                         
-                        <!-- Первая полоса квадратиков -->
                         <div class="history-item-analysis">
                             <div class="history-analysis-item">
                                 <div class="label">Капа</div>
@@ -1367,10 +1366,7 @@
                                 <div class="label">Гео</div>
                                 <div class="value">${analysis.geos && analysis.geos.length > 0 ? analysis.geos.join(', ') : '—'}</div>
                             </div>
-                        </div>
-                        
-                        <!-- Вторая полоса квадратиков -->
-                        <div class="history-item-analysis">
+                            
                             <div class="history-analysis-item">
                                 <div class="label">Расписание</div>
                                 <div class="value">${analysis.schedule || '24/7'}</div>
@@ -1381,15 +1377,19 @@
                                 <div class="value">${analysis.date || '∞'}</div>
                             </div>
                             
-                            <div class="history-analysis-item">
-                                <div class="label">Язык</div>
-                                <div class="value">${analysis.language || '—'}</div>
-                            </div>
+                            ${analysis.language ? `
+                                <div class="history-analysis-item">
+                                    <div class="label">Язык</div>
+                                    <div class="value">${analysis.language}</div>
+                                </div>
+                            ` : ''}
                             
-                            <div class="history-analysis-item">
-                                <div class="label">Воронка</div>
-                                <div class="value">${analysis.funnel || '—'}</div>
-                            </div>
+                            ${analysis.funnel ? `
+                                <div class="history-analysis-item">
+                                    <div class="label">Воронка</div>
+                                    <div class="value">${analysis.funnel}</div>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;
