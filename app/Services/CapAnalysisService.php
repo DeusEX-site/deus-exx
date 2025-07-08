@@ -1156,7 +1156,7 @@ class CapAnalysisService
         }]);
 
         // Фильтр по статусу (по умолчанию RUN и STOP, скрываем DELETE)
-        if (isset($filters['status'])) {
+        if (isset($filters['status']) && !empty($filters['status'])) {
             if ($filters['status'] === 'all') {
                 // Показать все включая удаленные
                 // Не добавляем дополнительных условий
@@ -1673,6 +1673,7 @@ class CapAnalysisService
         }
         
         $updatedCount = 0;
+        $createdCount = 0;
         $messages = [];
         
         // Определяем количество записей для обновления
@@ -1718,7 +1719,46 @@ class CapAnalysisService
                               ->first();
                               
             if (!$existingCap) {
-                $messages[] = "Капа для гео {$geo} не найдена";
+                // Капа для этого гео не найдена - создаем новую на основе исходной капы
+                $newCapData = [
+                    'message_id' => $originalCap->message_id, // Привязываем к исходному сообщению
+                    'cap_amounts' => [isset($caps[$i]) ? $caps[$i] : $originalCap->cap_amounts[0]],
+                    'total_amount' => isset($totals[$i]) ? $totals[$i] : $originalCap->total_amount,
+                    'affiliate_name' => $originalCap->affiliate_name,
+                    'recipient_name' => $originalCap->recipient_name,
+                    'geos' => [$geo], // Новое гео
+                    'language' => isset($languages[$i]) ? $languages[$i] : $originalCap->language,
+                    'funnel' => isset($funnels[$i]) ? $funnels[$i] : $originalCap->funnel,
+                    'date' => isset($dates[$i]) ? $dates[$i] : $originalCap->date,
+                    'pending_acq' => isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : $originalCap->pending_acq,
+                    'freeze_status_on_acq' => isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : $originalCap->freeze_status_on_acq,
+                    'status' => 'RUN',
+                    'status_updated_at' => now()
+                ];
+                
+                // Обрабатываем расписание для новой капы
+                if (isset($schedules[$i])) {
+                    $scheduleData = $this->parseScheduleTime($schedules[$i]);
+                    $newCapData['schedule'] = $scheduleData['schedule'];
+                    $newCapData['work_hours'] = $scheduleData['work_hours'];
+                    $newCapData['is_24_7'] = $scheduleData['is_24_7'];
+                    $newCapData['start_time'] = $scheduleData['start_time'];
+                    $newCapData['end_time'] = $scheduleData['end_time'];
+                    $newCapData['timezone'] = $scheduleData['timezone'];
+                } else {
+                    $newCapData['schedule'] = $originalCap->schedule;
+                    $newCapData['work_hours'] = $originalCap->work_hours;
+                    $newCapData['is_24_7'] = $originalCap->is_24_7;
+                    $newCapData['start_time'] = $originalCap->start_time;
+                    $newCapData['end_time'] = $originalCap->end_time;
+                    $newCapData['timezone'] = $originalCap->timezone;
+                }
+                
+                $newCapData['highlighted_text'] = $messageText;
+                
+                Cap::create($newCapData);
+                $createdCount++;
+                $messages[] = "Создана новая капа для гео {$geo}";
                 continue;
             }
             
@@ -1799,15 +1839,16 @@ class CapAnalysisService
             }
         }
             
-        if ($updatedCount > 0) {
+        if ($updatedCount > 0 || $createdCount > 0) {
             return [
-                'cap_entries_count' => 0,
+                'cap_entries_count' => $createdCount,
                 'updated_entries_count' => $updatedCount,
+                'total_processed' => $createdCount + $updatedCount,
                 'message' => implode('. ', $messages)
             ];
         }
         
-        return ['cap_entries_count' => 0, 'message' => 'Нет изменений для обновления'];
+        return ['cap_entries_count' => 0, 'updated_entries_count' => 0, 'message' => 'Нет изменений для обновления'];
     }
 
     /**

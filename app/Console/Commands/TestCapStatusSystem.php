@@ -465,21 +465,21 @@ class TestCapStatusSystem extends Command
             return;
         }
         
-        // Тестируем ошибку - обновление с неправильным гео
+        // Тестируем создание новой капы с новым гео
         $wrongGeoMessage = Message::create([
             'chat_id' => $chat->id,
             'telegram_message_id' => 1022,
             'reply_to_message_id' => $newCapMessage->id,
             'user' => 'Test User',
-            'message' => "Cap: 40\nGeo: FR" // Неправильное гео
+            'message' => "Cap: 40\nGeo: FR" // Новое гео
         ]);
         
         $result = $capAnalysisService->analyzeAndSaveCapMessage($wrongGeoMessage->id, $wrongGeoMessage->message);
         
         if ($result['cap_entries_count'] === 1) {
-            $this->info("✅ При неправильном гео создалась новая капа (как и должно быть)");
+            $this->info("✅ При новом гео создалась новая капа (как и должно быть)");
         } else {
-            $this->error("❌ Ошибка: при неправильном гео должна создаться новая капа");
+            $this->error("❌ Ошибка: при новом гео должна создаться новая капа");
             return;
         }
         
@@ -600,21 +600,21 @@ class TestCapStatusSystem extends Command
             return;
         }
         
-        // Тестируем ошибку - обновление с неправильным гео
-        $errorMessage = Message::create([
+        // Тестируем создание новой капы с неправильным гео
+        $newGeoMessage = Message::create([
             'chat_id' => $chat->id,
             'telegram_message_id' => 1023,
             'reply_to_message_id' => $newCapMessage->id,
             'user' => 'Test User',
-            'message' => "Geo: FR\nCap: 40" // Неправильный гео
+            'message' => "Geo: FR\nCap: 40" // Новое гео
         ]);
         
-        $result = $capAnalysisService->analyzeAndSaveCapMessage($errorMessage->id, $errorMessage->message);
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($newGeoMessage->id, $newGeoMessage->message);
         
-        if (isset($result['error']) && strpos($result['error'], 'Geo не совпадает') !== false) {
-            $this->info("✅ Ошибка неправильного гео обработана корректно");
+        if (isset($result['cap_entries_count']) && $result['cap_entries_count'] === 1) {
+            $this->info("✅ Создана новая капа для нового гео FR");
         } else {
-            $this->error("❌ Ошибка: неправильный гео должен генерировать ошибку");
+            $this->error("❌ Ошибка: должна создаться новая капа для нового гео");
             return;
         }
         
