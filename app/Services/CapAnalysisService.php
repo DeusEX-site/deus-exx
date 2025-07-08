@@ -742,6 +742,18 @@ class CapAnalysisService
             ];
         }
         
+        // Поддержка формата 24/5 (24 часа в день, 5 дней в неделю)
+        if (preg_match('/24\/5|24-5/i', $schedule)) {
+            return [
+                'schedule' => '24/5',
+                'work_hours' => '24/5',
+                'is_24_7' => false,
+                'start_time' => null,
+                'end_time' => null,
+                'timezone' => null
+            ];
+        }
+        
         // Убираем лишние пробелы
         $schedule = preg_replace('/\s+/', ' ', $schedule);
         
@@ -1438,13 +1450,27 @@ class CapAnalysisService
         // Определяем, есть ли пустые значения в сообщении
         $hasEmptyValues = $this->hasEmptyFieldValues($messageText);
         
+        // Получаем все капы для этого сообщения для дальнейшего анализа
+        $allCaps = Cap::where('message_id', $this->findOriginalMessageId($currentMessage->reply_to_message_id))
+                      ->whereIn('status', ['RUN', 'STOP'])
+                      ->get();
+        
+        // Проверяем, есть ли в сообщении больше одной капы
+        $hasMultipleCaps = $allCaps->count() > 1;
+        
+        // Проверяем, есть ли параметры с одним значением (не пустые)
+        $hasSingleValueParams = $this->hasSingleValueParams($messageText);
+        
         // Если есть пустые значения и Geo не указаны, обновляем все капы в сообщении
         if ($hasEmptyValues && empty($geos)) {
-            // Получаем все капы для этого сообщения
-            $allCaps = Cap::where('message_id', $this->findOriginalMessageId($currentMessage->reply_to_message_id))
-                          ->whereIn('status', ['RUN', 'STOP'])
-                          ->get();
-            
+            $allGeos = [];
+            foreach ($allCaps as $cap) {
+                $allGeos = array_merge($allGeos, $cap->geos);
+            }
+            $geos = array_unique($allGeos);
+        }
+        // Если Geo не указан, больше одной капы в сообщении и есть параметр с одним значением -> применить ко всем капам
+        elseif (empty($geos) && $hasMultipleCaps && $hasSingleValueParams) {
             $allGeos = [];
             foreach ($allCaps as $cap) {
                 $allGeos = array_merge($allGeos, $cap->geos);
@@ -1644,28 +1670,29 @@ class CapAnalysisService
         
         // Если у необязательного поля только одно значение, применяем его ко всем записям
         // Или если это сброс для всех кап в сообщении
-        if (count($caps) === 1 || ($hasEmptyValues && empty($caps))) {
+        // Или если это обновление одного параметра для всех кап
+        if (count($caps) === 1 || ($hasEmptyValues && empty($caps)) || ($hasMultipleCaps && $hasSingleValueParams && count($caps) === 1)) {
             $caps = count($caps) > 0 ? array_fill(0, $count, $caps[0]) : [];
         }
-        if (count($languages) === 1 || ($hasEmptyValues && count($languages) <= 1)) {
+        if (count($languages) === 1 || ($hasEmptyValues && count($languages) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($languages) === 1)) {
             $languages = count($languages) > 0 ? array_fill(0, $count, $languages[0]) : [];
         }
-        if (count($funnels) === 1 || ($hasEmptyValues && count($funnels) <= 1)) {
+        if (count($funnels) === 1 || ($hasEmptyValues && count($funnels) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($funnels) === 1)) {
             $funnels = count($funnels) > 0 ? array_fill(0, $count, $funnels[0]) : [];
         }
-        if (count($totals) === 1 || ($hasEmptyValues && count($totals) <= 1)) {
+        if (count($totals) === 1 || ($hasEmptyValues && count($totals) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($totals) === 1)) {
             $totals = count($totals) > 0 ? array_fill(0, $count, $totals[0]) : [];
         }
-        if (count($schedules) === 1 || ($hasEmptyValues && count($schedules) <= 1)) {
+        if (count($schedules) === 1 || ($hasEmptyValues && count($schedules) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($schedules) === 1)) {
             $schedules = count($schedules) > 0 ? array_fill(0, $count, $schedules[0]) : [];
         }
-        if (count($pendingAcqs) === 1 || ($hasEmptyValues && count($pendingAcqs) <= 1)) {
+        if (count($pendingAcqs) === 1 || ($hasEmptyValues && count($pendingAcqs) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($pendingAcqs) === 1)) {
             $pendingAcqs = count($pendingAcqs) > 0 ? array_fill(0, $count, $pendingAcqs[0]) : [];
         }
-        if (count($freezeStatuses) === 1 || ($hasEmptyValues && count($freezeStatuses) <= 1)) {
+        if (count($freezeStatuses) === 1 || ($hasEmptyValues && count($freezeStatuses) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($freezeStatuses) === 1)) {
             $freezeStatuses = count($freezeStatuses) > 0 ? array_fill(0, $count, $freezeStatuses[0]) : [];
         }
-        if (count($dates) === 1 || ($hasEmptyValues && count($dates) <= 1)) {
+        if (count($dates) === 1 || ($hasEmptyValues && count($dates) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($dates) === 1)) {
             $dates = count($dates) > 0 ? array_fill(0, $count, $dates[0]) : [];
         }
         
@@ -1793,6 +1820,38 @@ class CapAnalysisService
                 $value = trim($matches[1]);
                 if ($this->isEmpty($value)) {
                     return true; // Найдено пустое значение
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Проверяет, есть ли в сообщении параметры с одним значением (не пустые)
+     */
+    private function hasSingleValueParams($messageText)
+    {
+        $fieldsToCheck = [
+            'cap' => '/^Cap:\s*(.+)$/mi',
+            'schedule' => '/^Schedule:\s*(.+)$/m',
+            'date' => '/^Date:\s*(.+)$/m',
+            'language' => '/^Language:\s*(.+)$/m',
+            'funnel' => '/^Funnel:\s*(.+)$/m',
+            'total' => '/^Total:\s*(.+)$/m',
+            'pending_acq' => '/^Pending ACQ:\s*(.+)$/m',
+            'freeze_status_on_acq' => '/^Freeze status on ACQ:\s*(.+)$/m'
+        ];
+        
+        foreach ($fieldsToCheck as $field => $pattern) {
+            if (preg_match($pattern, $messageText, $matches)) {
+                $value = trim($matches[1]);
+                if (!$this->isEmpty($value)) {
+                    // Проверяем, что это одно значение (не множественное)
+                    $values = $this->parseMultipleValues($value, $field === 'funnel');
+                    if (count($values) === 1) {
+                        return true; // Найден параметр с одним значением
+                    }
                 }
             }
         }
