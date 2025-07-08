@@ -52,7 +52,7 @@ class Cap extends Model
     }
 
     /**
-     * Связь с оригинальным сообщением (для обновлений)
+     * Связь с сообщением, которое обновило капу
      */
     public function originalMessage()
     {

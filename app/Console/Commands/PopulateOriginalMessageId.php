@@ -15,23 +15,25 @@ class PopulateOriginalMessageId extends Command
     {
         $this->info('🔄 Populating missing original_message_id values...');
         
-        // Update caps table
+        // Update caps table - для существующих кап original_message_id остается null (они не обновлялись)
         $capsUpdated = 0;
         $caps = Cap::whereNull('original_message_id')->get();
         
         foreach ($caps as $cap) {
-            $cap->update(['original_message_id' => $cap->message_id]);
+            // Для существующих кап original_message_id остается null, так как они не обновлялись
+            // Это правильно, так как original_message_id указывает на сообщение, которое обновило капу
             $capsUpdated++;
         }
         
         $this->info("✅ Updated {$capsUpdated} caps with original_message_id");
         
-        // Update caps_history table
+        // Update caps_history table - для существующих записей истории original_message_id остается null
         $historyUpdated = 0;
         $history = CapHistory::whereNull('original_message_id')->get();
         
         foreach ($history as $historyRecord) {
-            $historyRecord->update(['original_message_id' => $historyRecord->message_id]);
+            // Для существующих записей истории original_message_id остается null
+            // Это правильно, так как original_message_id указывает на сообщение, которое обновило капу
             $historyUpdated++;
         }
         

@@ -75,7 +75,7 @@ class CapAnalysisService
                 
                 if ($existingCap) {
                     // Найден дубликат - определяем какие поля нужно обновить
-                    $updateData = $this->getFieldsToUpdate($existingCap, $capData, $geo, $messageText, $messageText);
+                    $updateData = $this->getFieldsToUpdate($existingCap, $capData, $geo, $messageText, $messageText, $messageId);
                     
                     if (!empty($updateData)) {
                         CapHistory::createFromCap($existingCap);
@@ -92,7 +92,7 @@ class CapAnalysisService
                     // Дубликат не найден - создаем новую запись
                     Cap::create([
                         'message_id' => $messageId,
-                        'original_message_id' => $messageId, // Для новых кап original_message_id равен message_id
+                        'original_message_id' => null, // Для новых кап original_message_id = null (нет обновлений)
                         'cap_amounts' => [$capData['cap_amount']],
                         'total_amount' => $capData['total_amount'],
                         'schedule' => $capData['schedule'],
@@ -131,7 +131,7 @@ class CapAnalysisService
     /**
      * Определяет, какие поля нужно обновить (только указанные в сообщении и измененные)
      */
-    private function getFieldsToUpdate($existingCap, $newCapData, $geo, $messageText, $originalMessage)
+    private function getFieldsToUpdate($existingCap, $newCapData, $geo, $messageText, $originalMessage, $messageId = null)
     {
         $updateData = [];
         
@@ -239,6 +239,11 @@ class CapAnalysisService
         // Highlighted text - всегда обновляем при новом сообщении
         if ($existingCap->highlighted_text != $messageText) {
             $updateData['highlighted_text'] = $messageText;
+        }
+        
+        // Обновляем original_message_id - указывает на сообщение, которое обновило капу
+        if ($messageId && $existingCap->original_message_id != $messageId) {
+            $updateData['original_message_id'] = $messageId;
         }
         
         // НЕ обновляем message_id - он должен оставаться ID изначального сообщения с капой
@@ -1722,7 +1727,7 @@ class CapAnalysisService
                 // Капа для этого гео не найдена - создаем новую на основе исходной капы
                 $newCapData = [
                     'message_id' => $originalCap->message_id, // Привязываем к исходному сообщению
-                    'original_message_id' => $originalCap->original_message_id ?: $originalCap->message_id, // Сохраняем original_message_id или используем message_id
+                    'original_message_id' => $messageId, // ID сообщения, которое обновило капу
                     'cap_amounts' => [isset($caps[$i]) ? $caps[$i] : $originalCap->cap_amounts[0]],
                     'total_amount' => isset($totals[$i]) ? $totals[$i] : $originalCap->total_amount,
                     'affiliate_name' => $originalCap->affiliate_name,
@@ -1830,7 +1835,7 @@ class CapAnalysisService
         }
         
         // Определяем какие поля нужно обновить
-        $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText);
+        $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText, $messageId);
         
         if (!empty($updateData)) {
             CapHistory::createFromCap($existingCap);
