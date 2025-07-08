@@ -19,7 +19,6 @@ class Cap extends Model
         'affiliate_name',
         'recipient_name',
         'geos',
-        'offers',
         'work_hours',
         'start_time',
         'end_time',
@@ -36,7 +35,6 @@ class Cap extends Model
     protected $casts = [
         'cap_amounts' => 'array',
         'geos' => 'array',
-        'offers' => 'array',
         'is_24_7' => 'boolean',
         'total_amount' => 'integer',
         'pending_acq' => 'boolean',
@@ -63,18 +61,13 @@ class Cap extends Model
     /**
      * Найти дублирующую капу по ключевым полям (только активные)
      */
-    public static function findDuplicate($affiliateName, $recipientName, $geo, $offer = null)
+    public static function findDuplicate($affiliateName, $recipientName, $geo)
     {
-        $query = self::where('affiliate_name', $affiliateName)
-                    ->where('recipient_name', $recipientName)
-                    ->whereJsonContains('geos', $geo)
-                    ->whereIn('status', ['RUN', 'STOP']); // DELETE не участвует в поиске дубликатов
-        
-        if ($offer !== null) {
-            $query->whereJsonContains('offers', $offer);
-        }
-        
-        return $query->first();
+        return self::where('affiliate_name', $affiliateName)
+                   ->where('recipient_name', $recipientName)
+                   ->whereJsonContains('geos', $geo)
+                   ->whereIn('status', ['RUN', 'STOP']) // DELETE не участвует в поиске дубликатов
+                   ->first();
     }
 
     /**

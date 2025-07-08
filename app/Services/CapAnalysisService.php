@@ -66,12 +66,10 @@ class CapAnalysisService
                 
                 // Если капа не найдена через reply_to_message, ищем дубликат обычным способом
                 if (!$existingCap) {
-                    $offer = !empty($capData['offers']) ? $capData['offers'][0] : null;
                     $existingCap = Cap::findDuplicate(
                         $capData['affiliate_name'],
                         $capData['recipient_name'], 
-                        $geo,
-                        $offer
+                        $geo
                     );
                 }
                 
@@ -102,7 +100,6 @@ class CapAnalysisService
                         'affiliate_name' => $capData['affiliate_name'],
                         'recipient_name' => $capData['recipient_name'],
                         'geos' => [$geo], // Одно гео
-                        'offers' => $capData['offers'], // Массив офферов
                         'work_hours' => $capData['work_hours'],
                         'language' => $capData['language'],
                         'funnel' => $capData['funnel'],
@@ -745,20 +742,6 @@ class CapAnalysisService
             ];
         }
         
-        // Поддержка формата 24/X (24 часа в сутки, X дней в неделю)
-        if (preg_match('/24[\/\-]([1-7])/i', $schedule, $matches)) {
-            $days = $matches[1];
-            $scheduleFormat = "24/{$days}";
-            return [
-                'schedule' => $scheduleFormat,
-                'work_hours' => $scheduleFormat,
-                'is_24_7' => ($days == '7'),
-                'start_time' => null,
-                'end_time' => null,
-                'timezone' => null
-            ];
-        }
-        
         // Убираем лишние пробелы
         $schedule = preg_replace('/\s+/', ' ', $schedule);
         
@@ -875,19 +858,8 @@ class CapAnalysisService
             $geos = $this->parseMultipleValues($matches[1]);
         }
 
-        // Парсим Offer (необязательное поле)
-        $offers = [];
-        if (preg_match('/^Offer:\s*(.+)$/mi', $messageText, $matches)) {
-            $offers = $this->parseMultipleValues($matches[1]);
-        }
-
         // Проверяем, что Cap и Geo заполнены и их количество совпадает
         if (empty($caps) || empty($geos) || count($caps) !== count($geos)) {
-            return null;
-        }
-
-        // Если Offer указан, проверяем что количество совпадает с Cap и Geo
-        if (!empty($offers) && count($offers) !== count($caps)) {
             return null;
         }
 
@@ -1056,15 +1028,7 @@ class CapAnalysisService
         // Определяем количество записей
         $count = count($caps);
 
-        // Если Offer не указан, заполняем пустыми значениями
-        if (empty($offers)) {
-            $offers = array_fill(0, $count, null);
-        }
-
         // Если у необязательного поля только одно значение, применяем его ко всем записям
-        if (count($offers) === 1) {
-            $offers = array_fill(0, $count, $offers[0]);
-        }
         if (count($languages) === 1) {
             $languages = array_fill(0, $count, $languages[0]);
         }
@@ -1098,7 +1062,6 @@ class CapAnalysisService
             $pendingAcq = isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : false;
             $freezeStatus = isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : false;
             $date = isset($dates[$i]) ? $dates[$i] : null;
-            $offer = isset($offers[$i]) ? $offers[$i] : null;
 
             // Парсим время из расписания
             $scheduleData = $this->parseScheduleTime($schedule);
@@ -1108,7 +1071,6 @@ class CapAnalysisService
                 'recipient_name' => $recipient,
                 'cap_amount' => $caps[$i],
                 'geos' => [$geos[$i]],
-                'offers' => $offer ? [$offer] : [],
                 'language' => $language,
                 'funnel' => $funnel,
                 'total_amount' => $total,
@@ -1157,7 +1119,6 @@ class CapAnalysisService
                     'affiliate_name' => $cap->affiliate_name,
                     'recipient_name' => $cap->recipient_name,
                     'geos' => $cap->geos ?? [],
-                    'offers' => $cap->offers ?? [],
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
                     'funnel' => $cap->funnel,
@@ -1219,11 +1180,6 @@ class CapAnalysisService
         // Фильтр по гео
         if (!empty($filters['geo'])) {
             $query->whereJsonContains('geos', $filters['geo']);
-        }
-
-        // Фильтр по офферу
-        if (!empty($filters['offer'])) {
-            $query->whereJsonContains('offers', $filters['offer']);
         }
 
         // Фильтр по получателю
@@ -1305,7 +1261,6 @@ class CapAnalysisService
                     'affiliate_name' => $cap->affiliate_name,
                     'recipient_name' => $cap->recipient_name,
                     'geos' => $cap->geos ?? [],
-                    'offers' => $cap->offers ?? [],
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
                     'funnel' => $cap->funnel,
@@ -1329,7 +1284,6 @@ class CapAnalysisService
         // Получаем опции из активных и остановленных кап (исключаем удаленные)
         $caps = Cap::whereIn('status', ['RUN', 'STOP'])
                    ->whereNotNull('geos')
-                   ->orWhereNotNull('offers')
                    ->orWhereNotNull('recipient_name')
                    ->orWhereNotNull('affiliate_name')
                    ->orWhereNotNull('language')
@@ -1337,7 +1291,6 @@ class CapAnalysisService
                    ->get();
 
         $geos = [];
-        $offers = [];
         $recipients = [];
         $affiliates = [];
         $languages = [];
@@ -1347,11 +1300,6 @@ class CapAnalysisService
             // Собираем гео
             if ($cap->geos) {
                 $geos = array_merge($geos, $cap->geos);
-            }
-
-            // Собираем офферы
-            if ($cap->offers) {
-                $offers = array_merge($offers, $cap->offers);
             }
 
             // Собираем получателей
@@ -1377,7 +1325,6 @@ class CapAnalysisService
 
         return [
             'geos' => array_values(array_unique($geos)),
-            'offers' => array_values(array_unique($offers)),
             'recipients' => array_values(array_unique($recipients)),
             'affiliates' => array_values(array_unique($affiliates)),
             'languages' => array_values(array_unique($languages)),
@@ -1475,12 +1422,6 @@ class CapAnalysisService
         if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
             $geos = $this->parseMultipleValues($matches[1]);
         }
-
-        // Парсим множественные значения Offer из сообщения
-        $offers = [];
-        if (preg_match('/^Offer:\s*(.+)$/m', $messageText, $matches)) {
-            $offers = $this->parseMultipleValues($matches[1]);
-        }
         
         // Ищем изначальную капу через цепочку reply_to_message
         $originalCap = $this->findOriginalCap($currentMessage->reply_to_message_id);
@@ -1505,17 +1446,10 @@ class CapAnalysisService
                           ->get();
             
             $allGeos = [];
-            $allOffers = [];
             foreach ($allCaps as $cap) {
                 $allGeos = array_merge($allGeos, $cap->geos);
-                if ($cap->offers) {
-                    $allOffers = array_merge($allOffers, $cap->offers);
-                }
             }
             $geos = array_unique($allGeos);
-            if (empty($offers)) {
-                $offers = array_unique($allOffers);
-            }
         }
         // Если нет пустых значений и Geo не указаны, используем логику как раньше
         elseif (empty($geos) && count($originalCap->geos) === 1) {
@@ -1708,16 +1642,8 @@ class CapAnalysisService
         // Определяем количество записей для обновления
         $count = count($geos);
         
-        // Если offer не указан, заполняем пустыми значениями
-        if (empty($offers)) {
-            $offers = array_fill(0, $count, null);
-        }
-        
         // Если у необязательного поля только одно значение, применяем его ко всем записям
         // Или если это сброс для всех кап в сообщении
-        if (count($offers) === 1 || ($hasEmptyValues && count($offers) <= 1)) {
-            $offers = count($offers) > 0 ? array_fill(0, $count, $offers[0]) : [];
-        }
         if (count($caps) === 1 || ($hasEmptyValues && empty($caps))) {
             $caps = count($caps) > 0 ? array_fill(0, $count, $caps[0]) : [];
         }
@@ -1746,23 +1672,16 @@ class CapAnalysisService
         // Обрабатываем каждое гео отдельно
         for ($i = 0; $i < $count; $i++) {
             $geo = $geos[$i];
-            $offer = isset($offers[$i]) ? $offers[$i] : null;
             
-            // Ищем капу для этого гео и оффера
-            $query = Cap::where('affiliate_name', $originalCap->affiliate_name)
-                        ->where('recipient_name', $originalCap->recipient_name)
-                        ->whereJsonContains('geos', $geo)
-                        ->whereIn('status', ['RUN', 'STOP']);
-            
-            if ($offer !== null) {
-                $query->whereJsonContains('offers', $offer);
-            }
-            
-            $existingCap = $query->first();
+            // Ищем капу для этого гео
+            $existingCap = Cap::where('affiliate_name', $originalCap->affiliate_name)
+                              ->where('recipient_name', $originalCap->recipient_name)
+                              ->whereJsonContains('geos', $geo)
+                              ->whereIn('status', ['RUN', 'STOP'])
+                              ->first();
                               
             if (!$existingCap) {
-                $offerText = $offer ? " и оффера {$offer}" : "";
-                $messages[] = "Капа для гео {$geo}{$offerText} не найдена";
+                $messages[] = "Капа для гео {$geo} не найдена";
                 continue;
             }
             
