@@ -1360,29 +1360,38 @@ class CapAnalysisService
             $capCombinations = $this->parseStandardCapMessage($message);
             
             if ($capCombinations && is_array($capCombinations) && count($capCombinations) > 0) {
-                // Возвращаем данные первой комбинации для обратной совместимости
-                $capData = $capCombinations[0];
+                // Собираем все cap amounts и geos из всех комбинаций
+                $allCapAmounts = [];
+                $allGeos = [];
+                
+                foreach ($capCombinations as $capData) {
+                    $allCapAmounts[] = $capData['cap_amount'];
+                    $allGeos = array_merge($allGeos, $capData['geos']);
+                }
+                
+                // Возвращаем данные первой комбинации с объединенными массивами для обратной совместимости
+                $firstCapData = $capCombinations[0];
                 
                 return [
                     'has_cap_word' => true,
-                    'cap_amount' => $capData['cap_amount'],
-                    'cap_amounts' => [$capData['cap_amount']],
-                    'total_amount' => $capData['total_amount'],
-                    'schedule' => $capData['schedule'],
-                    'start_time' => $capData['start_time'],
-                    'end_time' => $capData['end_time'],
-                    'timezone' => $capData['timezone'],
-                    'date' => $capData['date'],
-                    'is_24_7' => $capData['is_24_7'],
-                    'affiliate_name' => $capData['affiliate_name'],
-                    'recipient_name' => $capData['recipient_name'],
-                    'geos' => $capData['geos'],
-                    'work_hours' => $capData['work_hours'],
-                    'language' => $capData['language'],
-                    'funnel' => $capData['funnel'],
-                    'pending_acq' => $capData['pending_acq'],
-                    'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
-                    'raw_numbers' => [$capData['cap_amount']]
+                    'cap_amount' => $firstCapData['cap_amount'],
+                    'cap_amounts' => $allCapAmounts, // Все cap amounts
+                    'total_amount' => $firstCapData['total_amount'],
+                    'schedule' => $firstCapData['schedule'],
+                    'start_time' => $firstCapData['start_time'],
+                    'end_time' => $firstCapData['end_time'],
+                    'timezone' => $firstCapData['timezone'],
+                    'date' => $firstCapData['date'],
+                    'is_24_7' => $firstCapData['is_24_7'],
+                    'affiliate_name' => $firstCapData['affiliate_name'],
+                    'recipient_name' => $firstCapData['recipient_name'],
+                    'geos' => array_unique($allGeos), // Все уникальные geos
+                    'work_hours' => $firstCapData['work_hours'],
+                    'language' => $firstCapData['language'],
+                    'funnel' => $firstCapData['funnel'],
+                    'pending_acq' => $firstCapData['pending_acq'],
+                    'freeze_status_on_acq' => $firstCapData['freeze_status_on_acq'],
+                    'raw_numbers' => $allCapAmounts // Все cap amounts
                 ];
             }
         }
