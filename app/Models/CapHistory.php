@@ -14,6 +14,7 @@ class CapHistory extends Model
     protected $fillable = [
         'cap_id',
         'message_id',
+        'original_message_id',
         'cap_amounts',
         'total_amount',
         'schedule',
@@ -64,6 +65,14 @@ class CapHistory extends Model
     }
 
     /**
+     * Связь с оригинальным сообщением (для обновлений)
+     */
+    public function originalMessage()
+    {
+        return $this->belongsTo(Message::class, 'original_message_id');
+    }
+
+    /**
      * Создать запись истории из существующей капы
      */
     public static function createFromCap(Cap $cap)
@@ -71,6 +80,7 @@ class CapHistory extends Model
         return self::create([
             'cap_id' => $cap->id,
             'message_id' => $cap->message_id,
+            'original_message_id' => $cap->original_message_id,
             'cap_amounts' => $cap->cap_amounts,
             'total_amount' => $cap->total_amount,
             'schedule' => $cap->schedule,
