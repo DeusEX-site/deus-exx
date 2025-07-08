@@ -12,7 +12,7 @@ pause
 echo.
 
 echo ==========================================
-echo 1. Тест системы анализа капы
+echo 1. Тест анализа НОВЫХ сообщений с капами
 echo ==========================================
 php artisan test:cap-analysis
 echo.
@@ -21,16 +21,25 @@ pause
 echo.
 
 echo ==========================================
-echo 2. Тест системы истории капы
+echo 2. Тест анализа ОТВЕТОВ на сообщения (обновления кап)
 echo ==========================================
-php artisan test:cap-history-system
+php artisan test:cap-reply-analysis
 echo.
 echo Тест завершен. Нажмите Enter для продолжения...
 pause
 echo.
 
 echo ==========================================
-echo 3. Тест системы статуса капы
+echo 3. Тест системы истории капы
+echo ==========================================
+php artisan test:cap-history
+echo.
+echo Тест завершен. Нажмите Enter для продолжения...
+pause
+echo.
+
+echo ==========================================
+echo 4. Тест системы статуса капы
 echo ==========================================
 php artisan test:cap-status-system
 echo.
@@ -39,18 +48,18 @@ pause
 echo.
 
 echo ==========================================
-echo 4. Тест позиций чата
+echo 5. Тест позиций чата
 echo ==========================================
-php artisan test:chat-positions
+php artisan chats:test-positions
 echo.
 echo Тест завершен. Нажмите Enter для продолжения...
 pause
 echo.
 
 echo ==========================================
-echo 5. Тест полной системы
+echo 6. Тест полной системы
 echo ==========================================
-php artisan test:full-system
+php artisan chats:test-full-system
 echo.
 echo Тест завершен. Нажмите Enter для продолжения...
 pause
