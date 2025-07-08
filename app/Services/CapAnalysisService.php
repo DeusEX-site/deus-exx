@@ -1028,29 +1028,6 @@ class CapAnalysisService
         // Определяем количество записей
         $count = count($caps);
 
-        // Устанавливаем значения по умолчанию для пустых массивов (если поля отсутствуют)
-        if (empty($languages)) {
-            $languages = ['en'];
-        }
-        if (empty($funnels)) {
-            $funnels = [null];
-        }
-        if (empty($totals)) {
-            $totals = [-1];
-        }
-        if (empty($schedules)) {
-            $schedules = ['24/7'];
-        }
-        if (empty($pendingAcqs)) {
-            $pendingAcqs = [false];
-        }
-        if (empty($freezeStatuses)) {
-            $freezeStatuses = [false];
-        }
-        if (empty($dates)) {
-            $dates = [null];
-        }
-
         // Если у необязательного поля только одно значение, применяем его ко всем записям
         if (count($languages) === 1) {
             $languages = array_fill(0, $count, $languages[0]);
@@ -1504,7 +1481,7 @@ class CapAnalysisService
                 foreach ($totalValues as $total) {
                     if (is_numeric($total)) {
                         $totals[] = intval($total);
-                    } else {
+            } else {
                         $totals[] = -1; // Бесконечность для нечисловых значений
                     }
                 }
@@ -1651,10 +1628,6 @@ class CapAnalysisService
         // Определяем количество записей для обновления
         $count = count($geos);
         
-        // Устанавливаем значения по умолчанию для пустых массивов (если поля отсутствуют в обновлении)
-        // НЕ устанавливаем значения по умолчанию здесь, так как при обновлении 
-        // отсутствие поля означает "не изменять", а не "установить по умолчанию"
-        
         // Если у необязательного поля только одно значение, применяем его ко всем записям
         if (count($caps) === 1) {
             $caps = array_fill(0, $count, $caps[0]);
@@ -1731,14 +1704,14 @@ class CapAnalysisService
                 $updateCapData['start_time'] = $existingCap->start_time;
                 $updateCapData['end_time'] = $existingCap->end_time;
                 $updateCapData['timezone'] = $existingCap->timezone;
-            }
-            
-            // Определяем какие поля нужно обновить
-            $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText);
-            
-            if (!empty($updateData)) {
-                CapHistory::createFromCap($existingCap);
-                $existingCap->update($updateData);
+        }
+        
+        // Определяем какие поля нужно обновить
+        $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText);
+        
+        if (!empty($updateData)) {
+            CapHistory::createFromCap($existingCap);
+            $existingCap->update($updateData);
                 $updatedCount++;
                 $messages[] = "Капа для гео {$geo} обновлена";
             }
