@@ -92,7 +92,6 @@ class CapAnalysisService
                     // Дубликат не найден - создаем новую запись
                     Cap::create([
                         'message_id' => $messageId,
-                        'original_message_id' => $messageId, // Для новых кап original_message_id равен message_id
                         'cap_amounts' => [$capData['cap_amount']],
                         'total_amount' => $capData['total_amount'],
                         'schedule' => $capData['schedule'],
@@ -1722,7 +1721,6 @@ class CapAnalysisService
                 // Капа для этого гео не найдена - создаем новую на основе исходной капы
                 $newCapData = [
                     'message_id' => $originalCap->message_id, // Привязываем к исходному сообщению
-                    'original_message_id' => $messageId, 
                     'cap_amounts' => [isset($caps[$i]) ? $caps[$i] : $originalCap->cap_amounts[0]],
                     'total_amount' => isset($totals[$i]) ? $totals[$i] : $originalCap->total_amount,
                     'affiliate_name' => $originalCap->affiliate_name,
