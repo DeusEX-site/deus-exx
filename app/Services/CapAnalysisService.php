@@ -1667,8 +1667,9 @@ class CapAnalysisService
         }
         
         // Проверяем количество элементов
-        if (!empty($caps) && count($caps) !== count($geos)) {
-            return ['cap_entries_count' => 0, 'error' => 'Количество значений Cap должно совпадать с количеством Geo'];
+        // Разрешаем один Cap для всех Geo (применяется ко всем капам)
+        if (!empty($caps) && count($caps) !== count($geos) && count($caps) !== 1) {
+            return ['cap_entries_count' => 0, 'error' => 'Количество значений Cap должно совпадать с количеством Geo или быть равно 1 (для применения ко всем)'];
         }
         
         $updatedCount = 0;
