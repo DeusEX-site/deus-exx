@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::table('caps', function (Blueprint $table) {
             $table->json('offers')->nullable()->after('geos');
-            $table->index('offers');
         });
     }
 
@@ -23,7 +22,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('caps', function (Blueprint $table) {
-            $table->dropIndex(['offers']);
             $table->dropColumn('offers');
         });
     }
