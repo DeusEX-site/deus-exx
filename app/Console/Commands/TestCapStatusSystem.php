@@ -86,9 +86,21 @@ class TestCapStatusSystem extends Command
             return;
         }
         
-        $this->info('📋 Этап 3: Возобновление капы (создание новой)...');
+        $this->info('📋 Этап 3: Возобновление капы (обновление остановленной)...');
         
-        // Создаем новую капу (так как остановленная исключается из дубликатов)
+        // Проверяем существующие капы перед попыткой обновления
+        $existingCaps = Cap::where('affiliate_name', 'G06')
+                          ->where('recipient_name', 'TMedia')
+                          ->whereJsonContains('geos', 'AT')
+                          ->get();
+        
+        $this->info("DEBUG: Существующих кап G06→TMedia(AT): " . $existingCaps->count());
+        foreach ($existingCaps as $existingCap) {
+            $this->info("  - Cap ID {$existingCap->id}: статус {$existingCap->status}, лимит " . implode(',', $existingCap->cap_amounts));
+        }
+        
+        // Система не создает новую капу для остановленной - она обновляет существующую
+        // Отправляем сообщение с обновлением для остановленной капы
         $resumeMessage = Message::create([
             'chat_id' => $chat->id,
             'telegram_message_id' => 1003,
@@ -98,10 +110,72 @@ class TestCapStatusSystem extends Command
         
         $result = $capAnalysisService->analyzeAndSaveCapMessage($resumeMessage->id, $resumeMessage->message);
         
-        if ($result['cap_entries_count'] === 1) {
-            $this->info("✅ Новая капа создана (старая была остановлена)");
+        $this->info("DEBUG: Результат обновления остановленной капы: " . json_encode($result));
+        
+        if ($result['updated_entries_count'] === 1) {
+            $this->info("✅ Остановленная капа обновлена (лимит изменен с 20 на 25)");
         } else {
-            $this->error("❌ Ошибка создания новой капы");
+            $this->error("❌ Ошибка обновления остановленной капы");
+            $this->error("Ожидали: updated_entries_count = 1, получили: " . ($result['updated_entries_count'] ?? 'null'));
+            if (isset($result['error'])) {
+                $this->error("Ошибка: " . $result['error']);
+            }
+            return;
+        }
+        
+        // Получаем обновленную капу (она всё ещё остановленная, но с новым лимитом)
+        $activeCap = Cap::where('affiliate_name', 'G06')
+                       ->where('recipient_name', 'TMedia')
+                       ->whereJsonContains('geos', 'AT')
+                       ->where('status', 'STOP') // Капа всё ещё остановленная
+                       ->first();
+        
+        if (!$activeCap) {
+            $this->error("❌ Ошибка: обновленная капа не найдена");
+            return;
+        }
+        
+        // Проверяем что лимит изменился
+        if ($activeCap->cap_amounts[0] === 25) {
+            $this->info("✅ Лимит капы обновлен с 20 на 25");
+        } else {
+            $this->error("❌ Ошибка: лимит капы не обновился (текущий: " . $activeCap->cap_amounts[0] . ")");
+            return;
+        }
+        
+        $this->info('📋 Этап 3b: Создание новой капы после удаления старой...');
+        
+        // Сначала удаляем старую капу
+        $deleteMessage = Message::create([
+            'chat_id' => $chat->id,
+            'telegram_message_id' => 10031,
+            'user' => 'Test User',
+            'message' => "Affiliate: G06\nRecipient: TMedia\nCap: 25\nGeo: AT\nDELETE"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($deleteMessage->id, $deleteMessage->message);
+        
+        if (isset($result['status_changed']) && $result['status_changed'] === 1) {
+            $this->info("✅ Старая капа удалена");
+        } else {
+            $this->error("❌ Ошибка удаления старой капы");
+            return;
+        }
+        
+        // Теперь создаем новую капу с теми же параметрами
+        $newCapMessage = Message::create([
+            'chat_id' => $chat->id,
+            'telegram_message_id' => 10032,
+            'user' => 'Test User',
+            'message' => "Affiliate: G06\nRecipient: TMedia\nCap: 30\nGeo: AT\nSchedule: 24/7"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($newCapMessage->id, $newCapMessage->message);
+        
+        if ($result['cap_entries_count'] === 1) {
+            $this->info("✅ Новая капа создана после удаления старой");
+        } else {
+            $this->error("❌ Ошибка создания новой капы после удаления старой");
             return;
         }
         
@@ -113,17 +187,17 @@ class TestCapStatusSystem extends Command
                        ->first();
         
         if (!$activeCap) {
-            $this->error("❌ Ошибка: активная капа не найдена");
+            $this->error("❌ Ошибка: новая активная капа не найдена");
             return;
         }
         
         $this->info('📋 Этап 4: Простая команда STOP (через reply_to_message)...');
         
-        // Останавливаем капу простой командой в ответ на изначальное сообщение с капой
+        // Останавливаем капу простой командой в ответ на новое сообщение с капой
         $simpleStopMessage = Message::create([
             'chat_id' => $chat->id,
             'telegram_message_id' => 1004,
-            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
+            'reply_to_message_id' => $newCapMessage->id, // Отвечаем на новое сообщение с капой
             'user' => 'Test User',
             'message' => "STOP"
         ]);
@@ -150,11 +224,11 @@ class TestCapStatusSystem extends Command
         
         $this->info('📋 Этап 5: Простая команда DELETE (через reply_to_message)...');
         
-        // Удаляем капу простой командой в ответ на изначальное сообщение с капой
+        // Удаляем капу простой командой в ответ на новое сообщение с капой
         $simpleDeleteMessage = Message::create([
             'chat_id' => $chat->id,
             'telegram_message_id' => 1005,
-            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
+            'reply_to_message_id' => $newCapMessage->id, // Отвечаем на новое сообщение с капой
             'user' => 'Test User',
             'message' => "DELETE"
         ]);
@@ -179,11 +253,11 @@ class TestCapStatusSystem extends Command
         
         $this->info('📋 Этап 6: Простая команда RESTORE (восстановление из корзины)...');
         
-        // Восстанавливаем удаленную капу простой командой в ответ на изначальное сообщение с капой
+        // Восстанавливаем удаленную капу простой командой в ответ на новое сообщение с капой
         $simpleRestoreMessage = Message::create([
             'chat_id' => $chat->id,
             'telegram_message_id' => 1006,
-            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
+            'reply_to_message_id' => $newCapMessage->id, // Отвечаем на новое сообщение с капой
             'user' => 'Test User',
             'message' => "RESTORE"
         ]);
@@ -220,7 +294,7 @@ class TestCapStatusSystem extends Command
             $stopMessage2 = Message::create([
                 'chat_id' => $chat->id,
                 'telegram_message_id' => 1009, // Изменил с 1007 чтобы не конфликтовать
-                'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
+                'reply_to_message_id' => $newCapMessage->id, // Отвечаем на новое сообщение с капой
                 'user' => 'Test User',
                 'message' => "STOP"
             ]);
@@ -238,11 +312,11 @@ class TestCapStatusSystem extends Command
             $this->info("DEBUG: Статус после STOP: {$activeCap->status}");
         }
         
-        // Теперь запускаем капу командой RUN (отвечаем на изначальное сообщение с капой)
+        // Теперь запускаем капу командой RUN (отвечаем на новое сообщение с капой)
         $simpleRunMessage = Message::create([
             'chat_id' => $chat->id,
             'telegram_message_id' => 1010, // Изменил с 1008 
-            'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
+            'reply_to_message_id' => $newCapMessage->id, // Отвечаем на новое сообщение с капой
             'user' => 'Test User',
             'message' => "RUN"
         ]);
