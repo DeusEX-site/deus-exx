@@ -342,20 +342,60 @@ class TestCapStatusSystem extends Command
         
         $this->info('📋 Этап 8: Проверка фильтрации по статусу...');
         
-        // Проверяем что удаленная капа не показывается в поиске
+        // Сначала удаляем капу для проверки фильтрации
+        $deleteForFilterMessage = Message::create([
+            'chat_id' => $chat->id,
+            'telegram_message_id' => 1011,
+            'reply_to_message_id' => $newCapMessage->id,
+            'user' => 'Test User',
+            'message' => "DELETE"
+        ]);
+        
+        $result = $capAnalysisService->analyzeAndSaveCapMessage($deleteForFilterMessage->id, $deleteForFilterMessage->message);
+        
+        if (isset($result['status_changed']) && $result['status_changed'] === 1) {
+            $this->info("✅ Капа удалена для проверки фильтрации");
+        } else {
+            $this->error("❌ Ошибка удаления капы для проверки фильтрации");
+            return;
+        }
+        
+        // Теперь проверяем что удаленная капа не показывается в поиске активных кап
         $activeCaps = $capAnalysisService->searchCaps(null, $chat->id);
         
-        if (count($activeCaps) === 0) {
+        // Должны найти все активные капы кроме удаленной (в данном чате может быть несколько кап из других тестов)
+        $hasDeletedCap = false;
+        foreach ($activeCaps as $capResult) {
+            if ($capResult['analysis']['affiliate_name'] === 'G06' && 
+                $capResult['analysis']['recipient_name'] === 'TMedia' &&
+                in_array('AT', $capResult['analysis']['geos'])) {
+                $hasDeletedCap = true;
+                break;
+            }
+        }
+        
+        if (!$hasDeletedCap) {
             $this->info("✅ Удаленная капа не отображается в поиске активных кап");
         } else {
-            $this->error("❌ Ошибка: удаленная капа отображается в поиске");
+            $this->error("❌ Ошибка: удаленная капа отображается в поиске активных кап");
             return;
         }
         
         // Проверяем поиск с фильтром по статусу DELETE
         $deletedCaps = $capAnalysisService->searchCapsWithFilters(null, $chat->id, ['status' => 'DELETE']);
         
-        if (count($deletedCaps) === 1) {
+        // Ищем нашу удаленную капу среди результатов
+        $foundDeletedCap = false;
+        foreach ($deletedCaps as $capResult) {
+            if ($capResult['analysis']['affiliate_name'] === 'G06' && 
+                $capResult['analysis']['recipient_name'] === 'TMedia' &&
+                in_array('AT', $capResult['analysis']['geos'])) {
+                $foundDeletedCap = true;
+                break;
+            }
+        }
+        
+        if ($foundDeletedCap) {
             $this->info("✅ Удаленная капа найдена при поиске с фильтром DELETE");
         } else {
             $this->error("❌ Ошибка: удаленная капа не найдена при поиске с фильтром DELETE");
