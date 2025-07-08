@@ -380,110 +380,6 @@
                 grid-template-columns: 1fr;
             }
         }
-        
-        /* Стили для истории капы */
-        .cap-history-toggle {
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            color: #60a5fa;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-top: 1rem;
-            transition: all 0.3s ease;
-            display: block;
-            width: 100%;
-            text-align: center;
-        }
-        
-        .cap-history-toggle:hover {
-            background: rgba(59, 130, 246, 0.3);
-            border-color: rgba(59, 130, 246, 0.5);
-        }
-        
-        .cap-history-toggle:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
-        .cap-history-content {
-            margin-top: 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 1rem;
-            display: none;
-        }
-        
-        .cap-history-content.show {
-            display: block;
-        }
-        
-        .history-item {
-            background: rgba(55, 65, 81, 0.5);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .history-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-        
-        .history-item-meta {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.7);
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .history-item-text {
-            font-size: 0.875rem;
-            color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 0.5rem;
-            line-height: 1.4;
-        }
-        
-        .history-item-analysis {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 0.5rem;
-            font-size: 0.75rem;
-        }
-        
-        .history-analysis-item {
-            background: rgba(30, 30, 60, 0.5);
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            text-align: center;
-        }
-        
-        .history-analysis-item .label {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.625rem;
-            margin-bottom: 0.125rem;
-        }
-        
-        .history-analysis-item .value {
-            color: rgba(255, 255, 255, 0.9);
-            font-weight: 500;
-        }
-        
-        .history-loading {
-            text-align: center;
-            padding: 2rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
-        
-        .history-empty {
-            text-align: center;
-            padding: 2rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
     </style>
 </head>
 <body>
@@ -564,11 +460,11 @@
                 <div class="form-group">
                     <label for="status-filter">Статус</label>
                     <select id="status-filter">
-                        <option value="RUN" selected>Активные</option>
+                        <option value="">Все (кроме удаленных)</option>
+                        <option value="RUN">Активные</option>
                         <option value="STOP">Остановленные</option>
                         <option value="DELETE">Корзина (удаленные)</option>
                         <option value="all">Все (включая удаленные)</option>
-                        <option value="">Все (кроме удаленных)</option>
                     </select>
                 </div>
                 <div class="form-buttons">
@@ -772,7 +668,7 @@
             const elements = [
                 'search', 'chat-select', 'geo-filter', 'broker-filter', 
                 'affiliate-filter', 'language-filter', 'funnel-filter', 
-                'schedule-filter', 'total-filter'
+                'schedule-filter', 'total-filter', 'status-filter'
             ];
             
             elements.forEach(id => {
@@ -783,12 +679,6 @@
                     console.warn(`Элемент ${id} не найден при очистке фильтров`);
                 }
             });
-            
-            // Статус возвращаем к "Активные" по умолчанию
-            const statusFilter = document.getElementById('status-filter');
-            if (statusFilter) {
-                statusFilter.value = 'RUN';
-            }
             
             // Очистка результатов
             const messageList = document.getElementById('message-list');
@@ -1005,16 +895,6 @@
                             </div>
                         </div>
                         `).join('')}
-                        
-                        <!-- Кнопка для показа истории капы -->
-                        ${caps.length > 0 && caps[0] ? `
-                            <button class="cap-history-toggle" onclick="toggleCapHistory('${msg.id.split('_')[1]}', this)">
-                                📜 Показать историю изменений
-                            </button>
-                            <div class="cap-history-content" id="history-${msg.id.split('_')[1]}">
-                                <!-- История будет загружена сюда -->
-                            </div>
-                        ` : ''}
                     </div>
                 `;
             }).join('');
@@ -1248,149 +1128,6 @@
             loadChats();
             loadFilterOptions();
         });
-        
-        // Функции для работы с историей капы
-        async function toggleCapHistory(capId, button) {
-            const historyContainer = document.getElementById(`history-${capId}`);
-            
-            if (!historyContainer) {
-                console.error(`История контейнер не найден для капы ${capId}`);
-                return;
-            }
-            
-            // Если история уже показана, скрываем её
-            if (historyContainer.classList.contains('show')) {
-                historyContainer.classList.remove('show');
-                button.textContent = '📜 Показать историю изменений';
-                return;
-            }
-            
-            // Показываем историю
-            historyContainer.classList.add('show');
-            button.textContent = '📜 Скрыть историю изменений';
-            button.disabled = true;
-            
-            // Если история еще не загружена, загружаем её
-            if (!historyContainer.dataset.loaded) {
-                await loadCapHistory(capId, historyContainer);
-                historyContainer.dataset.loaded = 'true';
-            }
-            
-            button.disabled = false;
-        }
-        
-        async function loadCapHistory(capId, container) {
-            container.innerHTML = '<div class="history-loading">⏳ Загрузка истории...</div>';
-            
-            try {
-                const response = await fetch(`/api/cap-history/${capId}`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        renderCapHistory(data.history, container);
-                    } else {
-                        container.innerHTML = `<div class="history-empty">❌ Ошибка: ${data.message}</div>`;
-                    }
-                } else {
-                    container.innerHTML = '<div class="history-empty">❌ Ошибка загрузки истории</div>';
-                }
-                
-            } catch (error) {
-                console.error('Ошибка загрузки истории капы:', error);
-                container.innerHTML = '<div class="history-empty">❌ Ошибка соединения</div>';
-            }
-        }
-        
-        function renderCapHistory(history, container) {
-            if (!history || history.length === 0) {
-                container.innerHTML = '<div class="history-empty">📭 История изменений пуста</div>';
-                return;
-            }
-            
-            const historyHtml = history.map(item => {
-                const analysis = item.analysis;
-                
-                return `
-                    <div class="history-item">
-                        <div class="history-item-header">
-                            <div class="history-item-meta">
-                                <span>👤 ${item.user}</span>
-                                <span>💬 ${item.chat_name}</span>
-                                <span>📅 ${item.timestamp}</span>
-                                <span>🗂️ Архивировано: ${item.archived_at}</span>
-                                <span style="padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-weight: 500; font-size: 0.625rem;
-                                    background: ${analysis.status === 'RUN' ? 'rgba(16, 185, 129, 0.3)' : analysis.status === 'STOP' ? 'rgba(251, 146, 60, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; 
-                                    color: ${analysis.status === 'RUN' ? '#10b981' : analysis.status === 'STOP' ? '#f59e0b' : '#ef4444'};">
-                                    ${analysis.status === 'RUN' ? '✅ АКТИВНАЯ' : analysis.status === 'STOP' ? '⏸️ ОСТАНОВЛЕНА' : '🗑️ УДАЛЕНА'}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div class="history-item-text">${highlightCapWords(item.message)}</div>
-                        
-                        <div class="history-item-analysis">
-                            <div class="history-analysis-item">
-                                <div class="label">Капа</div>
-                                <div class="value">${analysis.cap_amounts && analysis.cap_amounts.length > 0 ? analysis.cap_amounts.join(', ') : '—'}</div>
-                            </div>
-                            
-                            <div class="history-analysis-item">
-                                <div class="label">Лимит</div>
-                                <div class="value">${analysis.total_amount === -1 ? '∞' : (analysis.total_amount || '—')}</div>
-                            </div>
-                            
-                            <div class="history-analysis-item">
-                                <div class="label">Аффилейт</div>
-                                <div class="value">${analysis.affiliate_name || '—'}</div>
-                            </div>
-                            
-                            <div class="history-analysis-item">
-                                <div class="label">Получатель</div>
-                                <div class="value">${analysis.recipient_name || '—'}</div>
-                            </div>
-                            
-                            <div class="history-analysis-item">
-                                <div class="label">Гео</div>
-                                <div class="value">${analysis.geos && analysis.geos.length > 0 ? analysis.geos.join(', ') : '—'}</div>
-                            </div>
-                            
-                            <div class="history-analysis-item">
-                                <div class="label">Расписание</div>
-                                <div class="value">${analysis.schedule || '24/7'}</div>
-                            </div>
-                            
-                            <div class="history-analysis-item">
-                                <div class="label">Дата</div>
-                                <div class="value">${analysis.date || '∞'}</div>
-                            </div>
-                            
-                            ${analysis.language ? `
-                                <div class="history-analysis-item">
-                                    <div class="label">Язык</div>
-                                    <div class="value">${analysis.language}</div>
-                                </div>
-                            ` : ''}
-                            
-                            ${analysis.funnel ? `
-                                <div class="history-analysis-item">
-                                    <div class="label">Воронка</div>
-                                    <div class="value">${analysis.funnel}</div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            container.innerHTML = historyHtml;
-        }
     </script>
 </body>
 </html> 

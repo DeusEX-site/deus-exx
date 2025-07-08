@@ -290,67 +290,6 @@ Route::middleware('auth')->get('/api/cap-analysis-filters', function (Request $r
     }
 });
 
-// API для получения истории капы
-Route::middleware('auth')->get('/api/cap-history/{capId}', function (Request $request, $capId) {
-    try {
-        $cap = \App\Models\Cap::findOrFail($capId);
-        
-        // Получаем историю капы
-        $history = \App\Models\CapHistory::where('cap_id', $capId)
-            ->with(['message' => function($q) {
-                $q->with('chat');
-            }, 'originalMessage' => function($q) {
-                $q->with('chat');
-            }])
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
-        $historyData = $history->map(function($item) {
-            // Используем original_message_id если есть, иначе fallback на message_id
-            $messageToShow = $item->originalMessage ?? $item->message;
-            
-            return [
-                'id' => $item->id,
-                'message' => $messageToShow->message ?? 'Сообщение удалено',
-                'user' => $messageToShow->display_name ?? 'Неизвестный',
-                'chat_name' => $messageToShow->chat->display_name ?? 'Неизвестный чат',
-                'timestamp' => $item->created_at->format('d.m.Y H:i'),
-                'archived_at' => $item->archived_at->format('d.m.Y H:i'),
-                'status' => $item->status,
-                'analysis' => [
-                    'cap_amounts' => $item->cap_amounts,
-                    'total_amount' => $item->total_amount,
-                    'schedule' => $item->schedule,
-                    'date' => $item->date,
-                    'affiliate_name' => $item->affiliate_name,
-                    'recipient_name' => $item->recipient_name,
-                    'geos' => $item->geos ?? [],
-                    'language' => $item->language,
-                    'funnel' => $item->funnel,
-                    'status' => $item->status
-                ]
-            ];
-        });
-        
-        return response()->json([
-            'success' => true,
-            'history' => $historyData,
-            'total' => $historyData->count()
-        ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('Cap history failed', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Ошибка получения истории: ' . $e->getMessage()
-        ], 500);
-    }
-});
-
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('dashboard');
