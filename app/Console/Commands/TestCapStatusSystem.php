@@ -219,10 +219,9 @@ class TestCapStatusSystem extends Command
         if ($activeCap->status !== 'STOP') {
             $stopMessage2 = Message::create([
                 'chat_id' => $chat->id,
-                'message_id' => 1009, // Изменил с 1007 чтобы не конфликтовать
+                'telegram_message_id' => 1009, // Изменил с 1007 чтобы не конфликтовать
                 'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
-                'user_id' => 1,
-                'display_name' => 'Test User',
+                'user' => 'Test User',
                 'message' => "STOP"
             ]);
             
@@ -242,10 +241,9 @@ class TestCapStatusSystem extends Command
         // Теперь запускаем капу командой RUN (отвечаем на изначальное сообщение с капой)
         $simpleRunMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1010, // Изменил с 1008 
+            'telegram_message_id' => 1010, // Изменил с 1008 
             'reply_to_message_id' => $resumeMessage->id, // Всегда отвечаем на изначальное сообщение с капой
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "RUN"
         ]);
         
@@ -307,9 +305,8 @@ class TestCapStatusSystem extends Command
         // Создаем новую капу для тестирования обновления
         $newCapMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1020,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'telegram_message_id' => 1020,
+            'user' => 'Test User',
             'message' => "Affiliate: TestAffiliate\nRecipient: TestRecipient\nCap: 30\nGeo: DE\nSchedule: 24/7"
         ]);
         
@@ -325,10 +322,9 @@ class TestCapStatusSystem extends Command
         // Обновляем капу через reply_to_message (указываем только Geo)
         $updateMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1021,
+            'telegram_message_id' => 1021,
             'reply_to_message_id' => $newCapMessage->id, // Отвечаем на сообщение с капой
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "Cap: 35\nGeo: DE" // Только Geo обязательно, Cap обновляем
         ]);
         
@@ -358,10 +354,9 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - обновление с неправильным гео
         $wrongGeoMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1022,
+            'telegram_message_id' => 1022,
             'reply_to_message_id' => $newCapMessage->id,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "Cap: 40\nGeo: FR" // Неправильное гео
         ]);
         
@@ -379,9 +374,8 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - попытка изменить статус несуществующей капы
         $errorMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1030,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'telegram_message_id' => 1030,
+            'user' => 'Test User',
             'message' => "Affiliate: NonExistent\nRecipient: NonExistent\nCap: 999\nGeo: XX\nSTOP"
         ]);
         
@@ -397,9 +391,8 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - простая команда без reply_to_message
         $noReplyMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1031,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'telegram_message_id' => 1031,
+            'user' => 'Test User',
             'message' => "STOP"
         ]);
         
@@ -447,9 +440,8 @@ class TestCapStatusSystem extends Command
         // Создаем сообщение с капой
         $newCapMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1021,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'telegram_message_id' => 1021,
+            'user' => 'Test User',
             'message' => "Affiliate: TestAffiliate\nRecipient: TestRecipient\nCap: 30\nGeo: DE"
         ]);
         
@@ -465,10 +457,9 @@ class TestCapStatusSystem extends Command
         // Тестируем обновление капы через reply с упрощенным форматом (только Geo + поля для обновления)
         $updateMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1022,
+            'telegram_message_id' => 1022,
             'reply_to_message_id' => $newCapMessage->id,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "Geo: DE\nCap: 35\nSchedule: 10:00/18:00"
         ]);
         
@@ -498,10 +489,9 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - обновление с неправильным гео
         $errorMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1023,
+            'telegram_message_id' => 1023,
             'reply_to_message_id' => $newCapMessage->id,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "Geo: FR\nCap: 40" // Неправильный гео
         ]);
         
@@ -517,10 +507,9 @@ class TestCapStatusSystem extends Command
         // Тестируем ошибку - обновление без гео
         $noGeoMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1024,
+            'telegram_message_id' => 1024,
             'reply_to_message_id' => $newCapMessage->id,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "Cap: 50\nSchedule: 24/7" // Без гео
         ]);
         
@@ -536,10 +525,9 @@ class TestCapStatusSystem extends Command
         // Тестируем обновление с пустыми полями (сброс до значений по умолчанию)
         $resetMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1025,
+            'telegram_message_id' => 1025,
             'reply_to_message_id' => $newCapMessage->id,
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "Geo: DE\nTotal:\nSchedule:\nLanguage:" // Пустые поля
         ]);
         
@@ -569,10 +557,9 @@ class TestCapStatusSystem extends Command
         // Тестируем обновление через цепочку reply (reply на reply)
         $chainReplyMessage = Message::create([
             'chat_id' => $chat->id,
-            'message_id' => 1026,
+            'telegram_message_id' => 1026,
             'reply_to_message_id' => $updateMessage->id, // Отвечаем на сообщение с обновлением
-            'user_id' => 1,
-            'display_name' => 'Test User',
+            'user' => 'Test User',
             'message' => "Geo: DE\nCap: 45\nLanguage: de"
         ]);
         
