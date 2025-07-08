@@ -630,10 +630,10 @@ class CapAnalysisService
     private function isStandardCapMessage($messageText)
     {
         // Ищем обязательные поля: Affiliate, Recipient, Cap, Geo
-        $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/m', $messageText);
-        $hasRecipient = preg_match('/^Recipient:\s*(.+)$/m', $messageText);
-        $hasCap = preg_match('/^Cap:\s*(.+)$/m', $messageText);
-        $hasGeo = preg_match('/^Geo:\s*(.+)$/m', $messageText);
+        $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/mi', $messageText);
+        $hasRecipient = preg_match('/^Recipient:\s*(.+)$/mi', $messageText);
+        $hasCap = preg_match('/^(Cap|CAP):\s*(.+)$/mi', $messageText);
+        $hasGeo = preg_match('/^Geo:\s*(.+)$/mi', $messageText);
         
         return $hasAffiliate && $hasRecipient && $hasCap && $hasGeo;
     }
@@ -671,7 +671,7 @@ class CapAnalysisService
     }
 
     /**
-     * Специальный парсер для Schedule с учетом GMT
+     * Специальный парсер для Schedule с учетом различных форматов
      */
     private function parseScheduleValues($value)
     {
@@ -682,53 +682,26 @@ class CapAnalysisService
         $schedules = [];
         $value = trim($value);
         
-        // Сначала разбиваем по запятым и пробелам
-        $allParts = preg_split('/[,\s]+/', $value);
-        
-        $i = 0;
-        while ($i < count($allParts)) {
-            $part = trim($allParts[$i]);
-            if ($this->isEmpty($part)) {
-                $i++;
-                continue;
-            }
-            
-            // Проверяем на 24/7
-            if (preg_match('/^(24\/7|24-7)$/i', $part)) {
-                $schedules[] = '24/7';
-                $i++;
-                continue;
-            }
-            
-            // Проверяем на время формата HH:MM/HH:MM
-            if (preg_match('/^\d{1,2}:\d{2}\/\d{1,2}:\d{2}$/', $part)) {
-                // Проверяем следующий элемент на GMT
-                if ($i + 1 < count($allParts) && preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $allParts[$i + 1])) {
-                    $schedules[] = $part . ' ' . $allParts[$i + 1];
-                    $i += 2; // Пропускаем GMT
-                } else {
-                    $schedules[] = $part;
-                    $i++;
-                }
-                continue;
-            }
-            
-            // Если это GMT без времени перед ним, игнорируем
-            if (preg_match('/^GMT[+-]\d{1,2}:\d{2}$/i', $part)) {
-                $i++;
-                continue;
-            }
-            
-            $i++;
+        // Если вся строка - это одно расписание (нет запятых для разделения)
+        if (!strpos($value, ',')) {
+            return [$value];
         }
         
-        return array_filter($schedules, function($val) {
-            return !$this->isEmpty($val);
-        });
+        // Разбиваем по запятым, но учитываем что внутри времени могут быть пробелы
+        $parts = explode(',', $value);
+        
+        foreach ($parts as $part) {
+            $schedule = trim($part);
+            if (!$this->isEmpty($schedule)) {
+                $schedules[] = $schedule;
+            }
+        }
+        
+        return $schedules;
     }
 
     /**
-     * Парсит время из Schedule (например: "18:00/01:00 GMT+03:00")
+     * Парсит время из Schedule с поддержкой различных форматов
      */
     private function parseScheduleTime($schedule)
     {
@@ -748,32 +721,63 @@ class CapAnalysisService
         // Убираем лишние пробелы
         $schedule = preg_replace('/\s+/', ' ', $schedule);
         
-        // Парсим время с GMT: "18:00/01:00 GMT+03:00"
-        if (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})\s+(GMT[+-]\d{1,2}:\d{2})/i', $schedule, $matches)) {
-            $timeOnly = $matches[1] . '/' . $matches[2];
+        // Преобразуем различные форматы времени к единому виду
+        $normalizedSchedule = $schedule;
+        $timezone = null;
+        
+        // Извлекаем часовой пояс (поддержка +3, GMT+3, GMT+03:00, etc.)
+        if (preg_match('/\s*(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', $normalizedSchedule, $tzMatches)) {
+            $timezone = 'GMT' . $tzMatches[2];
+            if (!isset($tzMatches[3])) {
+                $timezone .= ':00';
+            } else {
+                $timezone .= $tzMatches[3];
+            }
+            // Удаляем часовой пояс из строки для дальнейшей обработки
+            $normalizedSchedule = preg_replace('/\s*(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', '', $normalizedSchedule);
+        }
+        
+        // Нормализуем разделители времени (точки на двоеточия)
+        $normalizedSchedule = str_replace('.', ':', $normalizedSchedule);
+        
+        // Обработка различных форматов
+        $startTime = null;
+        $endTime = null;
+        
+        // Формат: "8:30 - 14:30" или "8.30 - 14.30" (уже нормализовано)
+        if (preg_match('/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/', $normalizedSchedule, $matches)) {
+            $startTime = $matches[1];
+            $endTime = $matches[2];
+        }
+        // Формат: "10-19" или "10 - 19" (без минут)
+        elseif (preg_match('/(\d{1,2})\s*[-–]\s*(\d{1,2})(?!:|\.)/', $normalizedSchedule, $matches)) {
+            $startTime = $matches[1] . ':00';
+            $endTime = $matches[2] . ':00';
+        }
+        // Формат: "18:00/01:00" (слэш вместо дефиса)
+        elseif (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})/', $normalizedSchedule, $matches)) {
+            $startTime = $matches[1];
+            $endTime = $matches[2];
+        }
+        // Формат: "10/19" (слэш, без минут)
+        elseif (preg_match('/(\d{1,2})\/(\d{1,2})/', $normalizedSchedule, $matches)) {
+            $startTime = $matches[1] . ':00';
+            $endTime = $matches[2] . ':00';
+        }
+        
+        if ($startTime && $endTime) {
+            $timeOnly = $startTime . '/' . $endTime;
             return [
                 'schedule' => $timeOnly,
                 'work_hours' => $timeOnly,
                 'is_24_7' => false,
-                'start_time' => $matches[1],
-                'end_time' => $matches[2],
-                'timezone' => $matches[3]
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'timezone' => $timezone
             ];
         }
         
-        // Парсим время без GMT: "18:00/01:00"
-        if (preg_match('/(\d{1,2}:\d{2})\/(\d{1,2}:\d{2})/', $schedule, $matches)) {
-            $timeOnly = $matches[1] . '/' . $matches[2];
-            return [
-                'schedule' => $timeOnly,
-                'work_hours' => $timeOnly,
-                'is_24_7' => false,
-                'start_time' => $matches[1],
-                'end_time' => $matches[2],
-                'timezone' => null
-            ];
-        }
-        
+        // Если не удалось распарсить, возвращаем как есть
         return [
             'schedule' => $schedule,
             'work_hours' => $schedule,
@@ -816,8 +820,9 @@ class CapAnalysisService
         $caps = [];
         $geos = [];
 
-        if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
-            $capValues = $this->parseMultipleValues($matches[1]);
+        // Поддержка как Cap так и CAP
+        if (preg_match('/^(Cap|CAP):\s*(.+)$/mi', $messageText, $matches)) {
+            $capValues = $this->parseMultipleValues($matches[2]);
             foreach ($capValues as $cap) {
                 if (is_numeric($cap)) {
                     $caps[] = intval($cap);
@@ -825,7 +830,7 @@ class CapAnalysisService
             }
         }
 
-        if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^Geo:\s*(.+)$/mi', $messageText, $matches)) {
             $geos = $this->parseMultipleValues($matches[1]);
         }
 
@@ -843,8 +848,17 @@ class CapAnalysisService
         $freezeStatuses = [];
         $dates = [];
 
-        if (preg_match('/^Language:\s*(.*)$/m', $messageText, $matches)) {
-            $languageValue = trim($matches[1]);
+        // Обработка Language с учетом возможных дубликатов и пустых значений
+        if (preg_match_all('/^Language:\s*(.*)$/m', $messageText, $matches)) {
+            $languageValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $languageValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($languageValue)) {
                 $languages = $this->parseMultipleValues($languageValue);
             } else {
@@ -852,8 +866,17 @@ class CapAnalysisService
             }
         }
 
-        if (preg_match('/^Funnel:\s*(.*)$/m', $messageText, $matches)) {
-            $funnelValue = trim($matches[1]);
+        // Обработка Funnel с учетом возможных дубликатов и пустых значений
+        if (preg_match_all('/^Funnel:\s*(.*)$/m', $messageText, $matches)) {
+            $funnelValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $funnelValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($funnelValue)) {
                 $funnels = $this->parseMultipleValues($funnelValue, true); // Только запятые
             } else {
@@ -861,8 +884,17 @@ class CapAnalysisService
             }
         }
 
-        if (preg_match('/^Total:\s*(.*)$/m', $messageText, $matches)) {
-            $totalValue = trim($matches[1]);
+        // Обработка Total с учетом возможных дубликатов и пустых значений
+        if (preg_match_all('/^Total:\s*(.*)$/m', $messageText, $matches)) {
+            $totalValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $totalValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($totalValue)) {
                 $totalValues = $this->parseMultipleValues($totalValue);
                 foreach ($totalValues as $total) {
@@ -877,17 +909,36 @@ class CapAnalysisService
             }
         }
 
-        if (preg_match('/^Schedule:\s*(.*)$/m', $messageText, $matches)) {
-            $scheduleValue = trim($matches[1]);
+        // Обработка Schedule с учетом возможных дубликатов
+        if (preg_match_all('/^Schedule:\s*(.*)$/m', $messageText, $matches)) {
+            // Если найдено несколько полей Schedule, выбираем непустое
+            $scheduleValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $scheduleValue = $trimmed;
+                    break; // Берем первое непустое значение
+                }
+            }
+            
             if (!$this->isEmpty($scheduleValue)) {
                 $schedules = $this->parseScheduleValues($scheduleValue); // Специальный парсер для Schedule
             } else {
-                $schedules = ['24/7']; // Значение по умолчанию для пустого поля
+                $schedules = ['24/7']; // Значение по умолчанию если все поля пустые
             }
         }
 
-        if (preg_match('/^Pending ACQ:\s*(.*)$/m', $messageText, $matches)) {
-            $pendingValue = trim($matches[1]);
+        // Обработка Pending ACQ с учетом возможных дубликатов и пустых значений
+        if (preg_match_all('/^Pending ACQ:\s*(.*)$/m', $messageText, $matches)) {
+            $pendingValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $pendingValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($pendingValue)) {
                 $pendingValues = $this->parseMultipleValues($pendingValue, true); // Только запятые
                 foreach ($pendingValues as $pending) {
@@ -898,8 +949,17 @@ class CapAnalysisService
             }
         }
 
-        if (preg_match('/^Freeze status on ACQ:\s*(.*)$/m', $messageText, $matches)) {
-            $freezeValue = trim($matches[1]);
+        // Обработка Freeze status on ACQ с учетом возможных дубликатов и пустых значений
+        if (preg_match_all('/^Freeze status on ACQ:\s*(.*)$/m', $messageText, $matches)) {
+            $freezeValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $freezeValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($freezeValue)) {
                 $freezeValues = $this->parseMultipleValues($freezeValue, true); // Только запятые
                 foreach ($freezeValues as $freeze) {
@@ -910,8 +970,17 @@ class CapAnalysisService
             }
         }
 
-        if (preg_match('/^Date:\s*(.*)$/m', $messageText, $matches)) {
-            $dateValue = trim($matches[1]);
+        // Обработка Date с учетом возможных дубликатов и пустых значений
+        if (preg_match_all('/^Date:\s*(.*)$/m', $messageText, $matches)) {
+            $dateValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $dateValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($dateValue)) {
                 $dateValues = $this->parseMultipleValues($dateValue); // Пробелы и запятые
                 foreach ($dateValues as $date) {
@@ -1373,8 +1442,16 @@ class CapAnalysisService
         }
         
         // Total
-        if (preg_match('/^Total:\s*(.*)$/m', $messageText, $matches)) {
-            $totalValue = trim($matches[1]);
+        if (preg_match_all('/^Total:\s*(.*)$/m', $messageText, $matches)) {
+            $totalValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $totalValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($totalValue)) {
                 $totalValues = $this->parseMultipleValues($totalValue);
                 foreach ($totalValues as $total) {
@@ -1390,8 +1467,16 @@ class CapAnalysisService
         }
         
         // Schedule
-        if (preg_match('/^Schedule:\s*(.*)$/m', $messageText, $matches)) {
-            $scheduleValue = trim($matches[1]);
+        if (preg_match_all('/^Schedule:\s*(.*)$/m', $messageText, $matches)) {
+            $scheduleValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $scheduleValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($scheduleValue)) {
                 $schedules = $this->parseScheduleValues($scheduleValue);
             } else {
@@ -1400,8 +1485,16 @@ class CapAnalysisService
         }
         
         // Date
-        if (preg_match('/^Date:\s*(.*)$/m', $messageText, $matches)) {
-            $dateValue = trim($matches[1]);
+        if (preg_match_all('/^Date:\s*(.*)$/m', $messageText, $matches)) {
+            $dateValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $dateValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($dateValue)) {
                 $dateValues = $this->parseMultipleValues($dateValue);
                 foreach ($dateValues as $date) {
@@ -1423,8 +1516,16 @@ class CapAnalysisService
         }
         
         // Language
-        if (preg_match('/^Language:\s*(.*)$/m', $messageText, $matches)) {
-            $languageValue = trim($matches[1]);
+        if (preg_match_all('/^Language:\s*(.*)$/m', $messageText, $matches)) {
+            $languageValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $languageValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($languageValue)) {
                 $languages = $this->parseMultipleValues($languageValue);
             } else {
@@ -1433,8 +1534,16 @@ class CapAnalysisService
         }
         
         // Funnel
-        if (preg_match('/^Funnel:\s*(.*)$/m', $messageText, $matches)) {
-            $funnelValue = trim($matches[1]);
+        if (preg_match_all('/^Funnel:\s*(.*)$/m', $messageText, $matches)) {
+            $funnelValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $funnelValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($funnelValue)) {
                 $funnels = $this->parseMultipleValues($funnelValue, true); // Только запятые
             } else {
@@ -1443,8 +1552,16 @@ class CapAnalysisService
         }
         
         // Pending ACQ
-        if (preg_match('/^Pending ACQ:\s*(.*)$/m', $messageText, $matches)) {
-            $pendingValue = trim($matches[1]);
+        if (preg_match_all('/^Pending ACQ:\s*(.*)$/m', $messageText, $matches)) {
+            $pendingValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $pendingValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($pendingValue)) {
                 $pendingValues = $this->parseMultipleValues($pendingValue, true);
                 foreach ($pendingValues as $pending) {
@@ -1456,8 +1573,16 @@ class CapAnalysisService
         }
         
         // Freeze status on ACQ
-        if (preg_match('/^Freeze status on ACQ:\s*(.*)$/m', $messageText, $matches)) {
-            $freezeValue = trim($matches[1]);
+        if (preg_match_all('/^Freeze status on ACQ:\s*(.*)$/m', $messageText, $matches)) {
+            $freezeValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $freezeValue = $trimmed;
+                    break;
+                }
+            }
+            
             if (!$this->isEmpty($freezeValue)) {
                 $freezeValues = $this->parseMultipleValues($freezeValue, true);
                 foreach ($freezeValues as $freeze) {
