@@ -30,12 +30,14 @@ class TestCapAnalysis extends Command
     private function createTestMessages()
     {
         // Создаем тестовый чат если его нет
-        $chat = Chat::firstOrCreate([
-            'chat_id' => -1001234567890,
-            'type' => 'supergroup',
-            'title' => 'Test Cap Analysis Chat',
-            'is_active' => true,
-        ]);
+        $chat = Chat::updateOrCreate(
+            ['chat_id' => -1001234567890], // Поиск по уникальному полю
+            [
+                'type' => 'supergroup',
+                'title' => 'Test Cap Analysis Chat',
+                'is_active' => true,
+            ]
+        );
 
         // Удаляем старые тестовые сообщения
         Message::where('chat_id', $chat->id)->where('user', 'TestCapAnalysis')->delete();

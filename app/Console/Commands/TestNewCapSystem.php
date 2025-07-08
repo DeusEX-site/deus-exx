@@ -18,11 +18,13 @@ class TestNewCapSystem extends Command
         $this->info('Тестирование новой системы отдельных записей кап...');
         
         // Создаем тестовый чат
-        $chat = Chat::firstOrCreate([
-            'chat_id' => -999999,
-            'type' => 'supergroup',
-            'title' => 'Тестовый чат для кап'
-        ]);
+        $chat = Chat::updateOrCreate(
+            ['chat_id' => -999999], // Поиск по уникальному полю
+            [
+                'type' => 'supergroup',
+                'title' => 'Тестовый чат для кап'
+            ]
+        );
         
         // Создаем тестовые сообщения
         $testMessages = [

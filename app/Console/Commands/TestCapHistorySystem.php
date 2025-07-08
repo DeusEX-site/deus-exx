@@ -21,11 +21,13 @@ class TestCapHistorySystem extends Command
         $capAnalysisService = app(CapAnalysisService::class);
         
         // Создаем тестовый чат и сообщения
-        $chat = Chat::firstOrCreate([
-            'chat_id' => -9999999,
-            'type' => 'group',
-            'title' => 'Test Cap History Chat'
-        ]);
+        $chat = Chat::updateOrCreate(
+            ['chat_id' => -9999999], // Поиск по уникальному полю
+            [
+                'type' => 'group',
+                'title' => 'Test Cap History Chat'
+            ]
+        );
         
         // Шаг 1: Создание первоначальной капы
         $this->info("\n📝 Шаг 1: Создание первоначальных кап");

@@ -20,11 +20,13 @@ class TestCapStatusSystem extends Command
         $capAnalysisService = new CapAnalysisService();
         
         // Создаем тестовый чат
-        $chat = Chat::firstOrCreate([
-            'chat_id' => -1001234567890,
-            'title' => 'Test Chat (Status System)',
-            'display_order' => 1
-        ]);
+        $chat = Chat::updateOrCreate(
+            ['chat_id' => -1001234567890], // Поиск по уникальному полю
+            [
+                'title' => 'Test Chat (Status System)',
+                'display_order' => 1
+            ]
+        );
         
         // Очищаем предыдущие тестовые данные
         Cap::where('affiliate_name', 'G06')->delete();

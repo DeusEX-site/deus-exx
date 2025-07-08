@@ -31,12 +31,14 @@ class TestCapReplyAnalysis extends Command
     private function setupTestData()
     {
         // Создаем тестовый чат
-        $chat = Chat::firstOrCreate([
-            'chat_id' => -1001234567891,
-            'type' => 'supergroup',
-            'title' => 'Test Cap Reply Chat',
-            'is_active' => true,
-        ]);
+        $chat = Chat::updateOrCreate(
+            ['chat_id' => -1001234567891], // Поиск по уникальному полю
+            [
+                'type' => 'supergroup',
+                'title' => 'Test Cap Reply Chat',
+                'is_active' => true,
+            ]
+        );
 
         // Очищаем старые данные
         Message::where('chat_id', $chat->id)->where('user', 'TestCapReply')->delete();
