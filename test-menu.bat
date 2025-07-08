@@ -80,23 +80,38 @@ echo ==========================================
 echo        ТЕСТЫ ПОЗИЦИЙ И ЧАТОВ
 echo ==========================================
 echo.
+echo 0. Создание тестовых чатов
+php create_test_chats.php
+echo.
+pause
+echo.
 echo 1. Тест позиций чата
-php artisan test:chat-positions
+php artisan chats:test-positions
 echo.
 pause
 echo.
 echo 2. Тест стабильности позиций
-php artisan test:position-stability
+php artisan chats:test-stability-final
 echo.
 pause
 echo.
 echo 3. Тест правила топ-10
-php artisan test:top-ten-rule
+php artisan chats:test-top-ten
 echo.
 pause
 echo.
 echo 4. Тест стабильности топ-3
-php artisan test:top-three-stability
+php artisan chats:test-stability
+echo.
+pause
+echo.
+echo 5. Тест логики замены
+php artisan chats:test-replacement
+echo.
+pause
+echo.
+echo 6. Полный тест системы чатов
+php artisan chats:test-full-system
 echo.
 pause
 echo.
