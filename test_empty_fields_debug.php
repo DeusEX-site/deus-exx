@@ -22,13 +22,13 @@ echo "---\n$messageText\n---\n\n";
 
 // Тестируем каждое поле отдельно
 $fields = [
-    'Language' => '/^Language:\s*(.*)$/m',
-    'Funnel' => '/^Funnel:\s*(.*)$/m', 
-    'Total' => '/^Total:\s*(.*)$/m',
-    'Date' => '/^Date:\s*(.*)$/m',
-    'Schedule' => '/^Schedule:\s*(.*)$/m',
-    'Pending ACQ' => '/^Pending ACQ:\s*(.*)$/m',
-    'Freeze status on ACQ' => '/^Freeze status on ACQ:\s*(.*)$/m'
+    'Language' => '/^Language:\s*([^\n\r]*)$/m',
+    'Funnel' => '/^Funnel:\s*([^\n\r]*)$/m', 
+    'Total' => '/^Total:\s*([^\n\r]*)$/m',
+    'Date' => '/^Date:\s*([^\n\r]*)$/m',
+    'Schedule' => '/^Schedule:\s*([^\n\r]*)$/m',
+    'Pending ACQ' => '/^Pending ACQ:\s*([^\n\r]*)$/m',
+    'Freeze status on ACQ' => '/^Freeze status on ACQ:\s*([^\n\r]*)$/m'
 ];
 
 foreach ($fields as $fieldName => $pattern) {
@@ -99,7 +99,7 @@ foreach ($testValues as $value) {
 echo "\n\n=== Checking Language parsing issue ===\n";
 
 // Симулируем парсинг Language
-if (preg_match_all('/^Language:\s*(.*)$/m', $messageText, $matches)) {
+if (preg_match_all('/^Language:\s*([^\n\r]*)$/m', $messageText, $matches)) {
     $languageValue = null;
     foreach ($matches[1] as $match) {
         $trimmed = trim($match);
