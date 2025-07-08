@@ -884,6 +884,11 @@
                                 <div class="value">${cap.geos && cap.geos.length > 0 ? cap.geos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
+                            <div class="analysis-item ${cap.offers && cap.offers.length > 0 ? 'positive' : 'neutral'}">
+                                <div class="label">Оффер</div>
+                                <div class="value">${(cap.offers && cap.offers.length > 0) ? cap.offers.join(', ') : '—'}</div>
+                            </div>
+                            
                             <div class="analysis-item ${cap.language && cap.language.trim() ? 'positive' : 'neutral'}">
                                 <div class="label">Язык</div>
                                 <div class="value">${(cap.language && cap.language.trim()) ? cap.language : '—'}</div>
@@ -925,6 +930,7 @@
         function updateStats(messages) {
             let totalCapAmount = 0;
             const uniqueGeos = new Set();
+            const uniqueOffers = new Set();
             const uniqueAffiliates = new Set();
             const uniqueBrokers = new Set();
             
@@ -945,6 +951,13 @@
                 if (analysis.geos && analysis.geos.length > 0) {
                     analysis.geos.forEach(geo => {
                         if (geo) uniqueGeos.add(geo);
+                    });
+                }
+                
+                // Собираем уникальные офферы
+                if (analysis.offers && analysis.offers.length > 0) {
+                    analysis.offers.forEach(offer => {
+                        if (offer) uniqueOffers.add(offer);
                     });
                 }
                 
@@ -1016,6 +1029,7 @@
                 'Аффилейт',
                 'Получатель',
                 'Гео',
+                'Оффер',
                 'Язык',
                 'Воронка',
                 'Pending ACQ',
@@ -1034,6 +1048,7 @@
                     const allAffiliates = [...new Set(caps.map(cap => cap.affiliate_name).filter(Boolean))];
                     const allRecipients = [...new Set(caps.map(cap => cap.recipient_name).filter(Boolean))];
                     const allGeos = [...new Set(caps.flatMap(cap => cap.geos || []))];
+                    const allOffers = [...new Set(caps.flatMap(cap => cap.offers || []))];
                     const allSchedules = [...new Set(caps.map(cap => cap.schedule).filter(Boolean))];
                     const allStartTimes = [...new Set(caps.map(cap => cap.start_time).filter(Boolean))];
                     const allEndTimes = [...new Set(caps.map(cap => cap.end_time).filter(Boolean))];
@@ -1060,6 +1075,7 @@
                         `"${allAffiliates.join(', ')}"`,
                         `"${allRecipients.join(', ')}"`,
                         `"${allGeos.join(', ')}"`,
+                        `"${allOffers.length > 0 && allOffers.some(o => o && o.trim()) ? allOffers.join(', ') : ''}"`,
                         `"${allLanguages.length > 0 && allLanguages.some(l => l && l.trim()) ? allLanguages.join(', ') : ''}"`,
                         `"${allFunnels.length > 0 && allFunnels.some(f => f && f.trim()) ? allFunnels.join(', ') : ''}"`,
                         `"${allPendingACQ.includes(true) ? 'Yes' : 'No'}"`,

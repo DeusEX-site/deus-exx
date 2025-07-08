@@ -66,10 +66,12 @@ class CapAnalysisService
                 
                 // Если капа не найдена через reply_to_message, ищем дубликат обычным способом
                 if (!$existingCap) {
+                    $offer = !empty($capData['offers']) ? $capData['offers'][0] : null;
                     $existingCap = Cap::findDuplicate(
                         $capData['affiliate_name'],
                         $capData['recipient_name'], 
-                        $geo
+                        $geo,
+                        $offer
                     );
                 }
                 
@@ -100,6 +102,7 @@ class CapAnalysisService
                         'affiliate_name' => $capData['affiliate_name'],
                         'recipient_name' => $capData['recipient_name'],
                         'geos' => [$geo], // Одно гео
+                        'offers' => $capData['offers'], // Массив офферов
                         'work_hours' => $capData['work_hours'],
                         'language' => $capData['language'],
                         'funnel' => $capData['funnel'],
@@ -588,7 +591,7 @@ class CapAnalysisService
             'language' => '/^Language:\s*(.*)$/m',
             'funnel' => '/^Funnel:\s*(.*)$/m',
             'pending_acq' => '/^Pending ACQ:\s*(.*)$/m',
-            'freeze_status' => '/^Freeze status on ACQ:\s*(.*)$/m'
+            'freeze_status_on_acq' => '/^Freeze status on ACQ:\s*(.*)$/m'
         ];
         
         if (!isset($patterns[$fieldName])) {
@@ -610,7 +613,7 @@ class CapAnalysisService
             'language' => '/^Language:\s*(.*)$/m',
             'funnel' => '/^Funnel:\s*(.*)$/m',
             'pending_acq' => '/^Pending ACQ:\s*(.*)$/m',
-            'freeze_status' => '/^Freeze status on ACQ:\s*(.*)$/m'
+            'freeze_status_on_acq' => '/^Freeze status on ACQ:\s*(.*)$/m'
         ];
         
         if (!isset($patterns[$fieldName])) {
@@ -858,8 +861,19 @@ class CapAnalysisService
             $geos = $this->parseMultipleValues($matches[1]);
         }
 
+        // Парсим Offer (необязательное поле)
+        $offers = [];
+        if (preg_match('/^Offer:\s*(.+)$/mi', $messageText, $matches)) {
+            $offers = $this->parseMultipleValues($matches[1]);
+        }
+
         // Проверяем, что Cap и Geo заполнены и их количество совпадает
         if (empty($caps) || empty($geos) || count($caps) !== count($geos)) {
+            return null;
+        }
+
+        // Если Offer указан, проверяем что количество совпадает с Cap и Geo
+        if (!empty($offers) && count($offers) !== count($caps)) {
             return null;
         }
 
@@ -1028,7 +1042,15 @@ class CapAnalysisService
         // Определяем количество записей
         $count = count($caps);
 
+        // Если Offer не указан, заполняем пустыми значениями
+        if (empty($offers)) {
+            $offers = array_fill(0, $count, null);
+        }
+
         // Если у необязательного поля только одно значение, применяем его ко всем записям
+        if (count($offers) === 1) {
+            $offers = array_fill(0, $count, $offers[0]);
+        }
         if (count($languages) === 1) {
             $languages = array_fill(0, $count, $languages[0]);
         }
@@ -1062,6 +1084,7 @@ class CapAnalysisService
             $pendingAcq = isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : false;
             $freezeStatus = isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : false;
             $date = isset($dates[$i]) ? $dates[$i] : null;
+            $offer = isset($offers[$i]) ? $offers[$i] : null;
 
             // Парсим время из расписания
             $scheduleData = $this->parseScheduleTime($schedule);
@@ -1071,6 +1094,7 @@ class CapAnalysisService
                 'recipient_name' => $recipient,
                 'cap_amount' => $caps[$i],
                 'geos' => [$geos[$i]],
+                'offers' => $offer ? [$offer] : [],
                 'language' => $language,
                 'funnel' => $funnel,
                 'total_amount' => $total,
@@ -1119,6 +1143,7 @@ class CapAnalysisService
                     'affiliate_name' => $cap->affiliate_name,
                     'recipient_name' => $cap->recipient_name,
                     'geos' => $cap->geos ?? [],
+                    'offers' => $cap->offers ?? [],
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
                     'funnel' => $cap->funnel,
@@ -1180,6 +1205,11 @@ class CapAnalysisService
         // Фильтр по гео
         if (!empty($filters['geo'])) {
             $query->whereJsonContains('geos', $filters['geo']);
+        }
+
+        // Фильтр по офферу
+        if (!empty($filters['offer'])) {
+            $query->whereJsonContains('offers', $filters['offer']);
         }
 
         // Фильтр по получателю
@@ -1261,6 +1291,7 @@ class CapAnalysisService
                     'affiliate_name' => $cap->affiliate_name,
                     'recipient_name' => $cap->recipient_name,
                     'geos' => $cap->geos ?? [],
+                    'offers' => $cap->offers ?? [],
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
                     'funnel' => $cap->funnel,
@@ -1284,6 +1315,7 @@ class CapAnalysisService
         // Получаем опции из активных и остановленных кап (исключаем удаленные)
         $caps = Cap::whereIn('status', ['RUN', 'STOP'])
                    ->whereNotNull('geos')
+                   ->orWhereNotNull('offers')
                    ->orWhereNotNull('recipient_name')
                    ->orWhereNotNull('affiliate_name')
                    ->orWhereNotNull('language')
@@ -1291,6 +1323,7 @@ class CapAnalysisService
                    ->get();
 
         $geos = [];
+        $offers = [];
         $recipients = [];
         $affiliates = [];
         $languages = [];
@@ -1300,6 +1333,11 @@ class CapAnalysisService
             // Собираем гео
             if ($cap->geos) {
                 $geos = array_merge($geos, $cap->geos);
+            }
+
+            // Собираем офферы
+            if ($cap->offers) {
+                $offers = array_merge($offers, $cap->offers);
             }
 
             // Собираем получателей
@@ -1325,6 +1363,7 @@ class CapAnalysisService
 
         return [
             'geos' => array_values(array_unique($geos)),
+            'offers' => array_values(array_unique($offers)),
             'recipients' => array_values(array_unique($recipients)),
             'affiliates' => array_values(array_unique($affiliates)),
             'languages' => array_values(array_unique($languages)),
@@ -1422,6 +1461,12 @@ class CapAnalysisService
         if (preg_match('/^Geo:\s*(.+)$/m', $messageText, $matches)) {
             $geos = $this->parseMultipleValues($matches[1]);
         }
+
+        // Парсим множественные значения Offer из сообщения
+        $offers = [];
+        if (preg_match('/^Offer:\s*(.+)$/m', $messageText, $matches)) {
+            $offers = $this->parseMultipleValues($matches[1]);
+        }
         
         // Ищем изначальную капу через цепочку reply_to_message
         $originalCap = $this->findOriginalCap($currentMessage->reply_to_message_id);
@@ -1435,13 +1480,34 @@ class CapAnalysisService
             return ['cap_entries_count' => 0, 'error' => 'Нельзя обновить капу со статусом ' . $originalCap->status];
         }
         
-        // Если Geo не указаны и в оригинальной капе только одно гео, используем его
-        if (empty($geos) && count($originalCap->geos) === 1) {
+        // Определяем, есть ли пустые значения в сообщении
+        $hasEmptyValues = $this->hasEmptyFieldValues($messageText);
+        
+        // Если есть пустые значения и Geo не указаны, обновляем все капы в сообщении
+        if ($hasEmptyValues && empty($geos)) {
+            // Получаем все капы для этого сообщения
+            $allCaps = Cap::where('message_id', $this->findOriginalMessageId($currentMessage->reply_to_message_id))
+                          ->whereIn('status', ['RUN', 'STOP'])
+                          ->get();
+            
+            $allGeos = [];
+            $allOffers = [];
+            foreach ($allCaps as $cap) {
+                $allGeos = array_merge($allGeos, $cap->geos);
+                if ($cap->offers) {
+                    $allOffers = array_merge($allOffers, $cap->offers);
+                }
+            }
+            $geos = array_unique($allGeos);
+            if (empty($offers)) {
+                $offers = array_unique($allOffers);
+            }
+        }
+        // Если нет пустых значений и Geo не указаны, используем логику как раньше
+        elseif (empty($geos) && count($originalCap->geos) === 1) {
             $geos = $originalCap->geos;
         }
-        
-        // Если Geo не указаны и в оригинальной капе несколько гео - ошибка
-        if (empty($geos) && count($originalCap->geos) > 1) {
+        elseif (empty($geos) && count($originalCap->geos) > 1) {
             return ['cap_entries_count' => 0, 'error' => 'Geo обязателен для обновления капы с несколькими гео'];
         }
         
@@ -1628,45 +1694,61 @@ class CapAnalysisService
         // Определяем количество записей для обновления
         $count = count($geos);
         
+        // Если offer не указан, заполняем пустыми значениями
+        if (empty($offers)) {
+            $offers = array_fill(0, $count, null);
+        }
+        
         // Если у необязательного поля только одно значение, применяем его ко всем записям
-        if (count($caps) === 1) {
-            $caps = array_fill(0, $count, $caps[0]);
+        // Или если это сброс для всех кап в сообщении
+        if (count($offers) === 1 || ($hasEmptyValues && count($offers) <= 1)) {
+            $offers = count($offers) > 0 ? array_fill(0, $count, $offers[0]) : [];
         }
-        if (count($languages) === 1) {
-            $languages = array_fill(0, $count, $languages[0]);
+        if (count($caps) === 1 || ($hasEmptyValues && empty($caps))) {
+            $caps = count($caps) > 0 ? array_fill(0, $count, $caps[0]) : [];
         }
-        if (count($funnels) === 1) {
-            $funnels = array_fill(0, $count, $funnels[0]);
+        if (count($languages) === 1 || ($hasEmptyValues && count($languages) <= 1)) {
+            $languages = count($languages) > 0 ? array_fill(0, $count, $languages[0]) : [];
         }
-        if (count($totals) === 1) {
-            $totals = array_fill(0, $count, $totals[0]);
+        if (count($funnels) === 1 || ($hasEmptyValues && count($funnels) <= 1)) {
+            $funnels = count($funnels) > 0 ? array_fill(0, $count, $funnels[0]) : [];
         }
-        if (count($schedules) === 1) {
-            $schedules = array_fill(0, $count, $schedules[0]);
+        if (count($totals) === 1 || ($hasEmptyValues && count($totals) <= 1)) {
+            $totals = count($totals) > 0 ? array_fill(0, $count, $totals[0]) : [];
         }
-        if (count($pendingAcqs) === 1) {
-            $pendingAcqs = array_fill(0, $count, $pendingAcqs[0]);
+        if (count($schedules) === 1 || ($hasEmptyValues && count($schedules) <= 1)) {
+            $schedules = count($schedules) > 0 ? array_fill(0, $count, $schedules[0]) : [];
         }
-        if (count($freezeStatuses) === 1) {
-            $freezeStatuses = array_fill(0, $count, $freezeStatuses[0]);
+        if (count($pendingAcqs) === 1 || ($hasEmptyValues && count($pendingAcqs) <= 1)) {
+            $pendingAcqs = count($pendingAcqs) > 0 ? array_fill(0, $count, $pendingAcqs[0]) : [];
         }
-        if (count($dates) === 1) {
-            $dates = array_fill(0, $count, $dates[0]);
+        if (count($freezeStatuses) === 1 || ($hasEmptyValues && count($freezeStatuses) <= 1)) {
+            $freezeStatuses = count($freezeStatuses) > 0 ? array_fill(0, $count, $freezeStatuses[0]) : [];
+        }
+        if (count($dates) === 1 || ($hasEmptyValues && count($dates) <= 1)) {
+            $dates = count($dates) > 0 ? array_fill(0, $count, $dates[0]) : [];
         }
         
         // Обрабатываем каждое гео отдельно
         for ($i = 0; $i < $count; $i++) {
             $geo = $geos[$i];
+            $offer = isset($offers[$i]) ? $offers[$i] : null;
             
-            // Ищем капу для этого гео
-            $existingCap = Cap::where('affiliate_name', $originalCap->affiliate_name)
-                              ->where('recipient_name', $originalCap->recipient_name)
-                              ->whereJsonContains('geos', $geo)
-                              ->whereIn('status', ['RUN', 'STOP'])
-                              ->first();
+            // Ищем капу для этого гео и оффера
+            $query = Cap::where('affiliate_name', $originalCap->affiliate_name)
+                        ->where('recipient_name', $originalCap->recipient_name)
+                        ->whereJsonContains('geos', $geo)
+                        ->whereIn('status', ['RUN', 'STOP']);
+            
+            if ($offer !== null) {
+                $query->whereJsonContains('offers', $offer);
+            }
+            
+            $existingCap = $query->first();
                               
             if (!$existingCap) {
-                $messages[] = "Капа для гео {$geo} не найдена";
+                $offerText = $offer ? " и оффера {$offer}" : "";
+                $messages[] = "Капа для гео {$geo}{$offerText} не найдена";
                 continue;
             }
             
@@ -1688,6 +1770,28 @@ class CapAnalysisService
                 'freeze_status_on_acq' => isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : $existingCap->freeze_status_on_acq,
             ];
             
+            // Если поле указано как пустое в сообщении, применяем значение по умолчанию
+            if ($hasEmptyValues) {
+                if ($this->isFieldSpecifiedInMessage($messageText, 'language') && $this->isEmpty($this->getRawFieldValue($messageText, 'language'))) {
+                    $updateCapData['language'] = 'en'; // Значение по умолчанию
+                }
+                if ($this->isFieldSpecifiedInMessage($messageText, 'funnel') && $this->isEmpty($this->getRawFieldValue($messageText, 'funnel'))) {
+                    $updateCapData['funnel'] = null; // Значение по умолчанию
+                }
+                if ($this->isFieldSpecifiedInMessage($messageText, 'date') && $this->isEmpty($this->getRawFieldValue($messageText, 'date'))) {
+                    $updateCapData['date'] = null; // Значение по умолчанию
+                }
+                if ($this->isFieldSpecifiedInMessage($messageText, 'total') && $this->isEmpty($this->getRawFieldValue($messageText, 'total'))) {
+                    $updateCapData['total_amount'] = -1; // Значение по умолчанию (бесконечность)
+                }
+                if ($this->isFieldSpecifiedInMessage($messageText, 'pending_acq') && $this->isEmpty($this->getRawFieldValue($messageText, 'pending_acq'))) {
+                    $updateCapData['pending_acq'] = false; // Значение по умолчанию
+                }
+                if ($this->isFieldSpecifiedInMessage($messageText, 'freeze_status_on_acq') && $this->isEmpty($this->getRawFieldValue($messageText, 'freeze_status_on_acq'))) {
+                    $updateCapData['freeze_status_on_acq'] = false; // Значение по умолчанию
+                }
+            }
+            
             // Обрабатываем расписание
             if (isset($schedules[$i])) {
                 $scheduleData = $this->parseScheduleTime($schedules[$i]);
@@ -1697,6 +1801,14 @@ class CapAnalysisService
                 $updateCapData['start_time'] = $scheduleData['start_time'];
                 $updateCapData['end_time'] = $scheduleData['end_time'];
                 $updateCapData['timezone'] = $scheduleData['timezone'];
+            } elseif ($hasEmptyValues && $this->isFieldSpecifiedInMessage($messageText, 'schedule') && $this->isEmpty($this->getRawFieldValue($messageText, 'schedule'))) {
+                // Если это сброс расписания, устанавливаем значения по умолчанию
+                $updateCapData['schedule'] = '24/7';
+                $updateCapData['work_hours'] = '24/7';
+                $updateCapData['is_24_7'] = true;
+                $updateCapData['start_time'] = null;
+                $updateCapData['end_time'] = null;
+                $updateCapData['timezone'] = null;
             } else {
                 $updateCapData['schedule'] = $existingCap->schedule;
                 $updateCapData['work_hours'] = $existingCap->work_hours;
@@ -1726,6 +1838,33 @@ class CapAnalysisService
         }
         
         return ['cap_entries_count' => 0, 'message' => 'Нет изменений для обновления'];
+    }
+
+    /**
+     * Проверяет, есть ли пустые значения в сообщении для полей, которые могут быть сброшены
+     */
+    private function hasEmptyFieldValues($messageText)
+    {
+        $fieldsToCheck = [
+            'schedule' => '/^Schedule:\s*(.*)$/m',
+            'date' => '/^Date:\s*(.*)$/m',
+            'language' => '/^Language:\s*(.*)$/m',
+            'funnel' => '/^Funnel:\s*(.*)$/m',
+            'total' => '/^Total:\s*(.*)$/m',
+            'pending_acq' => '/^Pending ACQ:\s*(.*)$/m',
+            'freeze_status_on_acq' => '/^Freeze status on ACQ:\s*(.*)$/m'
+        ];
+        
+        foreach ($fieldsToCheck as $field => $pattern) {
+            if (preg_match($pattern, $messageText, $matches)) {
+                $value = trim($matches[1]);
+                if ($this->isEmpty($value)) {
+                    return true; // Найдено пустое значение
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**
