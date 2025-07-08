@@ -604,13 +604,13 @@ class CapAnalysisService
     private function getRawFieldValue($messageText, $fieldName)
     {
         $patterns = [
-            'total' => '/^Total:\s*(.*)$/m',
-            'schedule' => '/^Schedule:\s*(.*)$/m',
-            'date' => '/^Date:\s*(.*)$/m',
-            'language' => '/^Language:\s*(.*)$/m',
-            'funnel' => '/^Funnel:\s*(.*)$/m',
-            'pending_acq' => '/^Pending ACQ:\s*(.*)$/m',
-            'freeze_status_on_acq' => '/^Freeze status on ACQ:\s*(.*)$/m'
+            'total' => '/^Total:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
+            'schedule' => '/^Schedule:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', 
+            'date' => '/^Date:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
+            'language' => '/^Language:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
+            'funnel' => '/^Funnel:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
+            'pending_acq' => '/^Pending ACQ:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
+            'freeze_status_on_acq' => '/^Freeze status on ACQ:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m'
         ];
         
         if (!isset($patterns[$fieldName])) {
@@ -885,7 +885,7 @@ class CapAnalysisService
         $dates = [];
 
         // Обработка Language с учетом возможных дубликатов и пустых значений
-        if (preg_match_all('/^Language:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Language:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $languageValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -903,7 +903,7 @@ class CapAnalysisService
         }
 
         // Обработка Funnel с учетом возможных дубликатов и пустых значений
-        if (preg_match_all('/^Funnel:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Funnel:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $funnelValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -921,7 +921,7 @@ class CapAnalysisService
         }
 
         // Обработка Total с учетом возможных дубликатов и пустых значений
-        if (preg_match_all('/^Total:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Total:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $totalValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -946,7 +946,7 @@ class CapAnalysisService
         }
 
         // Обработка Schedule с учетом возможных дубликатов
-        if (preg_match_all('/^Schedule:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Schedule:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             // Если найдено несколько полей Schedule, выбираем непустое
             $scheduleValue = null;
             foreach ($matches[1] as $match) {
@@ -965,7 +965,7 @@ class CapAnalysisService
         }
 
         // Обработка Pending ACQ с учетом возможных дубликатов и пустых значений
-        if (preg_match_all('/^Pending ACQ:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Pending ACQ:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $pendingValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -986,7 +986,7 @@ class CapAnalysisService
         }
 
         // Обработка Freeze status on ACQ с учетом возможных дубликатов и пустых значений
-        if (preg_match_all('/^Freeze status on ACQ:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Freeze status on ACQ:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $freezeValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1007,7 +1007,7 @@ class CapAnalysisService
         }
 
         // Обработка Date с учетом возможных дубликатов и пустых значений
-        if (preg_match_all('/^Date:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Date:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $dateValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1515,7 +1515,7 @@ class CapAnalysisService
         }
         
         // Total
-        if (preg_match_all('/^Total:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Total:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $totalValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1540,7 +1540,7 @@ class CapAnalysisService
         }
         
         // Schedule
-        if (preg_match_all('/^Schedule:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Schedule:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $scheduleValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1558,7 +1558,7 @@ class CapAnalysisService
         }
         
         // Date
-        if (preg_match_all('/^Date:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Date:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $dateValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1589,7 +1589,7 @@ class CapAnalysisService
         }
         
         // Language
-        if (preg_match_all('/^Language:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Language:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $languageValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1607,7 +1607,7 @@ class CapAnalysisService
         }
         
         // Funnel
-        if (preg_match_all('/^Funnel:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Funnel:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $funnelValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1625,7 +1625,7 @@ class CapAnalysisService
         }
         
         // Pending ACQ
-        if (preg_match_all('/^Pending ACQ:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Pending ACQ:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $pendingValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
@@ -1646,7 +1646,7 @@ class CapAnalysisService
         }
         
         // Freeze status on ACQ
-        if (preg_match_all('/^Freeze status on ACQ:\s*([^\n\r]*)$/m', $messageText, $matches)) {
+        if (preg_match_all('/^Freeze status on ACQ:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $freezeValue = null;
             foreach ($matches[1] as $match) {
                 $trimmed = trim($match);
