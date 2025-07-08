@@ -59,8 +59,8 @@ if ($cap) {
     echo "   - message_id: {$cap->message_id}\n";
     echo "   - original_message_id: {$cap->original_message_id}\n";
     
-    if ($cap->original_message_id === null) {
-        echo "✅ original_message_id правильно установлен (null для новых кап)\n";
+    if ($cap->original_message_id == $cap->message_id) {
+        echo "✅ original_message_id правильно установлен (равен message_id)\n";
     } else {
         echo "❌ original_message_id установлен неправильно\n";
     }
@@ -99,8 +99,8 @@ if ($updatedCap) {
     echo "   - cap_amounts: " . json_encode($updatedCap->cap_amounts) . "\n";
     echo "   - total_amount: {$updatedCap->total_amount}\n";
     
-    if ($updatedCap->original_message_id == $updateMessage->id) {
-        echo "✅ original_message_id правильно сохранен (указывает на сообщение, которое обновило капу)\n";
+    if ($updatedCap->original_message_id == $createMessage->id) {
+        echo "✅ original_message_id правильно сохранен (указывает на оригинальное сообщение)\n";
     } else {
         echo "❌ original_message_id сохранен неправильно\n";
     }
@@ -127,8 +127,8 @@ foreach ($history as $historyRecord) {
     echo "   - total_amount: {$historyRecord->total_amount}\n";
     echo "   - archived_at: {$historyRecord->archived_at}\n";
     
-    if ($historyRecord->original_message_id == $updateMessage->id) {
-        echo "✅ original_message_id в истории правильно сохранен (указывает на сообщение, которое обновило капу)\n";
+    if ($historyRecord->original_message_id == $createMessage->id) {
+        echo "✅ original_message_id в истории правильно сохранен\n";
     } else {
         echo "❌ original_message_id в истории сохранен неправильно\n";
     }
@@ -167,8 +167,8 @@ if ($newCap) {
     echo "   - original_message_id: {$newCap->original_message_id}\n";
     echo "   - geos: " . json_encode($newCap->geos) . "\n";
     
-    if ($newCap->original_message_id == $newGeoMessage->id) {
-        echo "✅ original_message_id для новой капы правильно установлен (указывает на сообщение, которое создало капу)\n";
+    if ($newCap->original_message_id == $createMessage->id) {
+        echo "✅ original_message_id для новой капы правильно установлен (указывает на оригинальное сообщение)\n";
     } else {
         echo "❌ original_message_id для новой капы установлен неправильно\n";
     }

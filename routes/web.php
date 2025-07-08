@@ -306,7 +306,7 @@ Route::middleware('auth')->get('/api/cap-history/{capId}', function (Request $re
             ->get();
         
         $historyData = $history->map(function($item) {
-            // Используем original_message_id если есть (сообщение, которое обновило капу), иначе fallback на message_id
+            // Используем original_message_id если есть, иначе fallback на message_id
             $messageToShow = $item->originalMessage ?? $item->message;
             
             return [
