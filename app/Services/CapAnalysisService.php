@@ -327,16 +327,16 @@ class CapAnalysisService
         $currentMessage = Message::find($messageId);
         if (!$currentMessage) {
             return ['cap_entries_count' => 0, 'error' => 'Сообщение не найдено'];
-        }
+            }
 
-        // Определяем допустимые статусы для поиска в зависимости от команды
-        $allowedStatuses = match($command) {
-            'RUN' => ['STOP'], // Возобновить можно только остановленную
-            'STOP' => ['RUN'], // Остановить можно только активную
-            'DELETE' => ['RUN', 'STOP'], // Удалить можно активную или остановленную
-            'RESTORE' => ['DELETE'], // Восстановить можно только удаленную
-            default => ['RUN', 'STOP', 'DELETE']
-        };
+            // Определяем допустимые статусы для поиска в зависимости от команды
+            $allowedStatuses = match($command) {
+                'RUN' => ['STOP'], // Возобновить можно только остановленную
+                'STOP' => ['RUN'], // Остановить можно только активную
+                'DELETE' => ['RUN', 'STOP'], // Удалить можно активную или остановленную
+                'RESTORE' => ['DELETE'], // Восстановить можно только удаленную
+                default => ['RUN', 'STOP', 'DELETE']
+            };
 
         // Если это простая команда (только RUN/STOP/DELETE/RESTORE)
         if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText))) {
@@ -364,21 +364,21 @@ class CapAnalysisService
             $messages = [];
 
             foreach ($caps as $cap) {
-                // Создаем запись в истории
+            // Создаем запись в истории
                 CapHistory::createFromCap($cap);
 
-                // Подготавливаем данные для обновления
-                $updateData = [
+            // Подготавливаем данные для обновления
+            $updateData = [
                     'status' => $command === 'RESTORE' ? 'RUN' : $command,
-                    'status_updated_at' => now(),
-                ];
+                'status_updated_at' => now(),
+            ];
 
                 // При DELETE не меняем highlighted_text
-                if ($command !== 'DELETE') {
-                    $updateData['highlighted_text'] = $messageText;
-                }
+            if ($command !== 'DELETE') {
+                $updateData['highlighted_text'] = $messageText;
+            }
 
-                // Обновляем статус
+            // Обновляем статус
                 $cap->update($updateData);
                 $updatedCount++;
 
@@ -442,18 +442,18 @@ class CapAnalysisService
 
                 $cap->update($updateData);
 
-                $action = match($command) {
-                    'RUN' => 'возобновлена',
-                    'STOP' => 'остановлена', 
-                    'DELETE' => 'удалена',
-                    'RESTORE' => 'восстановлена из корзины',
-                    default => 'обновлена'
-                };
-
-                return [
-                    'cap_entries_count' => 0,
-                    'updated_entries_count' => 1,
-                    'status_changed' => 1,
+            $action = match($command) {
+                'RUN' => 'возобновлена',
+                'STOP' => 'остановлена', 
+                'DELETE' => 'удалена',
+                'RESTORE' => 'восстановлена из корзины',
+                default => 'обновлена'
+            };
+            
+            return [
+                'cap_entries_count' => 0,
+                'updated_entries_count' => 1,
+                'status_changed' => 1,
                     'message' => "Капа {$cap->affiliate_name} → {$cap->recipient_name} ({$geo}, {$cap->cap_amounts[0]}) {$action}"
                 ];
             } else {
@@ -682,18 +682,42 @@ class CapAnalysisService
         $schedules = [];
         $value = trim($value);
         
-        // Если вся строка - это одно расписание (нет запятых для разделения)
-        if (!strpos($value, ',')) {
-            return [$value];
+        // Сначала извлекаем общий часовой пояс в конце строки (если есть)
+        $commonTimezone = '';
+        if (preg_match('/\s+(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', $value, $tzMatches)) {
+            $commonTimezone = ' GMT' . $tzMatches[2];
+            if (!isset($tzMatches[3])) {
+                $commonTimezone .= ':00';
+            } else {
+                $commonTimezone .= $tzMatches[3];
+            }
+            // Удаляем общий часовой пояс из строки для парсинга расписаний
+            $value = preg_replace('/\s+(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', '', $value);
         }
         
-        // Разбиваем по запятым, но учитываем что внутри времени могут быть пробелы
-        $parts = explode(',', $value);
+        // Пытаемся определить формат разделителя
+        // Проверяем наличие запятых
+        if (strpos($value, ',') !== false) {
+            // Если есть запятые, используем их как основной разделитель
+            $parts = explode(',', $value);
+                } else {
+            // Иначе пытаемся разделить по паттернам времени
+            // Ищем все вхождения времени в различных форматах
+            $pattern = '/(?:(?:\d{1,2}[:.]\d{2}|\d{1,2})\s*[-–\/]\s*(?:\d{1,2}[:.]\d{2}|\d{1,2}))/';
+            if (preg_match_all($pattern, $value, $matches)) {
+                $parts = $matches[0];
+            } else {
+                // Если не нашли паттерны, возвращаем как одно расписание
+                return [$value . $commonTimezone];
+            }
+        }
         
+        // Обрабатываем каждую часть
         foreach ($parts as $part) {
             $schedule = trim($part);
             if (!$this->isEmpty($schedule)) {
-                $schedules[] = $schedule;
+                // Добавляем общий часовой пояс к каждому расписанию, если он был
+                $schedules[] = $schedule . $commonTimezone;
             }
         }
         
@@ -1457,7 +1481,7 @@ class CapAnalysisService
                 foreach ($totalValues as $total) {
                     if (is_numeric($total)) {
                         $totals[] = intval($total);
-                    } else {
+            } else {
                         $totals[] = -1; // Бесконечность для нечисловых значений
                     }
                 }
@@ -1680,19 +1704,19 @@ class CapAnalysisService
                 $updateCapData['start_time'] = $existingCap->start_time;
                 $updateCapData['end_time'] = $existingCap->end_time;
                 $updateCapData['timezone'] = $existingCap->timezone;
-            }
-            
-            // Определяем какие поля нужно обновить
-            $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText);
-            
-            if (!empty($updateData)) {
-                CapHistory::createFromCap($existingCap);
-                $existingCap->update($updateData);
+        }
+        
+        // Определяем какие поля нужно обновить
+        $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText);
+        
+        if (!empty($updateData)) {
+            CapHistory::createFromCap($existingCap);
+            $existingCap->update($updateData);
                 $updatedCount++;
                 $messages[] = "Капа для гео {$geo} обновлена";
             }
         }
-        
+            
         if ($updatedCount > 0) {
             return [
                 'cap_entries_count' => 0,
