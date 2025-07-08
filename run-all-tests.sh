@@ -77,7 +77,7 @@ echo ""
 echo "=========================================="
 echo "8. Тест стабильности позиций"
 echo "=========================================="
-php artisan chats:test-stability
+php artisan chats:test-stability-final
 echo ""
 echo "Тест завершен. Нажмите Enter для продолжения..."
 read
@@ -113,7 +113,7 @@ echo ""
 echo "=========================================="
 echo "12. Тест стабильности топ-3"
 echo "=========================================="
-php artisan chats:test-stability-final
+php artisan chats:test-stability
 echo ""
 echo "Тест завершен. Нажмите Enter для продолжения..."
 read

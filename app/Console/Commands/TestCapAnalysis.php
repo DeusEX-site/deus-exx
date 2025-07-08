@@ -14,7 +14,8 @@ class TestCapAnalysis extends Command
 
     public function handle()
     {
-        $this->info('Testing Cap Analysis System...');
+        $this->info('🧪 Testing Cap Analysis System...');
+        $this->info('');
 
         // Создаем тестовые сообщения если их нет
         $this->createTestMessages();
@@ -22,7 +23,7 @@ class TestCapAnalysis extends Command
         // Тестируем анализ
         $this->testAnalysis();
 
-        $this->info('Cap analysis test completed!');
+        $this->info('✅ Cap analysis test completed!');
     }
 
     private function createTestMessages()
@@ -35,39 +36,48 @@ class TestCapAnalysis extends Command
             'is_active' => true,
         ]);
 
-        // Тестовые сообщения
+        // Удаляем старые тестовые сообщения
+        Message::where('chat_id', $chat->id)->where('user', 'TestUser')->delete();
+
+        // Тестовые сообщения в НОВОМ формате
         $testMessages = [
-            'CAP 30 Aff - Rec : RU/KZ CAP 20 Aff2 - Rec : AU/US 10-19',  // Разные cap
-            'CAP 30
-Aff - Rec : RU/KZ 
-Aff2 - Rec : AU/US
-10-19',  // Один cap на несколько строк
-            'CAP 10',  // Простой cap
-            'cap 30 XYZ Affiliate - BinaryBroker : DE,FR,UK',
-            'сар 50 TestAffiliate - CryptoTrader : RU,UA,KZ 10-18',
-            'сар 25 MyAffiliate - ForexPro : US,CA,AU 24/7',
-            'cap 100 SuperAffiliate - BinaryOptions : IT,ES,PT 14.05',
-            'Общий объем 500 лидов на сегодня',
-            'кап 15 RussianAffiliate - TradeMax : RU,BY,KZ 09-17',
-            'CAP 75 EnglishAffiliate - TradingPlatform : GB,IE,US 25.12',
-            'Нужно 200 лидов до конца месяца',
-            'cap 20 TestCompany - BrokerName : FR,DE,NL 24/7',
-            'Лимит 300 на сегодня, cap 50 на партнера',
-            'CAP: 35 special format - TestBroker : CA',  // Специальный формат
-            'CAP=40 another format test',  // Ещё один формат
-            'CAP 25
-First - Broker1 : US/CA
-Second - Broker2 : UK/DE  
-Third - Broker3 : FR/IT',  // Один cap, три пары
-            'Multiple caps: CAP 15, CAP 25, CAP 35 total 500'  // Множественные cap
+            // Стандартные капы
+            "Affiliate: TestAffiliate1\nRecipient: BinaryBroker\nCap: 30\nGeo: RU,KZ\nSchedule: 10-19\nDate: 14.05",
+            
+            "Affiliate: XYZ Affiliate\nRecipient: BinaryBroker\nCap: 50\nGeo: DE,FR,UK\nSchedule: 24/7",
+            
+            "Affiliate: TestAffiliate\nRecipient: CryptoTrader\nCap: 25\nGeo: RU,UA,KZ\nSchedule: 10-18",
+            
+            "Affiliate: MyAffiliate\nRecipient: ForexPro\nCap: 40\nGeo: US,CA,AU\nSchedule: 24/7",
+            
+            // Капы с дополнительными полями
+            "Affiliate: SuperAffiliate\nRecipient: BinaryOptions\nCap: 100\nGeo: IT,ES,PT\nSchedule: 9-17\nDate: 25.12\nTotal: 500\nLanguage: EN",
+            
+            "Affiliate: RussianAffiliate\nRecipient: TradeMax\nCap: 15\nGeo: RU,BY,KZ\nSchedule: 09-17\nLanguage: RU\nFunnel: crypto",
+            
+            "Affiliate: EnglishAffiliate\nRecipient: TradingPlatform\nCap: 75\nGeo: GB,IE,US\nSchedule: 24/7\nTotal: 1000",
+            
+            // Капы с особыми значениями
+            "Affiliate: TestCompany\nRecipient: BrokerName\nCap: 20\nGeo: FR,DE,NL\nSchedule: 24/7\nTotal: -1",
+            
+            "Affiliate: SpecialAffiliate\nRecipient: TestBroker\nCap: 35\nGeo: CA\nSchedule: 8-16\nPending ACQ: Yes",
+            
+            "Affiliate: AnotherAffiliate\nRecipient: AnotherBroker\nCap: 45\nGeo: UK,AU\nSchedule: 12:00-20:00\nFreeze status: Yes",
+            
+            // Сообщения БЕЗ cap (для проверки)
+            "Общий объем 500 лидов на сегодня",
+            "Нужно 200 лидов до конца месяца",
+            "Лимит 300 на сегодня",
+            "Статус: активно",
+            "Обновление системы завершено"
         ];
 
-        foreach ($testMessages as $messageText) {
+        foreach ($testMessages as $index => $messageText) {
             Message::create([
                 'chat_id' => $chat->id,
                 'message' => $messageText,
                 'user' => 'TestUser',
-                'telegram_message_id' => rand(1000, 9999),
+                'telegram_message_id' => 9000 + $index,
                 'telegram_user_id' => 123456789,
                 'telegram_username' => 'testuser',
                 'telegram_first_name' => 'Test',
@@ -78,49 +88,70 @@ Third - Broker3 : FR/IT',  // Один cap, три пары
             ]);
         }
 
-        $this->info('Test messages created.');
+        $this->info('📝 Test messages created.');
     }
 
     private function testAnalysis()
     {
-        // Поиск сообщений с капой
-        $capPatterns = [
-            'cap', 'сар', 'сар', 'CAP', 'САР', 'САР',
-            'кап', 'КАП', 'каП', 'Кап'
-        ];
+        // Поиск всех тестовых сообщений
+        $messages = Message::where('user', 'TestUser')
+            ->orderBy('id', 'desc')
+            ->limit(15)
+            ->get();
 
-        $query = Message::query();
-        $query->where(function($q) use ($capPatterns) {
-            foreach ($capPatterns as $pattern) {
-                $q->orWhere('message', 'LIKE', "%{$pattern}%");
-            }
-        });
-
-        $messages = $query->limit(10)->get();
-
-        $this->info("Found {$messages->count()} messages with cap patterns:");
+        $this->info("📊 Found {$messages->count()} test messages for analysis:");
         $this->line('');
 
         $capAnalysisService = new CapAnalysisService();
+        $capCount = 0;
+        $nonCapCount = 0;
         
         foreach ($messages as $message) {
             $analysis = $capAnalysisService->analyzeCapMessage($message->message);
             
-            $this->info("Message: {$message->message}");
-            $this->line("Analysis:");
-            $this->line("  - Has cap word: " . ($analysis['has_cap_word'] ? 'Yes' : 'No'));
-            $this->line("  - All cap amounts: " . (count($analysis['cap_amounts']) > 0 ? '[' . implode(', ', $analysis['cap_amounts']) . ']' : 'Not found'));
-            $this->line("  - Main cap amount: " . ($analysis['cap_amount'] ?: 'Not found'));
-            $this->line("  - Total amount: " . ($analysis['total_amount'] ?: 'Not found'));
-            $this->line("  - Schedule: " . ($analysis['schedule'] ?: 'Not found'));
-            $this->line("  - Date: " . ($analysis['date'] ?: 'Not found'));
-            $this->line("  - Is 24/7: " . ($analysis['is_24_7'] ? 'Yes' : 'No'));
-            $this->line("  - Affiliate: " . ($analysis['affiliate_name'] ?: 'Not found'));
-            $this->line("  - Recipient: " . ($analysis['recipient_name'] ?: 'Not found'));
-            $this->line("  - Geos: " . (count($analysis['geos']) > 0 ? implode(', ', $analysis['geos']) : 'Not found'));
+            if ($analysis['has_cap_word']) {
+                $capCount++;
+                $this->line("✅ CAP MESSAGE #{$message->id}:");
+                $this->line("📄 Message: " . str_replace("\n", " | ", $message->message));
+                $this->line("🔍 Analysis:");
+                $this->line("  - Cap amounts: " . (count($analysis['cap_amounts']) > 0 ? '[' . implode(', ', $analysis['cap_amounts']) . ']' : '❌ Not found'));
+                $this->line("  - Total amount: " . ($analysis['total_amount'] !== null ? $analysis['total_amount'] : '♾️ Unlimited'));
+                $this->line("  - Schedule: " . ($analysis['schedule'] ?: '24/7'));
+                $this->line("  - Date: " . ($analysis['date'] ?: '♾️ Permanent'));
+                $this->line("  - Affiliate: " . ($analysis['affiliate_name'] ?: '❌ Not found'));
+                $this->line("  - Recipient: " . ($analysis['recipient_name'] ?: '❌ Not found'));
+                $this->line("  - Geos: " . (count($analysis['geos']) > 0 ? implode(', ', $analysis['geos']) : '❌ Not found'));
+                if ($analysis['language']) {
+                    $this->line("  - Language: " . $analysis['language']);
+                }
+                if ($analysis['funnel']) {
+                    $this->line("  - Funnel: " . $analysis['funnel']);
+                }
+                if ($analysis['pending_acq']) {
+                    $this->line("  - Pending ACQ: Yes");
+                }
+                if ($analysis['freeze_status_on_acq']) {
+                    $this->line("  - Freeze status: Yes");
+                }
+            } else {
+                $nonCapCount++;
+                $this->line("❌ NON-CAP MESSAGE #{$message->id}:");
+                $this->line("📄 Message: " . str_replace("\n", " | ", $message->message));
+                $this->line("🔍 Analysis: No cap detected");
+            }
             $this->line('');
         }
+        
+        $this->info("📈 SUMMARY:");
+        $this->info("✅ Cap messages found: {$capCount}");
+        $this->info("❌ Non-cap messages: {$nonCapCount}");
+        $this->info("📊 Total messages analyzed: " . ($capCount + $nonCapCount));
+        
+        // Проверяем, что система правильно распознает капы
+        if ($capCount > 0) {
+            $this->info("🎉 SUCCESS: Cap analysis system is working correctly!");
+        } else {
+            $this->error("💥 FAILURE: Cap analysis system is not detecting any caps!");
+        }
     }
-
-
 } 
