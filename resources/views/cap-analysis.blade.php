@@ -859,14 +859,14 @@
                                 <div class="value">${cap.total_amount === -1 ? '∞' : (cap.total_amount > 0 ? cap.total_amount : '—')}</div>
                             </div>
                             
-                            <div class="analysis-item ${cap.schedule ? 'positive' : 'positive'}">
+                            <div class="analysis-item ${cap.schedule && cap.schedule.trim() ? 'positive' : 'positive'}">
                                 <div class="label">Расписание</div>
-                                <div class="value">${cap.schedule || '24/7'}</div>
+                                <div class="value">${(cap.schedule && cap.schedule.trim()) ? cap.schedule : '24/7'}</div>
                             </div>
                             
-                            <div class="analysis-item ${cap.date ? 'positive' : 'positive'}">
+                            <div class="analysis-item ${cap.date && cap.date.trim() ? 'positive' : 'positive'}">
                                 <div class="label">Дата</div>
-                                <div class="value">${cap.date || '∞'}</div>
+                                <div class="value">${(cap.date && cap.date.trim()) ? cap.date : '∞'}</div>
                             </div>
                             
                             <div class="analysis-item ${cap.affiliate_name ? 'positive' : 'critical'}">
@@ -884,14 +884,14 @@
                                 <div class="value">${cap.geos && cap.geos.length > 0 ? cap.geos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
                             </div>
                             
-                            <div class="analysis-item ${cap.language ? 'positive' : 'neutral'}">
+                            <div class="analysis-item ${cap.language && cap.language.trim() ? 'positive' : 'neutral'}">
                                 <div class="label">Язык</div>
-                                <div class="value">${cap.language || '—'}</div>
+                                <div class="value">${(cap.language && cap.language.trim()) ? cap.language : '—'}</div>
                             </div>
                             
-                            <div class="analysis-item ${cap.funnel ? 'positive' : 'neutral'}">
+                            <div class="analysis-item ${cap.funnel && cap.funnel.trim() ? 'positive' : 'neutral'}">
                                 <div class="label">Воронка</div>
-                                <div class="value">${cap.funnel || '—'}</div>
+                                <div class="value">${(cap.funnel && cap.funnel.trim()) ? cap.funnel : '—'}</div>
                             </div>
                         </div>
                         `).join('')}
@@ -1052,16 +1052,16 @@
                         `"${msg.message.replace(/"/g, '""')}"`,
                         `"${allCaps.join(', ')}"`,
                         `"${allTotalAmounts.map(total => total === -1 ? '∞' : total).join(', ')}"`,
-                        `"${allSchedules.join(', ') || '24/7'}"`,
+                        `"${allSchedules.length > 0 && allSchedules.some(s => s && s.trim()) ? allSchedules.join(', ') : '24/7'}"`,
                         `"${allStartTimes.join(', ') || ''}"`,
                         `"${allEndTimes.join(', ') || ''}"`,
                         `"${allTimezones.join(', ') || ''}"`,
-                        `"${allDates.join(', ') || '∞'}"`,
+                        `"${allDates.length > 0 && allDates.some(d => d && d.trim()) ? allDates.join(', ') : '∞'}"`,
                         `"${allAffiliates.join(', ')}"`,
                         `"${allRecipients.join(', ')}"`,
                         `"${allGeos.join(', ')}"`,
-                        `"${allLanguages.join(', ') || ''}"`,
-                        `"${allFunnels.join(', ') || ''}"`,
+                        `"${allLanguages.length > 0 && allLanguages.some(l => l && l.trim()) ? allLanguages.join(', ') : ''}"`,
+                        `"${allFunnels.length > 0 && allFunnels.some(f => f && f.trim()) ? allFunnels.join(', ') : ''}"`,
                         `"${allPendingACQ.includes(true) ? 'Yes' : 'No'}"`,
                         `"${allFreezeStatus.includes(true) ? 'Yes' : 'No'}"`
                     ].join(',');
