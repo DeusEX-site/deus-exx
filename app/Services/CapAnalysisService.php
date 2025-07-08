@@ -75,7 +75,7 @@ class CapAnalysisService
                 
                 if ($existingCap) {
                     // Найден дубликат - определяем какие поля нужно обновить
-                    $updateData = $this->getFieldsToUpdate($existingCap, $capData, $geo, $messageText, $messageText);
+                    $updateData = $this->getFieldsToUpdate($existingCap, $capData, $geo, $messageText, $messageText, $messageId);
                     
                     if (!empty($updateData)) {
                         CapHistory::createFromCap($existingCap);
@@ -92,6 +92,7 @@ class CapAnalysisService
                     // Дубликат не найден - создаем новую запись
                     Cap::create([
                         'message_id' => $messageId,
+                        'original_message_id' => $messageId, // Для новых кап original и current совпадают
                         'cap_amounts' => [$capData['cap_amount']],
                         'total_amount' => $capData['total_amount'],
                         'schedule' => $capData['schedule'],
@@ -1831,14 +1832,14 @@ class CapAnalysisService
                 $updateCapData['start_time'] = $existingCap->start_time;
                 $updateCapData['end_time'] = $existingCap->end_time;
                 $updateCapData['timezone'] = $existingCap->timezone;
-        }
+            }
         
-        // Определяем какие поля нужно обновить
-        $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText, $messageId);
+            // Определяем какие поля нужно обновить
+            $updateData = $this->getFieldsToUpdate($existingCap, $updateCapData, $geo, $messageText, $messageText, $messageId);
         
-        if (!empty($updateData)) {
-            CapHistory::createFromCap($existingCap);
-            $existingCap->update($updateData);
+            if (!empty($updateData)) {
+                CapHistory::createFromCap($existingCap);
+                $existingCap->update($updateData);
                 $updatedCount++;
                 $messages[] = "Капа для гео {$geo} обновлена";
             }
