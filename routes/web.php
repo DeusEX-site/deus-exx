@@ -226,6 +226,7 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
         $funnel = $request->get('funnel', '');
         $schedule = $request->get('schedule', '');
         $total = $request->get('total', '');
+        $status = $request->get('status', '');
         
         // Создаем экземпляр сервиса анализа
         $capAnalysisService = new \App\Services\CapAnalysisService();
@@ -238,7 +239,8 @@ Route::middleware('auth')->get('/api/cap-analysis', function (Request $request) 
             'language' => $language,
             'funnel' => $funnel,
             'schedule' => $schedule,
-            'total' => $total
+            'total' => $total,
+            'status' => $status
         ]);
         
         return response()->json([
