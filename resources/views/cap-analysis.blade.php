@@ -858,17 +858,7 @@
                                 <div class="label">Общий лимит</div>
                                 <div class="value">${cap.total_amount === -1 ? '∞' : (cap.total_amount > 0 ? cap.total_amount : '—')}</div>
                             </div>
-                            
-                            <div class="analysis-item ${cap.schedule && cap.schedule.trim() ? 'positive' : 'positive'}">
-                                <div class="label">Расписание</div>
-                                <div class="value">${(cap.schedule && cap.schedule.trim()) ? cap.schedule : '24/7'}</div>
-                            </div>
-                            
-                            <div class="analysis-item ${cap.date && cap.date.trim() ? 'positive' : 'positive'}">
-                                <div class="label">Дата</div>
-                                <div class="value">${(cap.date && cap.date.trim()) ? cap.date : '∞'}</div>
-                            </div>
-                            
+
                             <div class="analysis-item ${cap.affiliate_name ? 'positive' : 'critical'}">
                                 <div class="label">Аффилейт</div>
                                 <div class="value">${cap.affiliate_name || '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
@@ -882,6 +872,16 @@
                             <div class="analysis-item ${cap.geos && cap.geos.length > 0 ? 'positive' : 'critical'}">
                                 <div class="label">Гео</div>
                                 <div class="value">${cap.geos && cap.geos.length > 0 ? cap.geos.join(', ') : '<span style="color: #ef4444;">❌ ОБЯЗАТЕЛЬНО</span>'}</div>
+                            </div>
+                            
+                            <div class="analysis-item ${cap.schedule && cap.schedule.trim() ? 'positive' : 'positive'}">
+                                <div class="label">Расписание</div>
+                                <div class="value">${(cap.schedule && cap.schedule.trim()) ? cap.schedule : '24/7'}</div>
+                            </div>
+                            
+                            <div class="analysis-item ${cap.date && cap.date.trim() ? 'positive' : 'positive'}">
+                                <div class="label">Дата</div>
+                                <div class="value">${(cap.date && cap.date.trim()) ? cap.date : '∞'}</div>
                             </div>
                             
                             <div class="analysis-item ${cap.language && cap.language.trim() ? 'positive' : 'neutral'}">
