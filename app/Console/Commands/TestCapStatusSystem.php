@@ -495,10 +495,14 @@ class TestCapStatusSystem extends Command
         
         $result = $capAnalysisService->analyzeAndSaveCapMessage($errorMessage->id, $errorMessage->message);
         
+        $this->info("DEBUG: Результат для несуществующей капы: " . json_encode($result));
+        
         if (isset($result['error']) && $result['error'] === 'Капа не найдена') {
             $this->info("✅ Корректная обработка ошибки для несуществующей капы");
         } else {
             $this->error("❌ Ошибка: неверная обработка ошибки для несуществующей капы");
+            $this->error("Ожидалось: 'Капа не найдена'");
+            $this->error("Получено: " . (isset($result['error']) ? $result['error'] : 'нет ошибки'));
             return;
         }
         

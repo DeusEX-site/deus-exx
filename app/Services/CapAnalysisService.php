@@ -539,8 +539,7 @@ class CapAnalysisService
                           ->first();
 
         if (!$existingCap) {
-            $statusText = implode(', ', $allowedStatuses);
-            return ['cap_entries_count' => 0, 'error' => "Капа не найдена или имеет неподходящий статус. Для команды {$command} требуется статус: {$statusText}"];
+            return ['cap_entries_count' => 0, 'error' => 'Капа не найдена'];
         }
 
         // Создаем запись в истории перед изменением статуса
