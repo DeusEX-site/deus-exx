@@ -11,7 +11,6 @@ class Cap extends Model
 
     protected $fillable = [
         'message_id',
-        'original_message_id',
         'cap_amounts',
         'total_amount',
         'schedule',
@@ -49,14 +48,6 @@ class Cap extends Model
     public function message()
     {
         return $this->belongsTo(Message::class);
-    }
-
-    /**
-     * Связь с оригинальным сообщением (для обновлений)
-     */
-    public function originalMessage()
-    {
-        return $this->belongsTo(Message::class, 'original_message_id');
     }
 
     /**
