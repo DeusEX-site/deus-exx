@@ -26,6 +26,7 @@ class Message extends Model
         'is_outgoing',
         'display_name',
         'user_id', // For compatibility with tests
+        'quoted_text', // Добавляем новый столбец
     ];
 
     protected $casts = [

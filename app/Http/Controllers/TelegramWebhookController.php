@@ -115,19 +115,29 @@ class TelegramWebhookController extends Controller
         
         // Обрабатываем reply_to_message
         $replyToMessageId = null;
+        $quotedText = null;
+        $originalMessageText = null;
+
         if (isset($messageData['reply_to_message'])) {
+            // Сохраняем текст цитаты, если он есть
+            if (isset($messageData['reply_to_message']['text'])) {
+                $quotedText = $messageData['reply_to_message']['text'];
+            }
+
             $replyToTelegramMessageId = $messageData['reply_to_message']['message_id'];
             $replyToMessage = Message::where('telegram_message_id', $replyToTelegramMessageId)
                                    ->where('chat_id', $chatModel->id)
                                    ->first();
             if ($replyToMessage) {
                 $replyToMessageId = $replyToMessage->id;
+                $originalMessageText = $replyToMessage->message; // Текст оригинального сообщения из БД
             }
         }
         
         $message = Message::create([
             'chat_id' => $chatModel->id,
             'message' => $messageText,
+            'quoted_text' => $quotedText, // Сохраняем текст цитаты
             'user' => $displayName,
             'telegram_message_id' => $messageData['message_id'],
             'reply_to_message_id' => $replyToMessageId,
@@ -140,9 +150,17 @@ class TelegramWebhookController extends Controller
             'telegram_raw_data' => $messageData,
         ]);
         
+        // Определяем, какой текст анализировать
+        $textToAnalyze = $messageText;
+        if ($quotedText !== null && $originalMessageText !== null) {
+            if (strlen($quotedText) !== strlen($originalMessageText)) {
+                $textToAnalyze = $quotedText;
+            }
+        }
+
         // Анализируем сообщение на наличие кап
         try {
-            $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $messageText);
+            $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $textToAnalyze);
         } catch (\Exception $e) {
             Log::warning('Cap analysis failed for message', [
                 'message_id' => $message->id,
