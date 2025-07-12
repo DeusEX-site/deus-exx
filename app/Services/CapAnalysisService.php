@@ -683,7 +683,7 @@ class CapAnalysisService
         
         // Сначала извлекаем общий часовой пояс в конце строки (если есть)
         $commonTimezone = '';
-        if (preg_match('/\s+(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', $value, $tzMatches)) {
+        if (preg_match('/\s+(Gmt|gmt|GMT|гмт|ГМТ|Гмт)?([+-]\d{1,2})(:\d{2})?\s*$/i', $value, $tzMatches)) {
             $commonTimezone = ' GMT' . $tzMatches[2];
             if (!isset($tzMatches[3])) {
                 $commonTimezone .= ':00';
@@ -691,7 +691,7 @@ class CapAnalysisService
                 $commonTimezone .= $tzMatches[3];
             }
             // Удаляем общий часовой пояс из строки для парсинга расписаний
-            $value = preg_replace('/\s+(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', '', $value);
+            $value = preg_replace('/\s+(Gmt|gmt|GMT|гмт|ГМТ|Гмт)?([+-]\d{1,2})(:\d{2})?\s*$/i', '', $value);
         }
         
         // Пытаемся определить формат разделителя
@@ -761,7 +761,7 @@ class CapAnalysisService
         $timezone = null;
         
         // Извлекаем часовой пояс (поддержка +3, GMT+3, GMT+03:00, etc.)
-        if (preg_match('/\s*(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', $normalizedSchedule, $tzMatches)) {
+        if (preg_match('/\s*(Gmt|gmt|GMT|гмт|ГМТ|Гмт)?([+-]\d{1,2})(:\d{2})?\s*$/i', $normalizedSchedule, $tzMatches)) {
             $timezone = 'GMT' . $tzMatches[2];
             if (!isset($tzMatches[3])) {
                 $timezone .= ':00';
@@ -769,7 +769,7 @@ class CapAnalysisService
                 $timezone .= $tzMatches[3];
             }
             // Удаляем часовой пояс из строки для дальнейшей обработки
-            $normalizedSchedule = preg_replace('/\s*(GMT)?([+-]\d{1,2})(:\d{2})?\s*$/i', '', $normalizedSchedule);
+            $normalizedSchedule = preg_replace('/\s*(Gmt|gmt|GMT|гмт|ГМТ|Гмт)?([+-]\d{1,2})(:\d{2})?\s*$/i', '', $normalizedSchedule);
         }
         
         // Нормализуем разделители времени (точки на двоеточия)
