@@ -113,31 +113,42 @@ class TelegramWebhookController extends Controller
         $user = $messageData['from'];
         $displayName = $this->getUserDisplayName($user);
         
-        // Обрабатываем reply_to_message
         $replyToMessageId = null;
         $quotedText = null;
-        $originalMessageText = null;
+        $textToAnalyze = $messageText;
 
+        // 1. Определяем текст цитаты, отдавая приоритет полю 'quote' на верхнем уровне
+        if (isset($messageData['quote']['text'])) {
+            $quotedText = $messageData['quote']['text'];
+        } 
+        // Если quote не найден, ищем в reply_to_message (для совместимости)
+        elseif (isset($messageData['reply_to_message']['text'])) {
+            $quotedText = $messageData['reply_to_message']['text'];
+        }
+
+        // 2. Находим ID оригинального сообщения, на которое был дан ответ
         if (isset($messageData['reply_to_message'])) {
-            // Сохраняем текст цитаты, если он есть
-            if (isset($messageData['reply_to_message']['text'])) {
-                $quotedText = $messageData['reply_to_message']['text'];
-            }
-
-            $replyToTelegramMessageId = $messageData['reply_to_message']['message_id'];
-            $replyToMessage = Message::where('telegram_message_id', $replyToTelegramMessageId)
+            $replyToData = $messageData['reply_to_message'];
+            
+            $replyToMessage = Message::where('telegram_message_id', $replyToData['message_id'])
                                    ->where('chat_id', $chatModel->id)
                                    ->first();
+            
             if ($replyToMessage) {
                 $replyToMessageId = $replyToMessage->id;
-                $originalMessageText = $replyToMessage->message; // Текст оригинального сообщения из БД
+                
+                // 3. Сравниваем текст цитаты с текстом оригинального сообщения из БД
+                // и решаем, какой текст анализировать
+                if ($quotedText !== null && strlen($quotedText) !== strlen($replyToMessage->message)) {
+                    $textToAnalyze = $quotedText;
+                }
             }
         }
         
         $message = Message::create([
             'chat_id' => $chatModel->id,
             'message' => $messageText,
-            'quoted_text' => $quotedText, // Сохраняем текст цитаты
+            'quoted_text' => $quotedText,
             'user' => $displayName,
             'telegram_message_id' => $messageData['message_id'],
             'reply_to_message_id' => $replyToMessageId,
@@ -150,15 +161,7 @@ class TelegramWebhookController extends Controller
             'telegram_raw_data' => $messageData,
         ]);
         
-        // Определяем, какой текст анализировать
-        $textToAnalyze = $messageText;
-        if ($quotedText !== null && $originalMessageText !== null) {
-            if (strlen($quotedText) !== strlen($originalMessageText)) {
-                $textToAnalyze = $quotedText;
-            }
-        }
-
-        // Анализируем сообщение на наличие кап
+        // Анализируем определенный текст
         try {
             $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $textToAnalyze);
         } catch (\Exception $e) {
