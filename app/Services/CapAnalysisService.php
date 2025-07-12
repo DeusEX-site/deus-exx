@@ -259,7 +259,7 @@ class CapAnalysisService
         return preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText) ||
                (preg_match('/^Affiliate:\s*(.+)$/m', $messageText) &&
                 preg_match('/^Recipient:\s*(.+)$/m', $messageText) &&
-                preg_match('/^Cap:\s*(.+)$/m', $messageText) &&
+                preg_match('/^(Cap|CAP|cap|Сар|САР|сар):\s*(.+)$/mi', $messageText) &&
                 preg_match('/^Geo:\s*(.+)$/m', $messageText) &&
                 preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText));
     }
@@ -518,7 +518,7 @@ class CapAnalysisService
             $recipient = trim($matches[1]);
         }
 
-        if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^(Cap|CAP|cap|Сар|САР|сар):\s*(.+)$/mi', $messageText, $matches)) {
             $capValue = trim($matches[1]);
             if (is_numeric($capValue)) {
                 $cap = intval($capValue);
@@ -1504,7 +1504,7 @@ class CapAnalysisService
         $dates = [];
 
         // Cap
-        if (preg_match('/^Cap:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^(Cap|CAP|cap|Сар|САР|сар):\s*(.+)$/mi', $messageText, $matches)) {
             $capValues = $this->parseMultipleValues($matches[1]);
             foreach ($capValues as $cap) {
                 if (is_numeric($cap)) {
@@ -1883,7 +1883,7 @@ class CapAnalysisService
     private function hasSingleValueParams($messageText)
     {
         $fieldsToCheck = [
-            'cap' => '/^Cap:\s*(.+)$/mi',
+            'cap' => '/^(Cap|CAP|cap|Сар|САР|сар):\s*(.+)$/mi',
             'schedule' => '/^Schedule:\s*(.+)$/m',
             'date' => '/^Date:\s*(.+)$/m',
             'language' => '/^Language:\s*(.+)$/m',
