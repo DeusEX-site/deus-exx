@@ -26,19 +26,33 @@ class CapAnalysisService
             return $this->processCapUpdate($messageId, $messageText, $currentMessage);
         }
         
-        // Проверяем, является ли сообщение стандартной капой
-        if (!$this->isStandardCapMessage($messageText)) {
-            return ['cap_entries_count' => 0];
+        // Проверяем на наличие нескольких блоков кап
+        $blocks = preg_split('/\n\s*\n/', $messageText);
+        $allCombinations = [];
+        
+        foreach ($blocks as $block) {
+            $block = trim($block);
+            if (empty($block)) continue;
+            
+            // Проверяем, является ли блок стандартной капой
+            if ($this->isStandardCapMessage($block)) {
+                $capCombinations = $this->parseStandardCapMessage($block);
+                if ($capCombinations && is_array($capCombinations)) {
+                    $allCombinations = array_merge($allCombinations, $capCombinations);
+                }
+            }
         }
         
-        // Парсим стандартное сообщение
-        $capCombinations = $this->parseStandardCapMessage($messageText);
+        // Если не нашли блоков, пробуем парсить как единое сообщение
+        if (empty($allCombinations) && $this->isStandardCapMessage($messageText)) {
+            $allCombinations = $this->parseStandardCapMessage($messageText) ?? [];
+        }
         
-        if ($capCombinations && is_array($capCombinations)) {
+        if (!empty($allCombinations)) {
             $createdCount = 0;
             $updatedCount = 0;
             
-            foreach ($capCombinations as $capData) {
+            foreach ($allCombinations as $capData) {
                 // Поскольку теперь одна капа = одно гео, берем первое гео из массива
                 $geo = $capData['geos'][0] ?? null;
                 
@@ -631,7 +645,7 @@ class CapAnalysisService
         // Ищем обязательные поля: Affiliate, Recipient, Cap, Geo
         $hasAffiliate = preg_match('/^Affiliate:\s*(.+)$/mi', $messageText);
         $hasRecipient = preg_match('/^Recipient:\s*(.+)$/mi', $messageText);
-        $hasCap = preg_match('/^(Cap|CAP):\s*(.+)$/mi', $messageText);
+        $hasCap = preg_match('/^(Cap|CAP|cap):\s*(.+)$/mi', $messageText);
         $hasGeo = preg_match('/^Geo:\s*(.+)$/mi', $messageText);
         
         return $hasAffiliate && $hasRecipient && $hasCap && $hasGeo;
@@ -856,7 +870,7 @@ class CapAnalysisService
         $geos = [];
 
         // Поддержка как Cap так и CAP
-        if (preg_match('/^(Cap|CAP):\s*(.+)$/mi', $messageText, $matches)) {
+        if (preg_match('/^(Cap|CAP|cap):\s*(.+)$/mi', $messageText, $matches)) {
             $capValues = $this->parseMultipleValues($matches[2]);
             foreach ($capValues as $cap) {
                 if (is_numeric($cap)) {
