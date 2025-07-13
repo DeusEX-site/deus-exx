@@ -1,0 +1,5 @@
+---
+description: dont create .md files
+globs:
+alwaysApply: true
+---

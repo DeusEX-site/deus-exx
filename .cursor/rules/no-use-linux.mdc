@@ -1,0 +1,5 @@
+---
+description: dont use linux commads
+globs:
+alwaysApply: true
+---

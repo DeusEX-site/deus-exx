@@ -1,0 +1,5 @@
+---
+description: dont use command line
+globs:
+alwaysApply: true
+---

@@ -1,0 +1,5 @@
+---
+description: dont create tests
+globs:
+alwaysApply: true
+---

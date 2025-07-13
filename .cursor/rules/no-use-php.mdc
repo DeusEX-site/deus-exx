@@ -1,0 +1,5 @@
+---
+description: dont use php commands
+globs:
+alwaysApply: true
+---
