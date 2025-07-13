@@ -434,9 +434,9 @@ class CapAnalysisService
                     default => 'обновлена'
                 };
 
-                                    $geoStr = is_array($cap->geos) && !empty($cap->geos) ? $cap->geos[0] : 'Unknown';
-                    $capStr = is_array($cap->cap_amounts) && !empty($cap->cap_amounts) ? $cap->cap_amounts[0] : 'Unknown';
-                    $messages[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$geoStr}, {$capStr}) {$action}";
+                $geoStr = $cap->geo ?? 'Unknown';
+                $capStr = $cap->cap_amount ?? 'Unknown';
+                $messages[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$geoStr}, {$capStr}) {$action}";
             }
             
             return [
@@ -501,7 +501,7 @@ class CapAnalysisService
                 'updated_entries_count' => 1,
                 'status_changed' => 1,
                     'message' => "Капа {$cap->affiliate_name} → {$cap->recipient_name} ({$geo}, " . 
-                           (is_array($cap->cap_amounts) && !empty($cap->cap_amounts) ? $cap->cap_amounts[0] : 'Unknown') . ") {$action}"
+                           ($cap->cap_amount ?? 'Unknown') . ") {$action}"
                 ];
             } else {
                 // Если Geo не указан - обновляем все капы в сообщении
@@ -540,8 +540,8 @@ class CapAnalysisService
                         default => 'обновлена'
                     };
 
-                    $geoStr = is_array($cap->geos) && !empty($cap->geos) ? $cap->geos[0] : 'Unknown';
-                    $capStr = is_array($cap->cap_amounts) && !empty($cap->cap_amounts) ? $cap->cap_amounts[0] : 'Unknown';
+                    $geoStr = $cap->geo ?? 'Unknown';
+                    $capStr = $cap->cap_amount ?? 'Unknown';
                     $messages[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$geoStr}, {$capStr}) {$action}";
                 }
 
@@ -1229,7 +1229,7 @@ class CapAnalysisService
                 'timestamp' => $cap->created_at->format('d.m.Y H:i'),
                 'analysis' => [
                     'has_cap_word' => true,
-                    'cap_amounts' => $cap->cap_amounts,
+                    'cap_amounts' => [$cap->cap_amount], // Преобразуем в массив для совместимости
                     'total_amount' => $cap->total_amount,
                     'schedule' => $cap->schedule,
                     'start_time' => $cap->start_time,
@@ -1239,10 +1239,10 @@ class CapAnalysisService
                     'is_24_7' => $cap->is_24_7,
                     'affiliate_name' => $cap->affiliate_name,
                     'recipient_name' => $cap->recipient_name,
-                    'geos' => $cap->geos ?? [],
+                    'geos' => [$cap->geo], // Преобразуем в массив для совместимости
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
-                    'funnels' => $cap->funnels,
+                    'funnels' => $cap->funnel ? [$cap->funnel] : [], // Преобразуем в массив для совместимости
                     'pending_acq' => $cap->pending_acq,
                     'freeze_status_on_acq' => $cap->freeze_status_on_acq,
                     'highlighted_text' => $cap->highlighted_text,
@@ -1371,7 +1371,7 @@ class CapAnalysisService
                 'timestamp' => $cap->created_at->format('d.m.Y H:i'),
                 'analysis' => [
                     'has_cap_word' => true,
-                    'cap_amounts' => $cap->cap_amounts,
+                    'cap_amounts' => [$cap->cap_amount], // Преобразуем в массив для совместимости
                     'total_amount' => $cap->total_amount,
                     'schedule' => $cap->schedule,
                     'start_time' => $cap->start_time,
@@ -1381,10 +1381,10 @@ class CapAnalysisService
                     'is_24_7' => $cap->is_24_7,
                     'affiliate_name' => $cap->affiliate_name,
                     'recipient_name' => $cap->recipient_name,
-                    'geos' => $cap->geos ?? [],
+                    'geos' => [$cap->geo], // Преобразуем в массив для совместимости
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
-                    'funnels' => $cap->funnels,
+                    'funnels' => $cap->funnel ? [$cap->funnel] : [], // Преобразуем в массив для совместимости
                     'pending_acq' => $cap->pending_acq,
                     'freeze_status_on_acq' => $cap->freeze_status_on_acq,
                     'highlighted_text' => $cap->highlighted_text,
@@ -1479,7 +1479,7 @@ class CapAnalysisService
                 
                 foreach ($capCombinations as $capData) {
                     $allCapAmounts[] = $capData['cap_amount'];
-                    $allGeos = array_merge($allGeos, $capData['geos']);
+                    $allGeos[] = $capData['geo'];
                 }
                 
                 // Возвращаем данные первой комбинации с объединенными массивами для обратной совместимости
@@ -1501,7 +1501,7 @@ class CapAnalysisService
                     'geos' => array_unique($allGeos), // Все уникальные geos
                     'work_hours' => $firstCapData['work_hours'],
                     'language' => $firstCapData['language'],
-                    'funnels' => $firstCapData['funnels'],
+                    'funnels' => $firstCapData['funnel'] ? [$firstCapData['funnel']] : [], // Преобразуем в массив для совместимости
                     'pending_acq' => $firstCapData['pending_acq'],
                     'freeze_status_on_acq' => $firstCapData['freeze_status_on_acq'],
                     'raw_numbers' => $allCapAmounts // Все cap amounts
@@ -1906,11 +1906,10 @@ class CapAnalysisService
             
             // Создаем данные для обновления
             $updateCapData = [
-                'cap_amount' => isset($caps[$i]) ? $caps[$i] : 
-                               (is_array($existingCap->cap_amounts) && !empty($existingCap->cap_amounts) ? $existingCap->cap_amounts[0] : 0),
+                'cap_amount' => isset($caps[$i]) ? $caps[$i] : $existingCap->cap_amount,
                 'total_amount' => isset($totals[$i]) ? $totals[$i] : $existingCap->total_amount,
                 'language' => isset($languages[$i]) ? $languages[$i] : $existingCap->language,
-                'funnels' => isset($funnels[$i]) ? [$funnels[$i]] : $existingCap->funnels,
+                'funnel' => isset($funnels[$i]) ? $funnels[$i] : $existingCap->funnel,
                 'test' => isset($tests[$i]) ? $tests[$i] : $existingCap->test,
                 'date' => isset($dates[$i]) ? $dates[$i] : $existingCap->date,
                 'pending_acq' => isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : $existingCap->pending_acq,

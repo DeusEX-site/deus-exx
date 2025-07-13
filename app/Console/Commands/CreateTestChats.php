@@ -391,14 +391,7 @@ class CreateTestChats extends Command
             'geo' => ['geo:', 'RU UA KZ DE FR IT ES US UK CA AU NZ IE PL CZ'],
         ];
         
-        // Вариант 3: Специальные символы
-        $variants[] = [
-            'extreme_type' => 'special_chars',
-            'affiliate' => ['affiliate:', 'Test@Affiliate#123'],
-            'recipient' => ['recipient:', 'Broker$Test&Co'],
-            'cap' => ['cap:', '100'],
-            'geo' => ['geo:', 'RU'],
-        ];
+        // Вариант 3: Специальные символы - УДАЛЕН по требованию пользователя
         
         return $variants;
     }
@@ -830,10 +823,12 @@ class CreateTestChats extends Command
                 
                 if ($caps->count() > 0) {
                     $cap = $caps->first();
+                    // Собираем все geo из всех записей для этого сообщения
+                    $allGeos = $caps->pluck('geo')->filter()->implode(' ');
                     $actual['actual_fields'] = [
                         'affiliate' => $cap->affiliate_name,
                         'recipient' => $cap->recipient_name,
-                        'geos' => $cap->geos,
+                        'geos' => $allGeos,
                         'total' => $cap->total_amount,
                         'schedule' => $cap->schedule,
                         'date' => $cap->date,
