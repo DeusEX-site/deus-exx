@@ -912,9 +912,13 @@ class CreateTestChats extends Command
             $actualValue = $actualFields[$field] ?? null;
             
             if ($this->compareFieldValues($expectedValue, $actualValue)) {
-                $this->info("  ✅ {$field}: '{$expectedValue}' = '{$actualValue}'");
+                $expectedStr = is_array($expectedValue) ? implode(', ', $expectedValue) : $expectedValue;
+                $actualStr = is_array($actualValue) ? implode(', ', $actualValue) : $actualValue;
+                $this->info("  ✅ {$field}: '{$expectedStr}' = '{$actualStr}'");
             } else {
-                $this->error("  ❌ {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'");
+                $expectedStr = is_array($expectedValue) ? implode(', ', $expectedValue) : $expectedValue;
+                $actualStr = is_array($actualValue) ? implode(', ', $actualValue) : $actualValue;
+                $this->error("  ❌ {$field}: ожидалось '{$expectedStr}', получено '{$actualStr}'");
             }
         }
     }

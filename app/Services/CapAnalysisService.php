@@ -271,10 +271,10 @@ class CapAnalysisService
         
         // Полные команды с полями
         return preg_match('/^(run|stop|delete|restore)\s*$/mi', $messageText) ||
-               (preg_match('/^affiliate:\s*(.+)$/mi', $messageText) &&
-                preg_match('/^recipient:\s*(.+)$/mi', $messageText) &&
-                preg_match('/^cap:\s*(.+)$/mi', $messageText) &&
-                preg_match('/^geo:\s*(.+)$/mi', $messageText) &&
+               (preg_match('/^affiliate:\s*(.*)$/mi', $messageText) &&
+                preg_match('/^recipient:\s*(.*)$/mi', $messageText) &&
+                preg_match('/^cap:\s*(.*)$/mi', $messageText) &&
+                preg_match('/^geo:\s*(.*)$/mi', $messageText) &&
                 preg_match('/^(run|stop|delete|restore)\s*$/mi', $messageText));
     }
 
@@ -418,7 +418,7 @@ class CapAnalysisService
         // Полная команда с указанием полей
         // Парсим поля
         $geo = null;
-        if (preg_match('/^geo:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^geo:\s*(.*)$/m', $messageText, $matches)) {
             $geo = trim($matches[1]);
         }
 
@@ -524,15 +524,15 @@ class CapAnalysisService
         $recipient = null;
         $cap = null;
 
-        if (preg_match('/^affiliate:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^affiliate:\s*(.*)$/m', $messageText, $matches)) {
             $affiliate = trim($matches[1]);
         }
 
-        if (preg_match('/^recipient:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^recipient:\s*(.*)$/m', $messageText, $matches)) {
             $recipient = trim($matches[1]);
         }
 
-        if (preg_match('/^cap:\s*(.+)$/mi', $messageText, $matches)) {
+        if (preg_match('/^cap:\s*(.*)$/mi', $messageText, $matches)) {
             $capValue = trim($matches[1]);
             if (is_numeric($capValue)) {
                 $cap = intval($capValue);
@@ -1448,8 +1448,8 @@ class CapAnalysisService
     private function isUpdateCapMessage($messageText)
     {
         // Проверяем, что нет обязательных полей для создания новой капы
-        $hasAffiliate = preg_match('/^affiliate:\s*(.+)$/m', $messageText);
-        $hasRecipient = preg_match('/^recipient:\s*(.+)$/m', $messageText);
+        $hasAffiliate = preg_match('/^affiliate:\s*(.*)$/m', $messageText);
+        $hasRecipient = preg_match('/^recipient:\s*(.*)$/m', $messageText);
         
         // Это обновление капы если нет Affiliate или Recipient
         // Geo может быть необязателен, если в оригинальной капе только одно гео
@@ -1463,7 +1463,7 @@ class CapAnalysisService
     {
         // Парсим множественные значения Geo из сообщения (как в первом методе)
         $geos = [];
-        if (preg_match('/^geo:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^geo:\s*(.*)$/m', $messageText, $matches)) {
             $geos = $this->parseMultipleValues($matches[1]);
         }
         
@@ -1528,7 +1528,7 @@ class CapAnalysisService
         $dates = [];
 
         // Cap
-        if (preg_match('/^cap:\s*(.+)$/mi', $messageText, $matches)) {
+        if (preg_match('/^cap:\s*(.*)$/mi', $messageText, $matches)) {
             $capValues = $this->parseMultipleValues($matches[1]);
             foreach ($capValues as $cap) {
                 if (is_numeric($cap)) {
