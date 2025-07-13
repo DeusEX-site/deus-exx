@@ -35,11 +35,11 @@ class CreateTestChats extends Command
         ],
         'cap' => [
             'keys' => ['cap:', 'Cap:', 'CAP:', 'cAp:', 'cap :', ' cap:', 'cap: '],
-            'values' => ['10', '20 30', '100 200 300', '50', '5', '999', '10000']
+            'values' => ['10', '20 30', '100 200 300', '50', '5 10', '999 888', '10000']
         ],
         'geo' => [
             'keys' => ['geo:', 'Geo:', 'GEO:', 'gEo:', 'geo :', ' geo:', 'geo: '],
-            'values' => ['RU', 'RU UA', 'DE AT CH', 'US UK CA', 'KZ', 'AU NZ', 'IE', 'PL CZ SK']
+            'values' => ['RU', 'RU UA', 'DE AT CH', 'KZ', 'AU NZ', 'US UK', 'IE']
         ],
         'schedule' => [
             'keys' => ['schedule:', 'Schedule:', 'SCHEDULE:', 'sChEdUlE:', 'schedule :', ' schedule:', 'schedule: '],
@@ -55,7 +55,7 @@ class CreateTestChats extends Command
         ],
         'funnel' => [
             'keys' => ['funnel:', 'Funnel:', 'FUNNEL:', 'fUnNeL:', 'funnel :', ' funnel:', 'funnel: '],
-            'values' => ['crypto', 'forex', 'binary', 'stocks', 'options', 'trading', 'investment', 'crypto,forex', 'deusexx', 'premium', 'vip', 'standard', 'test']
+            'values' => ['crypto', 'forex,binary', 'stocks,options,trading', 'investment', 'crypto,forex', 'premium,vip', 'standard']
         ],
         'test' => [
             'keys' => ['test:', 'Test:', 'TEST:', 'tEsT:', 'test :', ' test:', 'test: '],
@@ -281,6 +281,11 @@ class CreateTestChats extends Command
             $variant['cap'] = $capVariants[$capIndex];
             $variant['geo'] = $geoVariants[$geoIndex];
             
+            // Проверяем совпадение количества элементов в cap и geo
+            if (!$this->validateCapGeoCount($variant['cap'][1], $variant['geo'][1])) {
+                continue; // Пропускаем если количества не совпадают
+            }
+            
             // Проверяем уникальность комбинации
             if (!$this->isUniqueCombination($variant['affiliate'][1], $variant['recipient'][1], $variant['geo'][1])) {
                 // Пытаемся найти уникальную комбинацию
@@ -361,6 +366,14 @@ class CreateTestChats extends Command
     {
         $key = strtolower($affiliate) . '|' . strtolower($recipient) . '|' . strtolower($geo);
         $this->usedCombinations[$key] = true;
+    }
+
+    private function validateCapGeoCount($capValue, $geoValue)
+    {
+        $capCount = count(explode(' ', trim($capValue)));
+        $geoCount = count(explode(' ', trim($geoValue)));
+        
+        return $capCount === $geoCount;
     }
     
     private function generateUpdateVariants($combinations, $baseIndex)
