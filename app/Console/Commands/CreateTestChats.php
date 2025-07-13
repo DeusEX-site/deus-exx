@@ -26,51 +26,51 @@ class CreateTestChats extends Command
     // МАКСИМАЛЬНЫЕ ВАРИАНТЫ ПОЛЕЙ ДЛЯ ТЕСТИРОВАНИЯ
     private $fieldVariants = [
         'affiliate' => [
-            'keys' => ['affiliate:', 'Affiliate:', 'AFFILIATE:', 'aFFiLiAtE:', 'affiliate :', ' affiliate:', 'affiliate: '],
+            'keys' => ['affiliate:', 'Affiliate:', 'AFFILIATE:', 'aFFiLiAtE:'],
             'values' => ['TestAffiliate1', 'TestAffiliate2', 'G06', 'mbt internal', 'Super-Affiliate', 'Affiliate_Test', 'TEST01', 'Партнер1']
         ],
         'recipient' => [
-            'keys' => ['recipient:', 'Recipient:', 'RECIPIENT:', 'rEcIpIeNt:', 'recipient :', ' recipient:', 'recipient: '],
+            'keys' => ['recipient:', 'Recipient:', 'RECIPIENT:', 'rEcIpIeNt:'],
             'values' => ['TestBroker1', 'TestBroker2', 'TradingM', 'Global KZ', 'Crypto-Trader', 'Broker_Pro', 'Брокер1', 'بروکر۱', 'test broker']
         ],
         'cap' => [
-            'keys' => ['cap:', 'Cap:', 'CAP:', 'cAp:', 'cap :', ' cap:', 'cap: '],
+            'keys' => ['cap:', 'Cap:', 'CAP:', 'cAp:'],
             'values' => ['10', '20 30', '100 200 300', '50', '5 10', '999 888', '10000']
         ],
         'geo' => [
-            'keys' => ['geo:', 'Geo:', 'GEO:', 'gEo:', 'geo :', ' geo:', 'geo: '],
+            'keys' => ['geo:', 'Geo:', 'GEO:', 'gEo:'],
             'values' => ['RU', 'RU UA', 'DE AT CH', 'KZ', 'AU NZ', 'US UK', 'IE']
         ],
         'schedule' => [
-            'keys' => ['schedule:', 'Schedule:', 'SCHEDULE:', 'sChEdUlE:', 'schedule :', ' schedule:', 'schedule: '],
+            'keys' => ['schedule:', 'Schedule:', 'SCHEDULE:', 'sChEdUlE:'],
             'values' => ['24/7', '10-19', '09:00/18:00 GMT+01:00', '8.30 - 14.30 +3', '18:00/01:00 GMT+03:00', '10:00-19:00', '9-17', '12:00/20:00 GMT+02:00', '10-19 +2']
         ],
         'date' => [
-            'keys' => ['date:', 'Date:', 'DATE:', 'dAtE:', 'date :', ' date:', 'date: '],
+            'keys' => ['date:', 'Date:', 'DATE:', 'dAtE:'],
             'values' => ['24.02', '01.01 02.02', '25.12.2024', '2024-01-01', '15/03/2024', '01.01-31.12', '24.02 25.02', '2024.01.01']
         ],
         'language' => [
-            'keys' => ['language:', 'Language:', 'LANGUAGE:', 'lAnGuAgE:', 'language :', ' language:', 'language: '],
+            'keys' => ['language:', 'Language:', 'LANGUAGE:', 'lAnGuAgE:'],
             'values' => ['en', 'ru', 'de fr', 'en ru de', 'es it', 'pl', 'zh', 'ar', 'tr', 'pt', 'ja', 'ko', 'uk', 'be', 'kz']
         ],
         'funnel' => [
-            'keys' => ['funnel:', 'Funnel:', 'FUNNEL:', 'fUnNeL:', 'funnel :', ' funnel:', 'funnel: '],
+            'keys' => ['funnel:', 'Funnel:', 'FUNNEL:', 'fUnNeL:'],
             'values' => ['crypto', 'forex,binary', 'stocks,options,trading', 'investment', 'crypto,forex', 'premium,vip', 'standard']
         ],
         'test' => [
-            'keys' => ['test:', 'Test:', 'TEST:', 'tEsT:', 'test :', ' test:', 'test: '],
+            'keys' => ['test:', 'Test:', 'TEST:', 'tEsT:'],
             'values' => ['yes', 'no', 'true', 'false', 'active', 'inactive', 'on', 'off', 'enabled', 'disabled', 'debug', 'live', 'staging', 'production']
         ],
         'total' => [
-            'keys' => ['total:', 'Total:', 'TOTAL:', 'tOtAl:', 'total :', ' total:', 'total: '],
+            'keys' => ['total:', 'Total:', 'TOTAL:', 'tOtAl:'],
             'values' => ['100', '500 1000', '200 400 600', '999', '50 100 150', '1000', '1', '10000']
         ],
         'pending_acq' => [
-            'keys' => ['pending acq:', 'Pending ACQ:', 'PENDING ACQ:', 'Pending acq:', 'pending Acq:', 'pending acq :', ' pending acq:', 'pending acq: '],
+            'keys' => ['pending acq:', 'Pending ACQ:', 'PENDING ACQ:', 'Pending acq:', 'pending Acq:'],
             'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет']
         ],
         'freeze_status_on_acq' => [
-            'keys' => ['freeze status on acq:', 'Freeze status on ACQ:', 'FREEZE STATUS ON ACQ:', 'Freeze Status On Acq:', 'freeze Status on acq:', 'freeze status on acq :', ' freeze status on acq:', 'freeze status on acq: '],
+            'keys' => ['freeze status on acq:', 'Freeze status on ACQ:', 'FREEZE STATUS ON ACQ:', 'Freeze Status On Acq:', 'freeze Status on acq:'],
             'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет', 'freeze', 'unfreeze']
         ]
     ];
@@ -961,41 +961,63 @@ class CreateTestChats extends Command
              // Групповое сообщение - проверяем есть ли мульти-значения в любом блоке
              $affiliateBlocks = $this->parseAffiliateBlocks($messageText);
              
-             foreach ($affiliateBlocks as $block) {
-                 $isMulti = false;
-                 
-                 // Проверяем cap
-                 if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
-                     $capValues = preg_split('/\s+/', trim($matches[1]));
-                     if (count($capValues) > 1) {
-                         $isMulti = true;
+                              foreach ($affiliateBlocks as $block) {
+                     $isMulti = false;
+                     $capCount = 1;
+                     $geoCount = 1;
+                     $funnelCount = 1;
+                     
+                     // Проверяем cap
+                     if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
+                         $capValues = preg_split('/\s+/', trim($matches[1]));
+                         $capCount = count($capValues);
+                         if ($capCount > 1) {
+                             $isMulti = true;
+                         }
+                     }
+                     
+                     // Проверяем geo
+                     if (preg_match('/^geo:\s*(.+)$/im', $block, $matches)) {
+                         $geoValues = preg_split('/\s+/', trim($matches[1]));
+                         $geoCount = count($geoValues);
+                         if ($geoCount > 1) {
+                             $isMulti = true;
+                         }
+                     }
+                     
+                     // Проверяем funnel в специальном случае
+                     if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
+                         $funnelValues = preg_split('/\s+/', trim($matches[1]));
+                         $funnelCount = count($funnelValues);
+                         
+                         // СПЕЦИАЛЬНЫЙ СЛУЧАЙ: funnel участвует в определении типа ТОЛЬКО когда:
+                         // CAP > 1, GEO = 1, FUNNEL = GEO (т.е. FUNNEL = 1)
+                         if ($capCount > 1 && $geoCount == 1 && $funnelCount == $geoCount) {
+                             // В этом случае funnel может влиять на тип
+                             if ($funnelCount > 1) {
+                                 $isMulti = true;
+                             }
+                         }
+                     }
+                     
+                     if ($isMulti) {
+                         return 'group_multi'; // Групповое сообщение с мульти-значениями
                      }
                  }
-                 
-                 // Проверяем geo
-                 if (preg_match('/^geo:\s*(.+)$/im', $block, $matches)) {
-                     $geoValues = preg_split('/\s+/', trim($matches[1]));
-                     if (count($geoValues) > 1) {
-                         $isMulti = true;
-                     }
-                 }
-                 
-
-                 
-                 if ($isMulti) {
-                     return 'group_multi'; // Групповое сообщение с мульти-значениями
-                 }
-             }
              
              return 'group_single'; // Групповое сообщение с одиночными значениями
          } else {
              // Одиночное сообщение - проверяем количество cap, geo и funnel
              $isMulti = false;
+             $capCount = 1;
+             $geoCount = 1;
+             $funnelCount = 1;
              
              // Проверяем cap
              if (preg_match('/^cap:\s*(.+)$/im', $messageText, $matches)) {
                  $capValues = preg_split('/\s+/', trim($matches[1]));
-                 if (count($capValues) > 1) {
+                 $capCount = count($capValues);
+                 if ($capCount > 1) {
                      $isMulti = true;
                  }
              }
@@ -1003,12 +1025,26 @@ class CreateTestChats extends Command
              // Проверяем geo
              if (preg_match('/^geo:\s*(.+)$/im', $messageText, $matches)) {
                  $geoValues = preg_split('/\s+/', trim($matches[1]));
-                 if (count($geoValues) > 1) {
+                 $geoCount = count($geoValues);
+                 if ($geoCount > 1) {
                      $isMulti = true;
                  }
              }
              
-
+             // Проверяем funnel в специальном случае
+             if (preg_match('/^funnel:\s*(.+)$/im', $messageText, $matches)) {
+                 $funnelValues = preg_split('/\s+/', trim($matches[1]));
+                 $funnelCount = count($funnelValues);
+                 
+                 // СПЕЦИАЛЬНЫЙ СЛУЧАЙ: funnel участвует в определении типа ТОЛЬКО когда:
+                 // CAP > 1, GEO = 1, FUNNEL = GEO (т.е. FUNNEL = 1)
+                 if ($capCount > 1 && $geoCount == 1 && $funnelCount == $geoCount) {
+                     // В этом случае funnel может влиять на тип
+                     if ($funnelCount > 1) {
+                         $isMulti = true;
+                     }
+                 }
+             }
              
              return $isMulti ? 'single_multi' : 'single_single';
          }
@@ -1714,10 +1750,10 @@ class CreateTestChats extends Command
                 $expectedCapCount = 1;
                 break;
             case 'single_multi':
-                // Подсчитываем количество элементов ТОЛЬКО в cap и geo
-                // funnel НЕ участвует в размножении - применяется обычным образом по колонкам
+                // Подсчитываем количество элементов в cap и geo
                 $capCount = 1;
                 $geoCount = 1;
+                $funnelCount = 1;
                 
                 if (isset($fields['cap'])) {
                     $caps = preg_split('/\s+/', trim($fields['cap']));
@@ -1729,11 +1765,20 @@ class CreateTestChats extends Command
                     $geoCount = count($geos);
                 }
                 
-                // Система создает max(capCount, geoCount) записей
-                // Если cap меньше geo, то cap размножается
-                // Если geo меньше cap, то geo размножается
-                // funnel, total и другие поля применяются обычным образом
-                $expectedCapCount = max($capCount, $geoCount);
+                if (isset($fields['funnel'])) {
+                    $funnels = preg_split('/\s+/', trim($fields['funnel']));
+                    $funnelCount = count($funnels);
+                }
+                
+                // СПЕЦИАЛЬНЫЙ СЛУЧАЙ: funnel участвует в размножении ТОЛЬКО когда:
+                // CAP > 1, GEO = 1, FUNNEL = GEO (т.е. FUNNEL = 1)
+                if ($capCount > 1 && $geoCount == 1 && $funnelCount == $geoCount) {
+                    // В этом случае funnel участвует в размножении
+                    $expectedCapCount = max($capCount, $geoCount, $funnelCount);
+                } else {
+                    // Обычная логика: используем только cap и geo
+                    $expectedCapCount = max($capCount, $geoCount);
+                }
                 break;
             case 'group_single':
                 // Подсчитываем количество блоков affiliate
@@ -1742,13 +1787,13 @@ class CreateTestChats extends Command
                 $expectedCapCount = $affiliateCount;
                 break;
             case 'group_multi':
-                // Подсчитываем общее количество кап во всех блоках (попарно cap+geo)
-                // НЕ учитываем funnel для размножения - он применяется как обычное поле
+                // Подсчитываем общее количество кап во всех блоках
                 $affiliateBlocks = $this->parseAffiliateBlocks($messageText);
                 
                 foreach ($affiliateBlocks as $block) {
                     $capCount = 1;
                     $geoCount = 1;
+                    $funnelCount = 1;
                     
                     if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
                         $caps = preg_split('/\s+/', trim($matches[1]));
@@ -1760,9 +1805,20 @@ class CreateTestChats extends Command
                         $geoCount = count($geos);
                     }
                     
-                    // Для group_multi НЕ учитываем funnel для размножения
-                    // funnel применяется обычным образом по колонкам
-                    $expectedCapCount += max($capCount, $geoCount);
+                    if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
+                        $funnels = preg_split('/\s+/', trim($matches[1]));
+                        $funnelCount = count($funnels);
+                    }
+                    
+                    // СПЕЦИАЛЬНЫЙ СЛУЧАЙ: funnel участвует в размножении ТОЛЬКО когда:
+                    // CAP > 1, GEO = 1, FUNNEL = GEO (т.е. FUNNEL = 1)
+                    if ($capCount > 1 && $geoCount == 1 && $funnelCount == $geoCount) {
+                        // В этом случае funnel участвует в размножении
+                        $expectedCapCount += max($capCount, $geoCount, $funnelCount);
+                    } else {
+                        // Обычная логика: используем только cap и geo
+                        $expectedCapCount += max($capCount, $geoCount);
+                    }
                 }
                 break;
         }
