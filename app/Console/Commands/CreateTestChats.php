@@ -329,7 +329,7 @@ class CreateTestChats extends Command
         
         // Статистика чатов (созданы через встроенную систему)
         $chatCount = Chat::count();
-        $this->line("📁 Всего чатов: {$chatCount} (созданы через TelegramWebhookController)")
+        $this->line("📁 Всего чатов: {$chatCount} (созданы через TelegramWebhookController)");
         
         // Статистика сообщений (созданы через встроенную систему)
         $messageCount = Message::count();
