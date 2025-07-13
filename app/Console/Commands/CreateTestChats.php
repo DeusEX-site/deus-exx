@@ -959,9 +959,9 @@ class CreateTestChats extends Command
          
          if ($affiliateCount > 1) {
              // Групповое сообщение - проверяем есть ли мульти-значения в любом блоке
-             $blocks = preg_split('/\n\s*\n/', $messageText);
+             $affiliateBlocks = $this->parseAffiliateBlocks($messageText);
              
-             foreach ($blocks as $block) {
+             foreach ($affiliateBlocks as $block) {
                  $isMulti = false;
                  
                  // Проверяем cap
@@ -980,6 +980,14 @@ class CreateTestChats extends Command
                      }
                  }
                  
+                 // Проверяем funnel
+                 if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
+                     $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
+                     if (count($funnelValues) > 1) {
+                         $isMulti = true;
+                     }
+                 }
+                 
                  if ($isMulti) {
                      return 'group_multi'; // Групповое сообщение с мульти-значениями
                  }
@@ -987,7 +995,7 @@ class CreateTestChats extends Command
              
              return 'group_single'; // Групповое сообщение с одиночными значениями
          } else {
-             // Одиночное сообщение - проверяем количество cap и geo
+             // Одиночное сообщение - проверяем количество cap, geo и funnel
              $isMulti = false;
              
              // Проверяем cap
@@ -1002,6 +1010,14 @@ class CreateTestChats extends Command
              if (preg_match('/^geo:\s*(.+)$/im', $messageText, $matches)) {
                  $geoValues = preg_split('/\s+/', trim($matches[1]));
                  if (count($geoValues) > 1) {
+                     $isMulti = true;
+                 }
+             }
+             
+             // Проверяем funnel
+             if (preg_match('/^funnel:\s*(.+)$/im', $messageText, $matches)) {
+                 $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
+                 if (count($funnelValues) > 1) {
                      $isMulti = true;
                  }
              }
@@ -1726,29 +1742,9 @@ class CreateTestChats extends Command
         
         switch ($messageType) {
             case 'single_single':
-                // Подсчитываем количество элементов в cap, geo и funnel
-                $capCount = 1;
-                $geoCount = 1;
-                $funnelCount = 1;
-                
-                if (isset($fields['cap'])) {
-                    $caps = preg_split('/\s+/', trim($fields['cap']));
-                    $capCount = count($caps);
-                }
-                
-                if (isset($fields['geo'])) {
-                    $geos = preg_split('/\s+/', trim($fields['geo']));
-                    $geoCount = count($geos);
-                }
-                
-                if (isset($fields['funnel'])) {
-                    $funnels = preg_split('/[,\s]+/', trim($fields['funnel']));
-                    $funnelCount = count($funnels);
-                }
-                
-                // Система создает max(capCount, geoCount, funnelCount) записей
-                // Если одно поле имеет 1 значение, а другое несколько - то одно размножается
-                $expectedCapCount = max($capCount, $geoCount, $funnelCount);
+                // single_single означает одиночный affiliate с одиночными cap, geo и funnel
+                // ВСЕГДА создается ровно 1 запись
+                $expectedCapCount = 1;
                 break;
             case 'single_multi':
                 // Подсчитываем количество элементов в cap, geo и funnel
@@ -1784,8 +1780,9 @@ class CreateTestChats extends Command
                 break;
             case 'group_multi':
                 // Подсчитываем общее количество кап во всех блоках (попарно cap+geo+funnel)
-                $blocks = preg_split('/\n\s*\n/', $messageText);
-                foreach ($blocks as $block) {
+                $affiliateBlocks = $this->parseAffiliateBlocks($messageText);
+                
+                foreach ($affiliateBlocks as $block) {
                     $capCount = 1;
                     $geoCount = 1;
                     $funnelCount = 1;
@@ -2042,12 +2039,61 @@ class CreateTestChats extends Command
      */
     private function sortGeosByOriginalOrder($geos, $originalOrder)
     {
-        $sortedGeos = [];
+        $result = [];
+        
         foreach ($originalOrder as $geo) {
-            if (in_array($geo, $geos)) {
-                $sortedGeos[] = $geo;
+            foreach ($geos as $key => $actualGeo) {
+                if (strtolower($actualGeo) === strtolower($geo)) {
+                    $result[] = $actualGeo;
+                    unset($geos[$key]);
+                    break;
+                }
             }
         }
-        return $sortedGeos;
+        
+        // Добавляем оставшиеся геозоны
+        foreach ($geos as $geo) {
+            $result[] = $geo;
+        }
+        
+        return $result;
+    }
+
+    private function parseAffiliateBlocks($messageText)
+    {
+        // Разбираем сообщение на блоки affiliate
+        $lines = explode("\n", $messageText);
+        $blocks = [];
+        $currentBlock = [];
+        
+        foreach ($lines as $line) {
+            $line = trim($line);
+            
+            // Если строка пустая, пропускаем
+            if (empty($line)) {
+                continue;
+            }
+            
+            // Если строка начинается с "affiliate:", это начало нового блока
+            if (preg_match('/^affiliate:\s*(.+)$/i', $line)) {
+                // Сохраняем предыдущий блок если он не пустой
+                if (!empty($currentBlock)) {
+                    $blocks[] = implode("\n", $currentBlock);
+                }
+                
+                // Начинаем новый блок
+                $currentBlock = [$line];
+            } else {
+                // Добавляем строку к текущему блоку
+                $currentBlock[] = $line;
+            }
+        }
+        
+        // Добавляем последний блок
+        if (!empty($currentBlock)) {
+            $blocks[] = implode("\n", $currentBlock);
+        }
+        
+        return $blocks;
     }
 } 
