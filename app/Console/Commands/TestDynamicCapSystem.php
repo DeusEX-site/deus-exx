@@ -76,6 +76,7 @@ class TestDynamicCapSystem extends Command
     private function buildConfig(): array
     {
         return [
+            'skip_laravel_init' => true, // Пропускаем инициализацию Laravel, т.к. уже в Artisan
             'verbose' => !$this->option('silent'),
             'save_reports' => !$this->option('no-reports'),
             'cleanup_after_test' => !$this->option('no-cleanup'),
