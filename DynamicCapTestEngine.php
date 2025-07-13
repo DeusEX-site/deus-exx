@@ -152,8 +152,15 @@ class DynamicCapTestEngine
                         $actualValue = $actualValue[0] ?? null;
                     }
                     
-                    if (strtolower($actualValue) !== strtolower($expectedValue)) {
-                        $errors[] = "Поле {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'";
+                    // Специальная обработка для числовых полей
+                    if ($field === 'cap_amounts') {
+                        if (intval($actualValue) !== intval($expectedValue)) {
+                            $errors[] = "Поле {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'";
+                        }
+                    } else {
+                        if (strtolower($actualValue) !== strtolower($expectedValue)) {
+                            $errors[] = "Поле {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'";
+                        }
                     }
                 }
             }
@@ -197,8 +204,15 @@ class DynamicCapTestEngine
                     $actualValue = $actualValue[0] ?? null;
                 }
                 
-                if (strtolower($actualValue) !== strtolower($expectedValue)) {
-                    $errors[] = "Обновление поля {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'";
+                // Специальная обработка для числовых полей
+                if ($field === 'cap_amounts') {
+                    if (intval($actualValue) !== intval($expectedValue)) {
+                        $errors[] = "Обновление поля {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'";
+                    }
+                } else {
+                    if (strtolower($actualValue) !== strtolower($expectedValue)) {
+                        $errors[] = "Обновление поля {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'";
+                    }
                 }
             }
         }
@@ -260,7 +274,7 @@ class DynamicCapTestEngine
                 'affiliate' => $capData['affiliate'],
                 'recipient' => $capData['recipient'],
                 'geo' => $capData['geo'],
-                'cap_amounts' => $capData['cap'] ?? '10'
+                'cap_amounts' => intval($capData['cap'] ?? '10')
             ]
         ];
         
@@ -309,7 +323,7 @@ class DynamicCapTestEngine
                 'affiliate' => $baseData['affiliate'],
                 'recipient' => $baseData['recipient'],
                 'geo' => $geo,
-                'cap_amounts' => count($capValues) === 1 ? $capValues[0] : $capValues[$index]
+                'cap_amounts' => intval(count($capValues) === 1 ? $capValues[0] : $capValues[$index])
             ];
         }
         
@@ -350,7 +364,7 @@ class DynamicCapTestEngine
                 'affiliate' => $block['affiliate'],
                 'recipient' => $block['recipient'],
                 'geo' => $block['geo'],
-                'cap_amounts' => $block['cap'] ?? '10'
+                'cap_amounts' => intval($block['cap'] ?? '10')
             ];
         }
         
@@ -534,11 +548,23 @@ class DynamicCapTestEngine
      */
     public function cleanup(): void
     {
-        Message::where('chat_id', $this->testChat->id)->delete();
+        // Удаляем историю кап, связанную с тестовыми капами
+        CapHistory::whereIn('cap_id', function($query) {
+            $query->select('id')->from('caps')
+                  ->whereIn('message_id', function($subQuery) {
+                      $subQuery->select('id')->from('messages')
+                               ->where('chat_id', $this->testChat->id);
+                  });
+        })->delete();
+        
+        // Удаляем тестовые капы
         Cap::whereIn('message_id', function($query) {
             $query->select('id')->from('messages')
                   ->where('chat_id', $this->testChat->id);
         })->delete();
+        
+        // Удаляем тестовые сообщения
+        Message::where('chat_id', $this->testChat->id)->delete();
         
         $this->log("🧹 Тестовые данные очищены");
     }
