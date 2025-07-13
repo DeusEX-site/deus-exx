@@ -930,11 +930,24 @@ class CreateTestChats extends Command
                              $block['geo'] = $geoVariants[$geoIndex];
                          }
                          
-                                                   // Добавляем дополнительные поля рандомно
+                          // Добавляем дополнительные поля рандомно
                           $additionalFields = ['schedule', 'date', 'language', 'funnel', 'test', 'total', 'pending_acq', 'freeze_status_on_acq'];
                           
-                          foreach ($additionalFields as $fieldName) {
-                              if (rand(1, 2) == 1) { // 50% вероятность добавления каждого поля
+                          // ГАРАНТИРОВАННО добавляем 3-4 дополнительных поля в каждый блок
+                          shuffle($additionalFields);
+                          $guaranteedCount = rand(3, 4);
+                          
+                          for ($i = 0; $i < $guaranteedCount; $i++) {
+                              $fieldName = $additionalFields[$i];
+                              $fieldVariants = $this->getFieldVariants($fieldName, $groupVariantIndex + $blockIndex);
+                              $fieldIndex = ($groupVariantIndex + $blockIndex) % count($fieldVariants);
+                              $block[$fieldName] = $fieldVariants[$fieldIndex];
+                          }
+                          
+                          // Остальные поля добавляем с вероятностью 25%
+                          for ($i = $guaranteedCount; $i < count($additionalFields); $i++) {
+                              if (rand(1, 4) == 1) { // 25% вероятность
+                                  $fieldName = $additionalFields[$i];
                                   $fieldVariants = $this->getFieldVariants($fieldName, $groupVariantIndex + $blockIndex);
                                   $fieldIndex = ($groupVariantIndex + $blockIndex) % count($fieldVariants);
                                   $block[$fieldName] = $fieldVariants[$fieldIndex];
