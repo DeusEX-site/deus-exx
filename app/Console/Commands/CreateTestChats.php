@@ -8,7 +8,7 @@ use App\Models\Message;
 use App\Models\Cap;
 use App\Models\CapHistory;
 use App\Http\Controllers\TelegramWebhookController;
-use App\Services\DynamicCapTestGenerator;
+
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -18,7 +18,6 @@ class CreateTestChats extends Command
     protected $signature = 'test:create-chats {count=100 : Количество чатов для создания} {--operations=all : Типы операций (all, create, update, status)} {--combinations=basic : Комбинации полей (basic, advanced, full)}';
     protected $description = 'Создает тестовые чаты и отправляет ВСЕ типы операций в каждый чат (16+ типов операций)';
 
-    private $generator;
     private $webhookController;
 
     public function handle()
@@ -31,8 +30,7 @@ class CreateTestChats extends Command
         $this->info("Типы операций: {$operations}");
         $this->info("Комбинации полей: {$combinations}");
         
-        // Инициализация генератора
-        $this->generator = new DynamicCapTestGenerator();
+        // Инициализация контроллера
         $this->webhookController = app(TelegramWebhookController::class);
         
         // Очищаем существующие данные
@@ -243,107 +241,218 @@ class CreateTestChats extends Command
         switch ($operationType) {
             // Создание сообщений
             case 'message_create_single_one':
-                return $this->generator->generateSingleCapMessage($baseFields);
+                return $this->generateSingleCapMessage($baseFields);
                 
             case 'message_create_single_many':
                 $caps = ['10', '20', '30'];
                 $geos = ['RU', 'UA', 'KZ'];
-                return $this->generator->generateMultiCapMessage($baseFields, $caps, $geos);
+                return $this->generateMultiCapMessage($baseFields, $caps, $geos);
                 
             case 'message_create_group_one':
                 $blocks = [$baseFields];
-                return $this->generator->generateGroupMessage($blocks);
+                return $this->generateGroupMessage($blocks);
                 
             case 'message_create_group_many':
                 $blocks = [$baseFields, $this->getBaseFields($index + 1000, $combinations)];
-                return $this->generator->generateGroupMessage($blocks);
+                return $this->generateGroupMessage($blocks);
                 
             // Обновление через сообщения
             case 'message_update_single_one':
                 $identifiers = ['affiliate' => $baseFields['affiliate'], 'recipient' => $baseFields['recipient'], 'geo' => $baseFields['geo']];
                 $updates = ['schedule' => '10-19', 'total' => '500'];
-                return $this->generator->generateUpdateMessage($identifiers, $updates);
+                return $this->generateUpdateMessage($identifiers, $updates);
                 
             case 'message_update_single_many':
                 $identifiers = ['affiliate' => $baseFields['affiliate'], 'recipient' => $baseFields['recipient']];
                 $updates = ['geo' => 'RU UA', 'schedule' => '24/7', 'total' => '1000'];
-                return $this->generator->generateUpdateMessage($identifiers, $updates);
+                return $this->generateUpdateMessage($identifiers, $updates);
                 
             case 'message_update_group_one':
                 $identifiers = ['affiliate' => $baseFields['affiliate'], 'recipient' => $baseFields['recipient']];
                 $updates = ['schedule' => '10-19'];
-                return $this->generator->generateUpdateMessage($identifiers, $updates);
+                return $this->generateUpdateMessage($identifiers, $updates);
                 
             case 'message_update_group_many':
                 $identifiers = ['affiliate' => $baseFields['affiliate']];
                 $updates = ['schedule' => '24/7', 'total' => '2000'];
-                return $this->generator->generateUpdateMessage($identifiers, $updates);
+                return $this->generateUpdateMessage($identifiers, $updates);
                 
             // Обновление через ответы
             case 'reply_update_single_one':
-                return "Schedule: 10-19\nTotal: 300";
+                return "schedule: 10-19\ntotal: 300";
                 
             case 'reply_update_single_many':
-                return "Geo: RU UA KZ\nSchedule: 24/7";
+                return "geo: RU UA KZ\nschedule: 24/7";
                 
             case 'reply_update_group_one':
-                return "Schedule: 10-19";
+                return "schedule: 10-19";
                 
             case 'reply_update_group_many':
-                return "Total: 1500";
+                return "total: 1500";
                 
             // Обновление через цитаты
             case 'quote_update_single_one':
-                return "Schedule: 12-20\nTotal: 400";
+                return "schedule: 12-20\ntotal: 400";
                 
             case 'quote_update_single_many':
-                return "Geo: DE FR IT\nSchedule: 24/7";
+                return "geo: DE FR IT\nschedule: 24/7";
                 
             case 'quote_update_group_one':
-                return "Schedule: 09-18";
+                return "schedule: 09-18";
                 
             case 'quote_update_group_many':
-                return "Total: 2500";
+                return "total: 2500";
                 
             // Команды статуса
             default:
                 if (str_starts_with($operationType, 'status_')) {
                     $command = str_replace('status_', '', $operationType);
                     $identifiers = ['affiliate' => $baseFields['affiliate'], 'recipient' => $baseFields['recipient'], 'geo' => $baseFields['geo']];
-                    return $this->generator->generateStatusCommand($identifiers, $command);
+                    return $this->generateStatusCommand($identifiers, $command);
                 }
                 
-                return $this->generator->generateSingleCapMessage($baseFields);
+                return $this->generateSingleCapMessage($baseFields);
         }
     }
 
+    private function generateSingleCapMessage($fields)
+    {
+        $message = "affiliate: " . $fields['affiliate'] . "\n";
+        $message .= "recipient: " . $fields['recipient'] . "\n";
+        $message .= "cap: " . $fields['cap'] . "\n";
+        $message .= "geo: " . $fields['geo'] . "\n";
+        
+        if (isset($fields['schedule'])) {
+            $message .= "schedule: " . $fields['schedule'] . "\n";
+        }
+        
+        if (isset($fields['language'])) {
+            $message .= "language: " . $fields['language'] . "\n";
+        }
+        
+        if (isset($fields['total'])) {
+            $message .= "total: " . $fields['total'] . "\n";
+        }
+        
+        if (isset($fields['date'])) {
+            $message .= "date: " . $fields['date'] . "\n";
+        }
+        
+        if (isset($fields['funnel'])) {
+            $message .= "funnel: " . $fields['funnel'] . "\n";
+        }
+        
+        if (isset($fields['pending_acq'])) {
+            $message .= "pending acq: " . ($fields['pending_acq'] ? 'yes' : 'no') . "\n";
+        }
+        
+        if (isset($fields['freeze_status_on_acq'])) {
+            $message .= "freeze status on acq: " . ($fields['freeze_status_on_acq'] ? 'yes' : 'no') . "\n";
+        }
+        
+        return rtrim($message);
+    }
+    
+    private function generateMultiCapMessage($fields, $caps, $geos)
+    {
+        $message = "affiliate: " . $fields['affiliate'] . "\n";
+        $message .= "recipient: " . $fields['recipient'] . "\n";
+        $message .= "cap: " . implode(' ', $caps) . "\n";
+        $message .= "geo: " . implode(' ', $geos) . "\n";
+        
+        if (isset($fields['schedule'])) {
+            $message .= "schedule: " . $fields['schedule'] . "\n";
+        }
+        
+        if (isset($fields['language'])) {
+            $message .= "language: " . $fields['language'] . "\n";
+        }
+        
+        if (isset($fields['total'])) {
+            $message .= "total: " . $fields['total'] . "\n";
+        }
+        
+        return rtrim($message);
+    }
+    
+    private function generateGroupMessage($blocks)
+    {
+        $messages = [];
+        foreach ($blocks as $block) {
+            $messages[] = $this->generateSingleCapMessage($block);
+        }
+        return implode("\n\n", $messages);
+    }
+    
+    private function generateUpdateMessage($identifiers, $updates)
+    {
+        $message = '';
+        
+        foreach ($identifiers as $key => $value) {
+            $message .= "$key: $value\n";
+        }
+        
+        foreach ($updates as $key => $value) {
+            $message .= "$key: $value\n";
+        }
+        
+        return rtrim($message);
+    }
+    
+    private function generateStatusCommand($identifiers, $command)
+    {
+        $message = '';
+        
+        foreach ($identifiers as $key => $value) {
+            $message .= "$key: $value\n";
+        }
+        
+        $message .= strtolower($command);
+        
+        return rtrim($message);
+    }
+    
     private function getBaseFields($index, $combinations)
     {
-        $fieldValues = $this->generator->getAllFields();
-        $values = [];
+        $affiliates = ['TestAffiliate1', 'TestAffiliate2', 'TestAffiliate3', 'TestAffiliate4', 'TestAffiliate5'];
+        $recipients = ['TestBroker1', 'TestBroker2', 'TestBroker3', 'TestBroker4', 'TestBroker5'];
+        $caps = [10, 20, 30, 40, 50];
+        $geos = ['RU', 'UA', 'KZ', 'DE', 'FR', 'IT', 'ES', 'US', 'UK', 'CA'];
+        $schedules = ['10-19', '24/7', '09-18', '12-20', '8-16', '9-17'];
+        $languages = ['en', 'ru', 'de', 'fr'];
+        $totals = [100, 200, 300, 500, 1000];
+        $dates = ['01.01', '02.02', '03.03', '04.04', '05.05'];
+        $funnels = ['crypto', 'forex', 'binary', 'stocks', 'options'];
+        $pending_acqs = [true, false, true, false, true];
+        $freeze_statuses = [true, false, false, true, false];
         
-        foreach (['affiliate', 'recipient', 'cap', 'geo'] as $field) {
-            $options = $this->generator->getFieldValues($field);
-            $values[$field] = $options[$index % count($options)];
-        }
+        $values = [
+            'affiliate' => $affiliates[$index % count($affiliates)],
+            'recipient' => $recipients[$index % count($recipients)],
+            'cap' => $caps[$index % count($caps)],
+            'geo' => $geos[$index % count($geos)]
+        ];
         
         // Добавляем опциональные поля в зависимости от типа комбинаций
         switch ($combinations) {
             case 'advanced':
-                $values['schedule'] = $this->generator->getFieldValues('schedule')[$index % 6];
-                $values['language'] = $this->generator->getFieldValues('language')[$index % 4];
-                $values['total'] = $this->generator->getFieldValues('total')[$index % 5];
+                $values['schedule'] = $schedules[$index % count($schedules)];
+                $values['language'] = $languages[$index % count($languages)];
+                $values['total'] = $totals[$index % count($totals)];
                 break;
                 
             case 'full':
-                foreach (['schedule', 'date', 'language', 'funnel', 'total', 'pending_acq', 'freeze_status_on_acq'] as $field) {
-                    $options = $this->generator->getFieldValues($field);
-                    $values[$field] = $options[$index % count($options)];
-                }
+                $values['schedule'] = $schedules[$index % count($schedules)];
+                $values['date'] = $dates[$index % count($dates)];
+                $values['language'] = $languages[$index % count($languages)];
+                $values['funnel'] = $funnels[$index % count($funnels)];
+                $values['total'] = $totals[$index % count($totals)];
+                $values['pending_acq'] = $pending_acqs[$index % count($pending_acqs)];
+                $values['freeze_status_on_acq'] = $freeze_statuses[$index % count($freeze_statuses)];
                 break;
                 
             default: // 'basic'
-                $values['schedule'] = $this->generator->getFieldValues('schedule')[$index % 6];
+                $values['schedule'] = $schedules[$index % count($schedules)];
                 break;
         }
         
@@ -353,13 +462,13 @@ class CreateTestChats extends Command
     private function generateOriginalMessage($index)
     {
         $baseFields = $this->getBaseFields($index, 'basic');
-        return $this->generator->generateSingleCapMessage($baseFields);
+        return $this->generateSingleCapMessage($baseFields);
     }
 
     private function generateQuotedText($index)
     {
         $baseFields = $this->getBaseFields($index, 'basic');
-        return $this->generator->generateSingleCapMessage($baseFields);
+        return $this->generateSingleCapMessage($baseFields);
     }
 
 
