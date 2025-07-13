@@ -16,18 +16,18 @@ use Illuminate\Http\Request;
 class CreateTestChats extends Command
 {
     protected $signature = 'test:create-chats {count=100 : Количество чатов для создания} {--operations=all : Типы операций (all, create, update, status)} {--combinations=basic : Комбинации полей (basic, advanced, full)}';
-    protected $description = 'Создает тестовые чаты с капами используя DynamicCapTestGenerator (16 типов операций)';
+    protected $description = 'Создает тестовые чаты и отправляет ВСЕ типы операций в каждый чат (16+ типов операций)';
 
     private $generator;
     private $webhookController;
 
     public function handle()
     {
-        $count = (int) $this->argument('count');
+        $chatCount = (int) $this->argument('count');
         $operations = $this->option('operations');
         $combinations = $this->option('combinations');
         
-        $this->info("Создание {$count} тестовых чатов с капами...");
+        $this->info("Создание {$chatCount} тестовых чатов с капами...");
         $this->info("Типы операций: {$operations}");
         $this->info("Комбинации полей: {$combinations}");
         
@@ -39,19 +39,30 @@ class CreateTestChats extends Command
         $this->warn('Очистка существующих данных...');
         $this->clearDatabase();
         
-        $this->info('Генерация тестовых сообщений с капами...');
+        // Этап 1: Создаем базовые чаты
+        $this->info('Этап 1: Создание базовых чатов...');
+        $this->createBasicChats($chatCount, $combinations);
         
+        // Этап 2: Отправляем ВСЕ типы операций в существующие чаты
+        $this->info('Этап 2: Отправка всех типов операций в существующие чаты...');
+        $operationStats = $this->sendAllOperationTypes($chatCount, $operations, $combinations);
+        
+        // Показываем статистику операций
+        $this->showOperationStats($operationStats);
+        
+        // Показываем общую статистику
+        $this->showStatistics();
+    }
+    
+    private function createBasicChats($chatCount, $combinations)
+    {
         $successCount = 0;
         $errorCount = 0;
-        $operationStats = [];
         
-        for ($i = 1; $i <= $count; $i++) {
+        for ($i = 1; $i <= $chatCount; $i++) {
             try {
-                // Определяем тип операции для этого чата
-                $operationType = $this->selectOperationType($operations, $i);
-                
-                // Генерируем тестовое сообщение с капой
-                $testMessage = $this->generateCapMessage($i, $operationType, $combinations);
+                // Создаем базовые сообщения для создания чатов
+                $testMessage = $this->generateCapMessage($i, 'message_create_single_one', $combinations);
                 
                 // Отправляем через webhook контроллер
                 $request = new Request($testMessage);
@@ -59,10 +70,9 @@ class CreateTestChats extends Command
                 
                 if ($response->getStatusCode() == 200) {
                     $successCount++;
-                    $operationStats[$operationType] = ($operationStats[$operationType] ?? 0) + 1;
                     
                     if ($i % 10 == 0) {
-                        $this->info("Обработано чатов: {$i}");
+                        $this->info("Создано чатов: {$i}");
                     }
                 } else {
                     $errorCount++;
@@ -70,7 +80,7 @@ class CreateTestChats extends Command
                 }
                 
                 // Небольшая задержка для имитации реального времени
-                usleep(10000); // 0.01 секунды
+                usleep(5000); // 0.005 секунды
                 
             } catch (\Exception $e) {
                 $errorCount++;
@@ -78,16 +88,79 @@ class CreateTestChats extends Command
             }
         }
         
-        $this->info("✅ Обработано сообщений: {$successCount}");
+        $this->info("✅ Создано чатов: {$successCount}");
         if ($errorCount > 0) {
-            $this->warn("⚠️ Ошибок: {$errorCount}");
+            $this->warn("⚠️ Ошибок при создании чатов: {$errorCount}");
+        }
+    }
+    
+    private function sendAllOperationTypes($chatCount, $operations, $combinations)
+    {
+        $operationTypes = $this->getOperationTypesToTest($operations);
+        $operationStats = [];
+        $totalSuccessCount = 0;
+        $totalErrorCount = 0;
+        
+        $this->info("Отправка " . count($operationTypes) . " типов операций в {$chatCount} чатов...");
+        
+        foreach ($operationTypes as $operationType) {
+            $this->info("Отправка операций типа: {$operationType}");
+            
+            // Отправляем этот тип операции в каждый чат
+            for ($chatIndex = 1; $chatIndex <= $chatCount; $chatIndex++) {
+                try {
+                    $messageIndex = ($chatIndex * 1000) + array_search($operationType, $operationTypes);
+                    $testMessage = $this->generateCapMessage($messageIndex, $operationType, $combinations);
+                    
+                    // Отправляем через webhook контроллер
+                    $request = new Request($testMessage);
+                    $response = $this->webhookController->handle($request);
+                    
+                    if ($response->getStatusCode() == 200) {
+                        $totalSuccessCount++;
+                        $operationStats[$operationType] = ($operationStats[$operationType] ?? 0) + 1;
+                    } else {
+                        $totalErrorCount++;
+                        $this->error("Ошибка для операции {$operationType} в чате {$chatIndex}: " . $response->getContent());
+                    }
+                    
+                    // Небольшая задержка для имитации реального времени
+                    usleep(2000); // 0.002 секунды
+                    
+                } catch (\Exception $e) {
+                    $totalErrorCount++;
+                    $this->error("Исключение для операции {$operationType} в чате {$chatIndex}: " . $e->getMessage());
+                }
+            }
         }
         
-        // Показываем статистику операций
-        $this->showOperationStats($operationStats);
+        $this->info("✅ Отправлено сообщений: {$totalSuccessCount}");
+        if ($totalErrorCount > 0) {
+            $this->warn("⚠️ Ошибок: {$totalErrorCount}");
+        }
         
-        // Показываем общую статистику
-        $this->showStatistics();
+        return $operationStats;
+    }
+    
+    private function getOperationTypesToTest($operations)
+    {
+        $allOperationTypes = $this->generator->getOperationTypes();
+        $statusCommands = $this->generator->getStatusCommands();
+        
+        switch ($operations) {
+            case 'create':
+                return array_filter($allOperationTypes, fn($type) => str_contains($type, 'create'));
+                
+            case 'update':
+                return array_filter($allOperationTypes, fn($type) => str_contains($type, 'update'));
+                
+            case 'status':
+                return array_map(fn($cmd) => 'status_' . $cmd, $statusCommands);
+                
+            default: // 'all'
+                // Возвращаем все типы операций + команды статуса
+                return array_merge($allOperationTypes, array_map(fn($cmd) => 'status_' . $cmd, $statusCommands));
+        }
     }
 
     private function clearDatabase()
@@ -102,28 +175,7 @@ class CreateTestChats extends Command
         $this->info('База данных очищена');
     }
 
-    private function selectOperationType($operations, $index)
-    {
-        $operationTypes = $this->generator->getOperationTypes();
-        
-        switch ($operations) {
-            case 'create':
-                $createTypes = array_filter($operationTypes, fn($type) => str_contains($type, 'create'));
-                return $createTypes[array_rand($createTypes)];
-                
-            case 'update':
-                $updateTypes = array_filter($operationTypes, fn($type) => str_contains($type, 'update'));
-                return $updateTypes[array_rand($updateTypes)];
-                
-            case 'status':
-                $statusCommands = $this->generator->getStatusCommands();
-                return 'status_' . $statusCommands[array_rand($statusCommands)];
-                
-            default: // 'all'
-                // Циклически проходим все типы операций
-                return $operationTypes[$index % count($operationTypes)];
-        }
-    }
+
 
     private function generateCapMessage($index, $operationType, $combinations)
     {
