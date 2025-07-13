@@ -1035,14 +1035,10 @@ class CreateTestChats extends Command
         $field = $this->fieldVariants[$fieldName];
         $variants = [];
         
+        // ИСПОЛЬЗУЕМ ПОЛНЫЙ НАБОР ВАРИАНТОВ без ограничений
         foreach ($field['keys'] as $keyIndex => $key) {
             foreach ($field['values'] as $valueIndex => $value) {
                 $variants[] = [$key, $value];
-                
-                // Ограничиваем количество вариантов
-                if (count($variants) >= 10) {
-                    break 2;
-                }
             }
         }
         
