@@ -980,13 +980,7 @@ class CreateTestChats extends Command
                      }
                  }
                  
-                 // Проверяем funnel
-                 if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
-                     $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
-                     if (count($funnelValues) > 1) {
-                         $isMulti = true;
-                     }
-                 }
+
                  
                  if ($isMulti) {
                      return 'group_multi'; // Групповое сообщение с мульти-значениями
@@ -1014,13 +1008,7 @@ class CreateTestChats extends Command
                  }
              }
              
-             // Проверяем funnel
-             if (preg_match('/^funnel:\s*(.+)$/im', $messageText, $matches)) {
-                 $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
-                 if (count($funnelValues) > 1) {
-                     $isMulti = true;
-                 }
-             }
+
              
              return $isMulti ? 'single_multi' : 'single_single';
          }
@@ -1312,7 +1300,6 @@ class CreateTestChats extends Command
             foreach ($blocks as $block) {
                 $capCount = 1;
                 $geoCount = 1;
-                $funnelCount = 1;
                 
                 // Проверяем cap
                 if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
@@ -1326,14 +1313,8 @@ class CreateTestChats extends Command
                     $geoCount = count($geoValues);
                 }
                 
-                // Проверяем funnel
-                if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
-                    $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
-                    $funnelCount = count($funnelValues);
-                }
-                
-                // Проверяем совместимость количеств
-                if (!$this->areCountsCompatible($capCount, $geoCount, $funnelCount)) {
+                // Проверяем совместимость количеств ТОЛЬКО cap и geo
+                if (!$this->areCountsCompatible($capCount, $geoCount, 1)) {
                     return false;
                 }
             }
@@ -1341,7 +1322,6 @@ class CreateTestChats extends Command
             // Одиночное сообщение
             $capCount = 1;
             $geoCount = 1;
-            $funnelCount = 1;
             
             // Проверяем cap
             if (preg_match('/^cap:\s*(.+)$/im', $messageText, $matches)) {
@@ -1355,14 +1335,8 @@ class CreateTestChats extends Command
                 $geoCount = count($geoValues);
             }
             
-            // Проверяем funnel
-            if (preg_match('/^funnel:\s*(.+)$/im', $messageText, $matches)) {
-                $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
-                $funnelCount = count($funnelValues);
-            }
-            
-            // Проверяем совместимость количеств
-            if (!$this->areCountsCompatible($capCount, $geoCount, $funnelCount)) {
+            // Проверяем совместимость количеств ТОЛЬКО cap и geo
+            if (!$this->areCountsCompatible($capCount, $geoCount, 1)) {
                 return false;
             }
         }
@@ -1372,21 +1346,17 @@ class CreateTestChats extends Command
     
     private function areCountsCompatible($capCount, $geoCount, $funnelCount)
     {
-        // Логика совместимости:
-        // 1. Если все поля имеют одинаковое количество - совместимы
-        // 2. Если одно поле имеет 1 значение, а другие несколько - совместимы (размножение)
-        // 3. Если несколько полей имеют разное количество (>1) - несовместимы
+        // Логика совместимости ТОЛЬКО для cap и geo:
+        // 1. Если cap и geo имеют одинаковое количество - совместимы
+        // 2. Если одно из них имеет 1 значение, а другое несколько - совместимы (размножение)
+        // 3. Если оба имеют разное количество (>1) - несовместимы
+        // funnel НЕ участвует в проверке совместимости
         
-        $counts = [$capCount, $geoCount, $funnelCount];
-        $nonSingleCounts = array_filter($counts, function($count) { return $count > 1; });
-        
-        if (count($nonSingleCounts) <= 1) {
-            return true; // Максимум одно поле имеет >1 значения
+        if ($capCount === 1 || $geoCount === 1) {
+            return true; // Одно поле одиночное - размножение возможно
         }
         
-        // Проверяем что все поля с >1 значениями имеют одинаковое количество
-        $uniqueNonSingleCounts = array_unique($nonSingleCounts);
-        return count($uniqueNonSingleCounts) === 1;
+        return $capCount === $geoCount; // Оба множественные - должны совпадать
     }
 
     private function generateMessageByVariant($operationType, $variant)
@@ -1738,36 +1708,16 @@ class CreateTestChats extends Command
         
         switch ($messageType) {
             case 'single_single':
-                // single_single означает одиночный affiliate с одиночными cap и geo
-                // НО может содержать множественные funnel - тогда создается несколько записей
-                $capCount = 1;
-                $geoCount = 1;
-                $funnelCount = 1;
-                
-                if (isset($fields['cap'])) {
-                    $caps = preg_split('/\s+/', trim($fields['cap']));
-                    $capCount = count($caps);
-                }
-                
-                if (isset($fields['geo'])) {
-                    $geos = preg_split('/\s+/', trim($fields['geo']));
-                    $geoCount = count($geos);
-                }
-                
-                if (isset($fields['funnel'])) {
-                    $funnels = preg_split('/[,\s]+/', trim($fields['funnel']));
-                    $funnelCount = count($funnels);
-                }
-                
-                // Система создает max(capCount, geoCount, funnelCount) записей
-                // single_single может размножаться по funnel если funnel множественный
-                $expectedCapCount = max($capCount, $geoCount, $funnelCount);
+                // single_single ВСЕГДА означает РОВНО 1 запись
+                // Один affiliate + один cap + один geo = 1 запись
+                // ВСЕ остальные поля (total, funnel, language и т.д.) НЕ влияют на количество записей!
+                $expectedCapCount = 1;
                 break;
             case 'single_multi':
-                // Подсчитываем количество элементов в cap, geo и funnel
+                // Подсчитываем количество элементов ТОЛЬКО в cap и geo
+                // funnel НЕ участвует в размножении - применяется обычным образом по колонкам
                 $capCount = 1;
                 $geoCount = 1;
-                $funnelCount = 1;
                 
                 if (isset($fields['cap'])) {
                     $caps = preg_split('/\s+/', trim($fields['cap']));
@@ -1779,16 +1729,11 @@ class CreateTestChats extends Command
                     $geoCount = count($geos);
                 }
                 
-                if (isset($fields['funnel'])) {
-                    $funnels = preg_split('/[,\s]+/', trim($fields['funnel']));
-                    $funnelCount = count($funnels);
-                }
-                
-                // Система создает max(capCount, geoCount, funnelCount) записей
+                // Система создает max(capCount, geoCount) записей
                 // Если cap меньше geo, то cap размножается
                 // Если geo меньше cap, то geo размножается
-                // Если funnel меньше cap, то funnel размножается
-                $expectedCapCount = max($capCount, $geoCount, $funnelCount);
+                // funnel, total и другие поля применяются обычным образом
+                $expectedCapCount = max($capCount, $geoCount);
                 break;
             case 'group_single':
                 // Подсчитываем количество блоков affiliate
