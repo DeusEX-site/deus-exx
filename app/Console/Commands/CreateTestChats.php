@@ -27,7 +27,7 @@ class CreateTestChats extends Command
     private $fieldVariants = [
         'affiliate' => [
             'keys' => ['affiliate:', 'Affiliate:', 'AFFILIATE:', 'aFFiLiAtE:', 'affiliate :', ' affiliate:', 'affiliate: '],
-            'values' => ['TestAffiliate1', 'TestAffiliate2', 'G06', 'mbt internal', 'Super-Affiliate', 'Affiliate_Test', 'TEST01', 'Партнер1', 'افلیت۱']
+            'values' => ['TestAffiliate1', 'TestAffiliate2', 'G06', 'mbt internal', 'Super-Affiliate', 'Affiliate_Test', 'TEST01', 'Партнер1']
         ],
         'recipient' => [
             'keys' => ['recipient:', 'Recipient:', 'RECIPIENT:', 'rEcIpIeNt:', 'recipient :', ' recipient:', 'recipient: '],
@@ -39,7 +39,7 @@ class CreateTestChats extends Command
         ],
         'geo' => [
             'keys' => ['geo:', 'Geo:', 'GEO:', 'gEo:', 'geo :', ' geo:', 'geo: '],
-            'values' => ['RU', 'RU UA', 'DE AT CH', 'US UK CA', 'KZ', 'AU NZ', 'IE', 'PL CZ SK', 'BR AR MX']
+            'values' => ['RU', 'RU UA', 'DE AT CH', 'US UK CA', 'KZ', 'AU NZ', 'IE', 'PL CZ SK']
         ],
         'schedule' => [
             'keys' => ['schedule:', 'Schedule:', 'SCHEDULE:', 'sChEdUlE:', 'schedule :', ' schedule:', 'schedule: '],
@@ -938,12 +938,20 @@ class CreateTestChats extends Command
                 
                 if ($caps->count() > 0) {
                     $cap = $caps->first();
+                    
+                    // Получаем исходный порядок geo из сообщения
+                    $originalGeoOrder = $this->getOriginalGeoOrder($messageText);
+                    
                     // Собираем все geo из всех записей для этого сообщения
-                    $allGeos = $caps->pluck('geo')->filter()->implode(' ');
+                    $allGeos = $caps->pluck('geo')->filter()->toArray();
+                    
+                    // Сортируем согласно исходному порядку из сообщения
+                    $sortedGeos = $this->sortGeosByOriginalOrder($allGeos, $originalGeoOrder);
+                    
                     $actual['actual_fields'] = [
                         'affiliate' => $cap->affiliate_name,
                         'recipient' => $cap->recipient_name,
-                        'geo' => $allGeos,
+                        'geo' => implode(' ', $sortedGeos),
                         'total' => $cap->total_amount,
                         'schedule' => $cap->schedule,
                         'date' => $cap->date,
@@ -1141,5 +1149,42 @@ class CreateTestChats extends Command
             'caps' => Cap::count(),
             'cap_history' => CapHistory::count()
         ];
+    }
+
+    /**
+     * Получает исходный порядок geo из сообщения
+     */
+    private function getOriginalGeoOrder($messageText)
+    {
+        $geoOrder = [];
+        $lowerText = strtolower($messageText);
+
+        // Ищем все поля geo в сообщении
+        if (preg_match_all('/geo:\s*([^\n]+)/i', $lowerText, $matches)) {
+            foreach ($matches[1] as $geoString) {
+                $geos = preg_split('/\s+/', trim($geoString));
+                foreach ($geos as $geo) {
+                    $geo = trim($geo);
+                    if (!empty($geo)) {
+                        $geoOrder[] = $geo;
+                    }
+                }
+            }
+        }
+        return $geoOrder;
+    }
+
+    /**
+     * Сортирует массив geo значений согласно исходному порядку из сообщения
+     */
+    private function sortGeosByOriginalOrder($geos, $originalOrder)
+    {
+        $sortedGeos = [];
+        foreach ($originalOrder as $geo) {
+            if (in_array($geo, $geos)) {
+                $sortedGeos[] = $geo;
+            }
+        }
+        return $sortedGeos;
     }
 } 
