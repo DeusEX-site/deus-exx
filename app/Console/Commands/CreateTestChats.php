@@ -221,19 +221,44 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
+        $capVariants = $this->getFieldVariants('cap', $index);
         $geoVariants = $this->getFieldVariants('geo', $index);
+        $scheduleVariants = $this->getFieldVariants('schedule', $index);
+        $totalVariants = $this->getFieldVariants('total', $index);
+        $dateVariants = $this->getFieldVariants('date', $index);
+        $languageVariants = $this->getFieldVariants('language', $index);
+        $funnelVariants = $this->getFieldVariants('funnel', $index);
+        $testVariants = $this->getFieldVariants('test', $index);
+        $pendingVariants = $this->getFieldVariants('pending_acq', $index);
+        $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
         $affiliate = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient = $recipientVariants[array_rand($recipientVariants)];
+        $cap = $capVariants[array_rand($capVariants)];
         $geo = $geoVariants[array_rand($geoVariants)];
+        $schedule = $scheduleVariants[array_rand($scheduleVariants)];
+        $total = $totalVariants[array_rand($totalVariants)];
+        $date = $dateVariants[array_rand($dateVariants)];
+        $language = $languageVariants[array_rand($languageVariants)];
+        $funnel = $funnelVariants[array_rand($funnelVariants)];
+        $test = $testVariants[array_rand($testVariants)];
+        $pending = $pendingVariants[array_rand($pendingVariants)];
+        $freeze = $freezeVariants[array_rand($freezeVariants)];
         
         return [
             'message_type' => 'single_single',
             'affiliate' => $affiliate,
             'recipient' => $recipient,
-            'cap' => ['cap:', '10'],
+            'cap' => $cap,
             'geo' => $geo,
-            'schedule' => ['schedule:', '24/7']
+            'schedule' => $schedule,
+            'total' => $total,
+            'date' => $date,
+            'language' => $language,
+            'funnel' => $funnel,
+            'test' => $test,
+            'pending_acq' => $pending,
+            'freeze_status_on_acq' => $freeze
         ];
     }
     
@@ -241,63 +266,168 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
+        $capVariants = $this->getFieldVariants('cap', $index);
         $geoVariants = $this->getFieldVariants('geo', $index);
+        $scheduleVariants = $this->getFieldVariants('schedule', $index);
+        $totalVariants = $this->getFieldVariants('total', $index);
+        $dateVariants = $this->getFieldVariants('date', $index);
+        $languageVariants = $this->getFieldVariants('language', $index);
+        $funnelVariants = $this->getFieldVariants('funnel', $index);
+        $testVariants = $this->getFieldVariants('test', $index);
+        $pendingVariants = $this->getFieldVariants('pending_acq', $index);
+        $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
         $affiliate = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient = $recipientVariants[array_rand($recipientVariants)];
+        $cap = $capVariants[array_rand($capVariants)];
         $geo = $geoVariants[array_rand($geoVariants)];
+        $schedule = $scheduleVariants[array_rand($scheduleVariants)];
+        $total = $totalVariants[array_rand($totalVariants)];
+        $date = $dateVariants[array_rand($dateVariants)];
+        $language = $languageVariants[array_rand($languageVariants)];
+        $funnel = $funnelVariants[array_rand($funnelVariants)];
+        $test = $testVariants[array_rand($testVariants)];
+        $pending = $pendingVariants[array_rand($pendingVariants)];
+        $freeze = $freezeVariants[array_rand($freezeVariants)];
         
         return [
             'message_type' => 'single_multi',
             'affiliate' => $affiliate,
             'recipient' => $recipient,
-            'cap' => ['cap:', '20 30'],
+            'cap' => $cap,
             'geo' => $geo,
-            'schedule' => ['schedule:', '24/7']
+            'schedule' => $schedule,
+            'total' => $total,
+            'date' => $date,
+            'language' => $language,
+            'funnel' => $funnel,
+            'test' => $test,
+            'pending_acq' => $pending,
+            'freeze_status_on_acq' => $freeze
         ];
     }
     
     private function generateGroupSingleVariant($index)
     {
+        $affiliateVariants = $this->getFieldVariants('affiliate', $index);
+        $recipientVariants = $this->getFieldVariants('recipient', $index);
+        $capVariants = $this->getFieldVariants('cap', $index);
+        $geoVariants = $this->getFieldVariants('geo', $index);
+        $scheduleVariants = $this->getFieldVariants('schedule', $index);
+        $totalVariants = $this->getFieldVariants('total', $index);
+        $dateVariants = $this->getFieldVariants('date', $index);
+        $languageVariants = $this->getFieldVariants('language', $index);
+        $funnelVariants = $this->getFieldVariants('funnel', $index);
+        $testVariants = $this->getFieldVariants('test', $index);
+        $pendingVariants = $this->getFieldVariants('pending_acq', $index);
+        $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
+        
+        $affiliate1 = $affiliateVariants[array_rand($affiliateVariants)];
+        $recipient1 = $recipientVariants[array_rand($recipientVariants)];
+        $cap1 = $capVariants[array_rand($capVariants)];
+        $geo1 = $geoVariants[array_rand($geoVariants)];
+        
+        $affiliate2 = $affiliateVariants[array_rand($affiliateVariants)];
+        $recipient2 = $recipientVariants[array_rand($recipientVariants)];
+        $cap2 = $capVariants[array_rand($capVariants)];
+        $geo2 = $geoVariants[array_rand($geoVariants)];
+        
+        $schedule = $scheduleVariants[array_rand($scheduleVariants)];
+        $total = $totalVariants[array_rand($totalVariants)];
+        $date = $dateVariants[array_rand($dateVariants)];
+        $language = $languageVariants[array_rand($languageVariants)];
+        $funnel = $funnelVariants[array_rand($funnelVariants)];
+        $test = $testVariants[array_rand($testVariants)];
+        $pending = $pendingVariants[array_rand($pendingVariants)];
+        $freeze = $freezeVariants[array_rand($freezeVariants)];
+        
         return [
             'message_type' => 'group_single',
             'is_group_message' => true,
             'blocks' => [
                 [
-                    'affiliate' => ['affiliate:', "GROUP_BLOCK_0{$index}"],
-                    'recipient' => ['recipient:', "GroupBroker{$index}"],
-                    'cap' => ['cap:', '100'],
-                    'geo' => ['geo:', 'RU']
+                    'affiliate' => $affiliate1,
+                    'recipient' => $recipient1,
+                    'cap' => $cap1,
+                    'geo' => $geo1
                 ],
                 [
-                    'affiliate' => ['affiliate:', "GROUP_BLOCK_0" . ($index + 1)],
-                    'recipient' => ['recipient:', "GroupBroker" . ($index + 1)],
-                    'cap' => ['cap:', '150'],
-                    'geo' => ['geo:', 'UA']
+                    'affiliate' => $affiliate2,
+                    'recipient' => $recipient2,
+                    'cap' => $cap2,
+                    'geo' => $geo2
                 ]
-            ]
+            ],
+            'schedule' => $schedule,
+            'total' => $total,
+            'date' => $date,
+            'language' => $language,
+            'funnel' => $funnel,
+            'test' => $test,
+            'pending_acq' => $pending,
+            'freeze_status_on_acq' => $freeze
         ];
     }
     
     private function generateGroupMultiVariant($index)
     {
+        $affiliateVariants = $this->getFieldVariants('affiliate', $index);
+        $recipientVariants = $this->getFieldVariants('recipient', $index);
+        $capVariants = $this->getFieldVariants('cap', $index);
+        $geoVariants = $this->getFieldVariants('geo', $index);
+        $scheduleVariants = $this->getFieldVariants('schedule', $index);
+        $totalVariants = $this->getFieldVariants('total', $index);
+        $dateVariants = $this->getFieldVariants('date', $index);
+        $languageVariants = $this->getFieldVariants('language', $index);
+        $funnelVariants = $this->getFieldVariants('funnel', $index);
+        $testVariants = $this->getFieldVariants('test', $index);
+        $pendingVariants = $this->getFieldVariants('pending_acq', $index);
+        $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
+        
+        $affiliate1 = $affiliateVariants[array_rand($affiliateVariants)];
+        $recipient1 = $recipientVariants[array_rand($recipientVariants)];
+        $cap1 = $capVariants[array_rand($capVariants)];
+        $geo1 = $geoVariants[array_rand($geoVariants)];
+        
+        $affiliate2 = $affiliateVariants[array_rand($affiliateVariants)];
+        $recipient2 = $recipientVariants[array_rand($recipientVariants)];
+        $cap2 = $capVariants[array_rand($capVariants)];
+        $geo2 = $geoVariants[array_rand($geoVariants)];
+        
+        $schedule = $scheduleVariants[array_rand($scheduleVariants)];
+        $total = $totalVariants[array_rand($totalVariants)];
+        $date = $dateVariants[array_rand($dateVariants)];
+        $language = $languageVariants[array_rand($languageVariants)];
+        $funnel = $funnelVariants[array_rand($funnelVariants)];
+        $test = $testVariants[array_rand($testVariants)];
+        $pending = $pendingVariants[array_rand($pendingVariants)];
+        $freeze = $freezeVariants[array_rand($freezeVariants)];
+        
         return [
             'message_type' => 'group_multi',
             'is_group_message' => true,
             'blocks' => [
                 [
-                    'affiliate' => ['affiliate:', "GROUP_MULTI_0{$index}"],
-                    'recipient' => ['recipient:', "GroupMultiBroker{$index}"],
-                    'cap' => ['cap:', '50 100'],
-                    'geo' => ['geo:', 'DE AT']
+                    'affiliate' => $affiliate1,
+                    'recipient' => $recipient1,
+                    'cap' => $cap1,
+                    'geo' => $geo1
                 ],
                 [
-                    'affiliate' => ['affiliate:', "GROUP_MULTI_0" . ($index + 1)],
-                    'recipient' => ['recipient:', "GroupMultiBroker" . ($index + 1)],
-                    'cap' => ['cap:', '75 125'],
-                    'geo' => ['geo:', 'FR ES']
+                    'affiliate' => $affiliate2,
+                    'recipient' => $recipient2,
+                    'cap' => $cap2,
+                    'geo' => $geo2
                 ]
-            ]
+            ],
+            'schedule' => $schedule,
+            'total' => $total,
+            'date' => $date,
+            'language' => $language,
+            'funnel' => $funnel,
+            'test' => $test,
+            'pending_acq' => $pending,
+            'freeze_status_on_acq' => $freeze
         ];
     }
     
@@ -1088,6 +1218,34 @@ class CreateTestChats extends Command
             $message .= $variant['schedule'][0] . ' ' . $variant['schedule'][1] . "\n";
         }
         
+        if (isset($variant['total'])) {
+            $message .= $variant['total'][0] . ' ' . $variant['total'][1] . "\n";
+        }
+        
+        if (isset($variant['date'])) {
+            $message .= $variant['date'][0] . ' ' . $variant['date'][1] . "\n";
+        }
+        
+        if (isset($variant['language'])) {
+            $message .= $variant['language'][0] . ' ' . $variant['language'][1] . "\n";
+        }
+        
+        if (isset($variant['funnel'])) {
+            $message .= $variant['funnel'][0] . ' ' . $variant['funnel'][1] . "\n";
+        }
+        
+        if (isset($variant['test'])) {
+            $message .= $variant['test'][0] . ' ' . $variant['test'][1] . "\n";
+        }
+        
+        if (isset($variant['pending_acq'])) {
+            $message .= $variant['pending_acq'][0] . ' ' . $variant['pending_acq'][1] . "\n";
+        }
+        
+        if (isset($variant['freeze_status_on_acq'])) {
+            $message .= $variant['freeze_status_on_acq'][0] . ' ' . $variant['freeze_status_on_acq'][1] . "\n";
+        }
+        
         return rtrim($message);
     }
 
@@ -1101,14 +1259,28 @@ class CreateTestChats extends Command
                 $message .= "\n\n"; // Разделитель между блоками
             }
             
-            // Порядок полей в блоке
-            $fieldOrder = ['affiliate', 'recipient', 'cap', 'geo'];
+            // Порядок полей в блоке (основные поля для каждого блока)
+            $blockFieldOrder = ['affiliate', 'recipient', 'cap', 'geo'];
             
-            foreach ($fieldOrder as $field) {
+            foreach ($blockFieldOrder as $field) {
                 if (isset($block[$field])) {
                     $fieldData = $block[$field];
                     $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
                 }
+            }
+        }
+        
+        // Добавляем общие поля для всех блоков (в конце сообщения)
+        $globalFields = ['schedule', 'total', 'date', 'language', 'funnel', 'test', 'pending_acq', 'freeze_status_on_acq'];
+        
+        $hasGlobalFields = false;
+        foreach ($globalFields as $field) {
+            if (isset($variant[$field])) {
+                if (!$hasGlobalFields) {
+                    $message .= "\n"; // Добавляем пустую строку перед глобальными полями
+                    $hasGlobalFields = true;
+                }
+                $message .= $variant[$field][0] . ' ' . $variant[$field][1] . "\n";
             }
         }
         
@@ -1356,11 +1528,25 @@ class CreateTestChats extends Command
                 $expectedCapCount = 1;
                 break;
             case 'single_multi':
-                // Подсчитываем количество кап в одном сообщении
+                // Система создает записи попарно (cap[0] с geo[0], cap[1] с geo[1], и т.д.)
+                // Количество записей = максимальное количество между cap и geo
+                $capCount = 1;
+                $geoCount = 1;
+                
                 if (isset($fields['cap'])) {
                     $caps = preg_split('/\s+/', trim($fields['cap']));
-                    $expectedCapCount = count($caps);
+                    $capCount = count($caps);
                 }
+                
+                if (isset($fields['geo'])) {
+                    $geos = preg_split('/\s+/', trim($fields['geo']));
+                    $geoCount = count($geos);
+                }
+                
+                // Система создает max(capCount, geoCount) записей
+                // Если cap меньше geo, то cap размножается
+                // Если geo меньше cap, то geo размножается
+                $expectedCapCount = max($capCount, $geoCount);
                 break;
             case 'group_single':
                 // Подсчитываем количество блоков affiliate
@@ -1368,13 +1554,24 @@ class CreateTestChats extends Command
                 $expectedCapCount = $affiliateCount;
                 break;
             case 'group_multi':
-                // Подсчитываем общее количество кап во всех блоках
+                // Подсчитываем общее количество кап во всех блоках (попарно cap+geo)
                 $blocks = preg_split('/\n\s*\n/', $messageText);
                 foreach ($blocks as $block) {
+                    $capCount = 1;
+                    $geoCount = 1;
+                    
                     if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
                         $caps = preg_split('/\s+/', trim($matches[1]));
-                        $expectedCapCount += count($caps);
+                        $capCount = count($caps);
                     }
+                    
+                    if (preg_match('/^geo:\s*(.+)$/im', $block, $matches)) {
+                        $geos = preg_split('/\s+/', trim($matches[1]));
+                        $geoCount = count($geos);
+                    }
+                    
+                    // Логика аналогична single_multi для каждого блока
+                    $expectedCapCount += max($capCount, $geoCount);
                 }
                 break;
         }
@@ -1534,12 +1731,14 @@ class CreateTestChats extends Command
         $fieldPatterns = [
             'affiliate' => '/affiliate:\s*([^\n]+)/i',
             'recipient' => '/recipient:\s*([^\n]+)/i',
+            'cap' => '/cap:\s*([^\n]+)/i',
             'geo' => '/geo:\s*([^\n]+)/i',
             'total' => '/total:\s*([^\n]+)/i',
             'schedule' => '/schedule:\s*([^\n]+)/i',
             'date' => '/date:\s*([^\n]+)/i',
             'language' => '/language:\s*([^\n]+)/i',
             'funnel' => '/funnel:\s*([^\n]+)/i',
+            'test' => '/test:\s*([^\n]+)/i',
             'pending_acq' => '/pending acq:\s*([^\n]+)/i',
             'freeze_status_on_acq' => '/freeze status on acq:\s*([^\n]+)/i'
         ];
