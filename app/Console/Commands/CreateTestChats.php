@@ -1173,8 +1173,8 @@ class CreateTestChats extends Command
         
         // Валидация: проверяем совместимость cap и geo количеств
         if (!$this->validateCapGeoCompatibility($messageText)) {
-            $this->error("❌ ПРОПУСК: Несовпадающие количества cap и geo в сообщении #{$messageId}");
-            return null; // Пропускаем некорректные тесты
+            // Пропускаем некорректные тесты БЕЗ создания сообщения в базе данных
+            return null;
         }
         
         $telegramMessage = [
@@ -1738,9 +1738,30 @@ class CreateTestChats extends Command
         
         switch ($messageType) {
             case 'single_single':
-                // single_single означает одиночный affiliate с одиночными cap, geo и funnel
-                // ВСЕГДА создается ровно 1 запись
-                $expectedCapCount = 1;
+                // single_single означает одиночный affiliate с одиночными cap и geo
+                // НО может содержать множественные funnel - тогда создается несколько записей
+                $capCount = 1;
+                $geoCount = 1;
+                $funnelCount = 1;
+                
+                if (isset($fields['cap'])) {
+                    $caps = preg_split('/\s+/', trim($fields['cap']));
+                    $capCount = count($caps);
+                }
+                
+                if (isset($fields['geo'])) {
+                    $geos = preg_split('/\s+/', trim($fields['geo']));
+                    $geoCount = count($geos);
+                }
+                
+                if (isset($fields['funnel'])) {
+                    $funnels = preg_split('/[,\s]+/', trim($fields['funnel']));
+                    $funnelCount = count($funnels);
+                }
+                
+                // Система создает max(capCount, geoCount, funnelCount) записей
+                // single_single может размножаться по funnel если funnel множественный
+                $expectedCapCount = max($capCount, $geoCount, $funnelCount);
                 break;
             case 'single_multi':
                 // Подсчитываем количество элементов в cap, geo и funnel
@@ -1771,17 +1792,18 @@ class CreateTestChats extends Command
                 break;
             case 'group_single':
                 // Подсчитываем количество блоков affiliate
+                // group_single всегда = количество блоков affiliate, независимо от funnel
                 $affiliateCount = preg_match_all('/^affiliate:\s*(.+)$/im', $messageText);
                 $expectedCapCount = $affiliateCount;
                 break;
             case 'group_multi':
-                // Подсчитываем общее количество кап во всех блоках (попарно cap+geo+funnel)
+                // Подсчитываем общее количество кап во всех блоках (попарно cap+geo)
+                // НЕ учитываем funnel для размножения - он применяется как обычное поле
                 $affiliateBlocks = $this->parseAffiliateBlocks($messageText);
                 
                 foreach ($affiliateBlocks as $block) {
                     $capCount = 1;
                     $geoCount = 1;
-                    $funnelCount = 1;
                     
                     if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
                         $caps = preg_split('/\s+/', trim($matches[1]));
@@ -1793,13 +1815,9 @@ class CreateTestChats extends Command
                         $geoCount = count($geos);
                     }
                     
-                    if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
-                        $funnels = preg_split('/[,\s]+/', trim($matches[1]));
-                        $funnelCount = count($funnels);
-                    }
-                    
-                    // Логика аналогична single_multi для каждого блока
-                    $expectedCapCount += max($capCount, $geoCount, $funnelCount);
+                    // Для group_multi НЕ учитываем funnel для размножения
+                    // funnel применяется обычным образом по колонкам
+                    $expectedCapCount += max($capCount, $geoCount);
                 }
                 break;
         }
