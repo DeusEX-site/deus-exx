@@ -139,9 +139,9 @@ class CapAnalysisService
                         'affiliate_name' => $capData['affiliate_name'],
                         'recipient_name' => $capData['recipient_name'],
                         'geos' => $geos, // Массив geos
+                        'funnels' => $capData['funnels'], // Массив funnels
                         'work_hours' => $capData['work_hours'],
                         'language' => $capData['language'],
-                        'funnel' => $capData['funnel'],
                         'test' => $capData['test'],
                         'pending_acq' => $capData['pending_acq'],
                         'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
@@ -256,13 +256,14 @@ class CapAnalysisService
             }
         }
         
-        // Funnel - обновляем если указан в сообщении (даже если пустой - сбрасываем до null)
+        // Funnels - обновляем если указан в сообщении (даже если пустой - сбрасываем до null)
         if ($this->isFieldSpecifiedInMessage($messageText, 'funnel')) {
             $rawFunnelValue = $this->getRawFieldValue($messageText, 'funnel');
-            $newFunnel = $this->isEmpty($rawFunnelValue) ? null : ($newCapData['funnel'] ?? null); // По умолчанию null
+            $newFunnels = $this->isEmpty($rawFunnelValue) ? [] : ($newCapData['funnels'] ?? []); // По умолчанию пустой массив
             
-            if ($existingCap->funnel != $newFunnel) {
-                $updateData['funnel'] = $newFunnel;
+            // Сравниваем массивы funnels
+            if (json_encode($existingCap->funnels ?? []) != json_encode($newFunnels)) {
+                $updateData['funnels'] = $newFunnels;
             }
         }
         
@@ -1169,12 +1170,11 @@ class CapAnalysisService
             $dates = array_fill(0, $count, $dates[0]);
         }
 
-        // Создаем одну запись с массивами cap_amounts и geos
+        // Создаем одну запись с массивами cap_amounts, geos и funnels
         $combinations = [];
         
         // Берем значения по индексу или значения по умолчанию
         $language = isset($languages[0]) ? $languages[0] : 'en';
-        $funnel = isset($funnels[0]) ? $funnels[0] : null;
         $test = isset($tests[0]) ? $tests[0] : null;
         $total = isset($totals[0]) ? $totals[0] : -1; // Бесконечность
         $schedule = isset($schedules[0]) ? $schedules[0] : '24/7';
@@ -1190,8 +1190,8 @@ class CapAnalysisService
             'recipient_name' => $recipient,
             'cap_amounts' => $caps, // Массив всех cap amounts
             'geos' => $geos, // Массив всех geos
+            'funnels' => $funnels, // Массив всех funnels - теперь как массив!
             'language' => $language,
-            'funnel' => $funnel,
             'test' => $test,
             'total_amount' => $total,
             'schedule' => $scheduleData['schedule'],
@@ -1240,7 +1240,7 @@ class CapAnalysisService
                     'geos' => $cap->geos ?? [],
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
-                    'funnel' => $cap->funnel,
+                    'funnels' => $cap->funnels,
                     'pending_acq' => $cap->pending_acq,
                     'freeze_status_on_acq' => $cap->freeze_status_on_acq,
                     'highlighted_text' => $cap->highlighted_text,
@@ -1318,7 +1318,7 @@ class CapAnalysisService
 
         // Фильтр по воронке
         if (!empty($filters['funnel'])) {
-            $query->where('funnel', $filters['funnel']);
+            $query->whereJsonContains('funnels', $filters['funnel']);
         }
 
         // Фильтр по pending ACQ
@@ -1382,7 +1382,7 @@ class CapAnalysisService
                     'geos' => $cap->geos ?? [],
                     'work_hours' => $cap->work_hours,
                     'language' => $cap->language,
-                    'funnel' => $cap->funnel,
+                    'funnels' => $cap->funnels,
                     'pending_acq' => $cap->pending_acq,
                     'freeze_status_on_acq' => $cap->freeze_status_on_acq,
                     'highlighted_text' => $cap->highlighted_text,
@@ -1437,8 +1437,12 @@ class CapAnalysisService
             }
 
             // Собираем воронки
-            if ($cap->funnel) {
-                $funnels[] = $cap->funnel;
+            if ($cap->funnels && is_array($cap->funnels)) {
+                foreach ($cap->funnels as $funnel) {
+                    if ($funnel) {
+                        $funnels[] = $funnel;
+                    }
+                }
             }
         }
 
@@ -1495,7 +1499,7 @@ class CapAnalysisService
                     'geos' => array_unique($allGeos), // Все уникальные geos
                     'work_hours' => $firstCapData['work_hours'],
                     'language' => $firstCapData['language'],
-                    'funnel' => $firstCapData['funnel'],
+                    'funnels' => $firstCapData['funnels'],
                     'pending_acq' => $firstCapData['pending_acq'],
                     'freeze_status_on_acq' => $firstCapData['freeze_status_on_acq'],
                     'raw_numbers' => $allCapAmounts // Все cap amounts
@@ -1519,7 +1523,7 @@ class CapAnalysisService
             'geos' => [],
             'work_hours' => null,
             'language' => null,
-            'funnel' => null,
+            'funnels' => [],
             'pending_acq' => false,
             'freeze_status_on_acq' => false,
             'raw_numbers' => []
@@ -1857,7 +1861,7 @@ class CapAnalysisService
                     'recipient_name' => $originalCap->recipient_name,
                     'geos' => [$geo], // Новое гео
                     'language' => isset($languages[$i]) ? $languages[$i] : $originalCap->language,
-                    'funnel' => isset($funnels[$i]) ? $funnels[$i] : $originalCap->funnel,
+                    'funnels' => isset($funnels[$i]) ? [$funnels[$i]] : $originalCap->funnels,
                     'test' => isset($tests[$i]) ? $tests[$i] : $originalCap->test,
                     'date' => isset($dates[$i]) ? $dates[$i] : $originalCap->date,
                     'pending_acq' => isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : $originalCap->pending_acq,
@@ -1905,7 +1909,7 @@ class CapAnalysisService
                                (is_array($existingCap->cap_amounts) && !empty($existingCap->cap_amounts) ? $existingCap->cap_amounts[0] : 0),
                 'total_amount' => isset($totals[$i]) ? $totals[$i] : $existingCap->total_amount,
                 'language' => isset($languages[$i]) ? $languages[$i] : $existingCap->language,
-                'funnel' => isset($funnels[$i]) ? $funnels[$i] : $existingCap->funnel,
+                'funnels' => isset($funnels[$i]) ? [$funnels[$i]] : $existingCap->funnels,
                 'test' => isset($tests[$i]) ? $tests[$i] : $existingCap->test,
                 'date' => isset($dates[$i]) ? $dates[$i] : $existingCap->date,
                 'pending_acq' => isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : $existingCap->pending_acq,
@@ -1918,7 +1922,7 @@ class CapAnalysisService
                     $updateCapData['language'] = 'en'; // Значение по умолчанию
                 }
                 if ($this->isFieldSpecifiedInMessage($messageText, 'funnel') && $this->isEmpty($this->getRawFieldValue($messageText, 'funnel'))) {
-                    $updateCapData['funnel'] = null; // Значение по умолчанию
+                    $updateCapData['funnels'] = []; // Значение по умолчанию
                 }
                 if ($this->isFieldSpecifiedInMessage($messageText, 'test') && $this->isEmpty($this->getRawFieldValue($messageText, 'test'))) {
                     $updateCapData['test'] = null; // Значение по умолчанию

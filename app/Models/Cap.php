@@ -25,7 +25,7 @@ class Cap extends Model
         'end_time',
         'timezone',
         'language',
-        'funnel',
+        'funnels',
         'test',
         'pending_acq',
         'freeze_status_on_acq',
@@ -37,6 +37,7 @@ class Cap extends Model
     protected $casts = [
         'cap_amounts' => 'array',
         'geos' => 'array',
+        'funnels' => 'array',
         'is_24_7' => 'boolean',
         'total_amount' => 'integer',
         'pending_acq' => 'boolean',
@@ -164,7 +165,7 @@ class Cap extends Model
                   ->orWhere('recipient_name', 'LIKE', "%{$search}%")
                   ->orWhere('schedule', 'LIKE', "%{$search}%")
                   ->orWhere('language', 'LIKE', "%{$search}%")
-                  ->orWhere('funnel', 'LIKE', "%{$search}%")
+                                     ->orWhere('funnels', 'LIKE', "%{$search}%")
                   ->orWhereHas('message', function($subQ) use ($search) {
                       $subQ->where('message', 'LIKE', "%{$search}%");
                   });
