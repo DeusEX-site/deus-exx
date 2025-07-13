@@ -119,12 +119,20 @@ class DynamicCapCombinationGenerator
         
         // Geo комбинации
         $geoValues = $this->generator->getFieldValues('geo');
-        $geoCombinations = [
-            [$geoValues[0]], // 1 гео
-            [$geoValues[0], $geoValues[1]], // 2 гео
-            [$geoValues[0], $geoValues[1], $geoValues[2]], // 3 гео
-            [$geoValues[0], $geoValues[1], $geoValues[2], $geoValues[3]], // 4 гео
-        ];
+        $geoCombinations = [];
+        
+        if (count($geoValues) >= 1) {
+            $geoCombinations[] = [$geoValues[0]]; // 1 гео
+        }
+        if (count($geoValues) >= 2) {
+            $geoCombinations[] = [$geoValues[0], $geoValues[1]]; // 2 гео
+        }
+        if (count($geoValues) >= 3) {
+            $geoCombinations[] = [$geoValues[0], $geoValues[1], $geoValues[2]]; // 3 гео
+        }
+        if (count($geoValues) >= 4) {
+            $geoCombinations[] = [$geoValues[0], $geoValues[1], $geoValues[2], $geoValues[3]]; // 4 гео
+        }
         
         foreach ($geoCombinations as $geos) {
             $combinations[] = [
@@ -135,11 +143,17 @@ class DynamicCapCombinationGenerator
         
         // Funnel комбинации
         $funnelValues = $this->generator->getFieldValues('funnel');
-        $funnelCombinations = [
-            [$funnelValues[0]], // 1 воронка
-            [$funnelValues[0], $funnelValues[1]], // 2 воронки
-            [$funnelValues[0], $funnelValues[1], $funnelValues[2]], // 3 воронки
-        ];
+        $funnelCombinations = [];
+        
+        if (count($funnelValues) >= 1) {
+            $funnelCombinations[] = [$funnelValues[0]]; // 1 воронка
+        }
+        if (count($funnelValues) >= 2) {
+            $funnelCombinations[] = [$funnelValues[0], $funnelValues[1]]; // 2 воронки
+        }
+        if (count($funnelValues) >= 3) {
+            $funnelCombinations[] = [$funnelValues[0], $funnelValues[1], $funnelValues[2]]; // 3 воронки
+        }
         
         foreach ($funnelCombinations as $funnels) {
             $combinations[] = [
@@ -157,13 +171,22 @@ class DynamicCapCombinationGenerator
     public function generateCapCombinations(): array
     {
         $capValues = $this->generator->getFieldValues('cap');
+        $combinations = [];
         
-        return [
-            [$capValues[0]], // 1 капа
-            [$capValues[0], $capValues[1]], // 2 капы
-            [$capValues[0], $capValues[1], $capValues[2]], // 3 капы
-            [$capValues[0], $capValues[1], $capValues[2], $capValues[3]], // 4 капы
-        ];
+        if (count($capValues) >= 1) {
+            $combinations[] = [$capValues[0]]; // 1 капа
+        }
+        if (count($capValues) >= 2) {
+            $combinations[] = [$capValues[0], $capValues[1]]; // 2 капы
+        }
+        if (count($capValues) >= 3) {
+            $combinations[] = [$capValues[0], $capValues[1], $capValues[2]]; // 3 капы
+        }
+        if (count($capValues) >= 4) {
+            $combinations[] = [$capValues[0], $capValues[1], $capValues[2], $capValues[3]]; // 4 капы
+        }
+        
+        return $combinations;
     }
 
     /**
@@ -402,6 +425,9 @@ class DynamicCapCombinationGenerator
      */
     private function getCombinations(array $array, int $size): array
     {
+        // Обеспечиваем правильную индексацию массива
+        $array = array_values($array);
+        
         // Проверка на пустой массив
         if (empty($array)) {
             return $size === 0 ? [[]] : [];
@@ -422,6 +448,11 @@ class DynamicCapCombinationGenerator
         $combinations = [];
         
         for ($i = 0; $i <= count($array) - $size; $i++) {
+            // Проверяем, что индекс существует в массиве
+            if (!array_key_exists($i, $array)) {
+                continue;
+            }
+            
             $current = $array[$i];
             $remaining = array_slice($array, $i + 1);
             $subCombinations = $this->getCombinations($remaining, $size - 1);
@@ -441,6 +472,9 @@ class DynamicCapCombinationGenerator
      */
     private function getPermutations(array $array): array
     {
+        // Обеспечиваем правильную индексацию массива
+        $array = array_values($array);
+        
         if (count($array) <= 1) {
             return [$array];
         }
@@ -448,6 +482,11 @@ class DynamicCapCombinationGenerator
         $permutations = [];
         
         for ($i = 0; $i < count($array); $i++) {
+            // Проверяем, что индекс существует в массиве
+            if (!array_key_exists($i, $array)) {
+                continue;
+            }
+            
             $current = $array[$i];
             $remaining = array_merge(
                 array_slice($array, 0, $i),
