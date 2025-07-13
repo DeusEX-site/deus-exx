@@ -930,16 +930,16 @@ class CreateTestChats extends Command
                              $block['geo'] = $geoVariants[$geoIndex];
                          }
                          
-                         // Добавляем дополнительные поля
-                         $additionalFields = ['schedule', 'date', 'language', 'funnel', 'test', 'total', 'pending_acq', 'freeze_status_on_acq'];
-                         
-                         foreach ($additionalFields as $fieldName) {
-                             if (rand(1, 3) == 1) { // 33% вероятность добавления каждого поля
-                                 $fieldVariants = $this->getFieldVariants($fieldName, $groupVariantIndex + $blockIndex);
-                                 $fieldIndex = ($groupVariantIndex + $blockIndex) % count($fieldVariants);
-                                 $block[$fieldName] = $fieldVariants[$fieldIndex];
-                             }
-                         }
+                                                   // Добавляем дополнительные поля рандомно
+                          $additionalFields = ['schedule', 'date', 'language', 'funnel', 'test', 'total', 'pending_acq', 'freeze_status_on_acq'];
+                          
+                          foreach ($additionalFields as $fieldName) {
+                              if (rand(1, 2) == 1) { // 50% вероятность добавления каждого поля
+                                  $fieldVariants = $this->getFieldVariants($fieldName, $groupVariantIndex + $blockIndex);
+                                  $fieldIndex = ($groupVariantIndex + $blockIndex) % count($fieldVariants);
+                                  $block[$fieldName] = $fieldVariants[$fieldIndex];
+                              }
+                          }
                          
                          $blocks[] = $block;
                      }
@@ -1498,10 +1498,20 @@ class CreateTestChats extends Command
                 $message .= "\n\n"; // Разделитель между блоками
             }
             
-            // Порядок полей в блоке (основные поля для каждого блока)
-            $blockFieldOrder = ['affiliate', 'recipient', 'cap', 'geo', 'schedule', 'total', 'date', 'language', 'funnel', 'test', 'pending_acq', 'freeze_status_on_acq'];
+            // Сначала добавляем обязательные поля в правильном порядке
+            $requiredFields = ['affiliate', 'recipient', 'cap', 'geo'];
             
-            foreach ($blockFieldOrder as $field) {
+            foreach ($requiredFields as $field) {
+                if (isset($block[$field])) {
+                    $fieldData = $block[$field];
+                    $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
+                }
+            }
+            
+            // Затем добавляем дополнительные поля (если есть в блоке)
+            $additionalFields = ['schedule', 'total', 'date', 'language', 'funnel', 'test', 'pending_acq', 'freeze_status_on_acq'];
+            
+            foreach ($additionalFields as $field) {
                 if (isset($block[$field])) {
                     $fieldData = $block[$field];
                     $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
