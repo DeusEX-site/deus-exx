@@ -61,27 +61,81 @@ if [[ ! "$chat_count" =~ ^[0-9]+$ ]]; then
     chat_count=100
 fi
 
-print_info "Будет создано: $chat_count чатов"
+echo
+print_info "Выберите типы операций:"
+echo "  1. Все 16 типов (по умолчанию)"
+echo "  2. Только создание кап"
+echo "  3. Только обновление кап"
+echo "  4. Только команды статуса"
+read -r operation_type
+
+case "$operation_type" in
+    "2")
+        operations="create"
+        print_info "Режим: Только создание кап"
+        ;;
+    "3")
+        operations="update"
+        print_info "Режим: Только обновление кап"
+        ;;
+    "4")
+        operations="status"
+        print_info "Режим: Только команды статуса"
+        ;;
+    *)
+        operations="all"
+        print_info "Режим: Все 16 типов операций"
+        ;;
+esac
+
+echo
+print_info "Выберите сложность полей:"
+echo "  1. Базовые поля (по умолчанию)"
+echo "  2. Расширенные поля"
+echo "  3. Все поля"
+read -r field_complexity
+
+case "$field_complexity" in
+    "2")
+        combinations="advanced"
+        print_info "Поля: Расширенные"
+        ;;
+    "3")
+        combinations="full"
+        print_info "Поля: Все"
+        ;;
+    *)
+        combinations="basic"
+        print_info "Поля: Базовые"
+        ;;
+esac
+
+print_info "Будет создано: $chat_count чатов с типами операций: $operations, полями: $combinations"
 
 # Запуск команды
 echo
-print_info "Запуск создания чатов..."
-print_warning "Все существующие чаты будут удалены!"
+print_info "Запуск создания чатов с капами..."
+print_warning "Все существующие данные будут удалены!"
 
-php artisan test:create-chats $chat_count
+php artisan test:create-chats $chat_count --operations=$operations --combinations=$combinations
 
 if [ $? -eq 0 ]; then
-    print_success "Чаты успешно созданы!"
+    print_success "Чаты с капами успешно созданы!"
 else
     print_error "Произошла ошибка при создании чатов"
     exit 1
 fi
 
 echo
-print_info "Готово! Теперь в базе данных $chat_count тестовых чатов."
-print_info "ID чатов: от 1001 до $((1000 + chat_count))"
-print_info "Первые 10 чатов добавлены в топ-10"
+print_info "Готово! Система создала:"
+print_info "- $chat_count тестовых чатов"
+print_info "- Сообщения с капами всех типов операций"
+print_info "- Автоматический анализ и сохранение кап"
+print_info "- ID чатов: от 1001 до $((1000 + chat_count))"
+print_info "- Использованы типы операций: $operations"
+print_info "- Использованы поля: $combinations"
 
 echo
+print_info "Система готова для тестирования кап!"
 print_info "Нажмите Enter для завершения..."
 read -r 

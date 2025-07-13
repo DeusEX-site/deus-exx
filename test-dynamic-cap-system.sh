@@ -117,7 +117,7 @@ print_header "📊 ЭТАП 1: СОЗДАНИЕ ТЕСТОВЫХ ДАННЫХ"
 print_separator
 
 print_info "Создаем тестовые данные через встроенную систему..."
-print_info "Это очистит базу и создаст новые данные через TelegramWebhookController"
+print_info "Используется DynamicCapTestGenerator с 16 типами операций"
 
 echo
 print_info "Сколько тестовых чатов создать? (по умолчанию: 50)"
@@ -128,14 +128,67 @@ if [[ ! "$chat_count" =~ ^[0-9]+$ ]]; then
     chat_count=50
 fi
 
-print_info "Создание $chat_count тестовых чатов..."
+echo
+print_info "Выберите типы операций для тестирования:"
+echo "  1. Все 16 типов (по умолчанию)"
+echo "  2. Только создание кап"
+echo "  3. Только обновление кап"
+echo "  4. Только команды статуса"
+echo ""
+print_info "Введите номер (1-4) или нажмите Enter для всех типов:"
+read -r operation_type
+
+case "$operation_type" in
+    "2")
+        operations="create"
+        print_info "Режим: Только создание кап"
+        ;;
+    "3")
+        operations="update"
+        print_info "Режим: Только обновление кап"
+        ;;
+    "4")
+        operations="status"
+        print_info "Режим: Только команды статуса"
+        ;;
+    *)
+        operations="all"
+        print_info "Режим: Все 16 типов операций"
+        ;;
+esac
+
+echo
+print_info "Выберите сложность полей:"
+echo "  1. Базовые поля (по умолчанию)"
+echo "  2. Расширенные поля"
+echo "  3. Все поля"
+echo ""
+print_info "Введите номер (1-3) или нажмите Enter для базовых полей:"
+read -r field_complexity
+
+case "$field_complexity" in
+    "2")
+        combinations="advanced"
+        print_info "Поля: Расширенные (schedule, language, total)"
+        ;;
+    "3")
+        combinations="full"
+        print_info "Поля: Все (schedule, date, language, funnel, total, pending_acq, freeze_status_on_acq)"
+        ;;
+    *)
+        combinations="basic"
+        print_info "Поля: Базовые (affiliate, recipient, cap, geo, schedule)"
+        ;;
+esac
+
+print_info "Создание $chat_count тестовых чатов с типами операций: $operations, полями: $combinations"
 
 # Record start time
 start_time=$(date +%s)
 
-# Create test data using existing system logic
-print_info "Запуск: php artisan test:create-chats $chat_count"
-php artisan test:create-chats $chat_count
+# Create test data using DynamicCapTestGenerator
+print_info "Запуск: php artisan test:create-chats $chat_count --operations=$operations --combinations=$combinations"
+php artisan test:create-chats $chat_count --operations=$operations --combinations=$combinations
 
 if [ $? -eq 0 ]; then
     print_success "Тестовые данные созданы успешно!"
