@@ -112,9 +112,14 @@ class CreateTestChats extends Command
         
         $operationTypes = $this->getOperationTypesToTest($operations);
         
-        for ($chatIndex = 1; $chatIndex <= $chatCount; $chatIndex++) {
-            foreach ($operationTypes as $operationType) {
-                // Для каждого типа операции генерируем МНОЖЕСТВО вариантов
+        // ПОСЛЕДОВАТЕЛЬНАЯ ОБРАБОТКА ПО ТИПАМ ОПЕРАЦИЙ
+        foreach ($operationTypes as $operationType) {
+            $this->info("🔄 НАЧИНАЕМ ОБРАБОТКУ: {$operationType}");
+            $this->info("═══════════════════════════════════════════════════════════════");
+            
+            // Для каждого типа операции проходим ПО ВСЕМ ЧАТАМ
+            for ($chatIndex = 1; $chatIndex <= $chatCount; $chatIndex++) {
+                // Генерируем МНОЖЕСТВО вариантов для данного типа операции
                 $variants = $this->generateAllVariantsForOperation($operationType, $combinations, $messageIndex);
                 
                 foreach ($variants as $variant) {
@@ -171,6 +176,9 @@ class CreateTestChats extends Command
                     }
                 }
             }
+            
+            $this->info("✅ ЗАВЕРШЕНО: {$operationType}");
+            $this->info("═══════════════════════════════════════════════════════════════");
         }
         
         $this->info("🎉 ГЕНЕРАЦИЯ ЗАВЕРШЕНА!");
