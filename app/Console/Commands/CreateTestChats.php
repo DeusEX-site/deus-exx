@@ -889,65 +889,85 @@ class CreateTestChats extends Command
      {
          $variants = [];
          
-         // Групповое сообщение → Одна капа (несколько блоков с одной капой в каждом)
-         $variants[] = [
-             'group_type' => 'group_single_cap',
-             'is_group_message' => true,
-             'blocks' => [
-                 [
-                     'affiliate' => ['affiliate:', 'GROUP_BLOCK_01'],
-                     'recipient' => ['recipient:', 'GroupBroker1'],
-                     'cap' => ['cap:', '100'],
-                     'geo' => ['geo:', 'RU']
-                 ],
-                 [
-                     'affiliate' => ['affiliate:', 'GROUP_BLOCK_02'],
-                     'recipient' => ['recipient:', 'GroupBroker2'],
-                     'cap' => ['cap:', '150'],
-                     'geo' => ['geo:', 'UA']
-                 ]
-             ]
-         ];
+         // Генерируем множество вариантов групповых сообщений с полным набором полей
+         $groupVariantIndex = 0;
          
-         // Групповое сообщение → Много кап (несколько блоков с множественными капами)
-         $variants[] = [
-             'group_type' => 'group_multi_cap',
-             'is_group_message' => true,
-             'blocks' => [
-                 [
-                     'affiliate' => ['affiliate:', 'GROUP_MULTI_01'],
-                     'recipient' => ['recipient:', 'GroupMultiBroker1'],
-                     'cap' => ['cap:', '50 100'],
-                     'geo' => ['geo:', 'DE AT']
-                 ],
-                 [
-                     'affiliate' => ['affiliate:', 'GROUP_MULTI_02'],
-                     'recipient' => ['recipient:', 'GroupMultiBroker2'],
-                     'cap' => ['cap:', '75 125'],
-                     'geo' => ['geo:', 'FR ES']
-                 ]
-             ]
-         ];
-         
-         // Смешанное групповое сообщение
-         $variants[] = [
-             'group_type' => 'group_mixed',
-             'is_group_message' => true,
-             'blocks' => [
-                 [
-                     'affiliate' => ['affiliate:', 'GROUP_MIXED_01'],
-                     'recipient' => ['recipient:', 'MixedBroker1'],
-                     'cap' => ['cap:', '200'],
-                     'geo' => ['geo:', 'US']
-                 ],
-                 [
-                     'affiliate' => ['affiliate:', 'GROUP_MIXED_02'],
-                     'recipient' => ['recipient:', 'MixedBroker2'],
-                     'cap' => ['cap:', '100 150 200'],
-                     'geo' => ['geo:', 'UK CA AU']
-                 ]
-             ]
-         ];
+         // Для каждого типа группового сообщения создаем много вариантов
+         for ($groupType = 1; $groupType <= 2; $groupType++) {
+             for ($blockCount = 2; $blockCount <= 4; $blockCount++) {
+                 for ($variantSet = 1; $variantSet <= 25; $variantSet++) {
+                     $groupVariantIndex++;
+                     
+                     $blocks = [];
+                     
+                     for ($blockIndex = 1; $blockIndex <= $blockCount; $blockIndex++) {
+                         $block = [];
+                         
+                         // Обязательные поля для каждого блока
+                         $affiliateVariants = $this->getFieldVariants('affiliate', $groupVariantIndex + $blockIndex);
+                         $recipientVariants = $this->getFieldVariants('recipient', $groupVariantIndex + $blockIndex);
+                         $capVariants = $this->getFieldVariants('cap', $groupVariantIndex + $blockIndex);
+                         $geoVariants = $this->getFieldVariants('geo', $groupVariantIndex + $blockIndex);
+                         
+                         // Выбираем варианты для этого блока
+                         $affiliateIndex = ($groupVariantIndex + $blockIndex) % count($affiliateVariants);
+                         $recipientIndex = ($groupVariantIndex + $blockIndex) % count($recipientVariants);
+                         $capIndex = ($groupVariantIndex + $blockIndex) % count($capVariants);
+                         $geoIndex = ($groupVariantIndex + $blockIndex) % count($geoVariants);
+                         
+                         // Определяем тип сообщения для этого блока
+                         if ($groupType == 1) {
+                             // group_single - одиночные значения
+                             $block['affiliate'] = $affiliateVariants[$affiliateIndex];
+                             $block['recipient'] = $recipientVariants[$recipientIndex];
+                             $block['cap'] = [$capVariants[$capIndex][0], explode(' ', $capVariants[$capIndex][1])[0]]; // Берем первое значение
+                             $block['geo'] = [$geoVariants[$geoIndex][0], explode(' ', $geoVariants[$geoIndex][1])[0]]; // Берем первое значение
+                         } else {
+                             // group_multi - множественные значения
+                             $block['affiliate'] = $affiliateVariants[$affiliateIndex];
+                             $block['recipient'] = $recipientVariants[$recipientIndex];
+                             $block['cap'] = $capVariants[$capIndex];
+                             $block['geo'] = $geoVariants[$geoIndex];
+                         }
+                         
+                         // Добавляем дополнительные поля
+                         $additionalFields = ['schedule', 'date', 'language', 'funnel', 'test', 'total', 'pending_acq', 'freeze_status_on_acq'];
+                         
+                         foreach ($additionalFields as $fieldName) {
+                             if (rand(1, 3) == 1) { // 33% вероятность добавления каждого поля
+                                 $fieldVariants = $this->getFieldVariants($fieldName, $groupVariantIndex + $blockIndex);
+                                 $fieldIndex = ($groupVariantIndex + $blockIndex) % count($fieldVariants);
+                                 $block[$fieldName] = $fieldVariants[$fieldIndex];
+                             }
+                         }
+                         
+                         $blocks[] = $block;
+                     }
+                     
+                     // Проверяем совместимость всех блоков
+                     $isCompatible = true;
+                     foreach ($blocks as $block) {
+                         if (!$this->isUniqueCombination($block['affiliate'][1], $block['recipient'][1], $block['geo'][1])) {
+                             $isCompatible = false;
+                             break;
+                         }
+                     }
+                     
+                     if ($isCompatible) {
+                         $variants[] = [
+                             'group_type' => $groupType == 1 ? 'group_single_cap' : 'group_multi_cap',
+                             'is_group_message' => true,
+                             'blocks' => $blocks
+                         ];
+                         
+                         // Отмечаем комбинации как использованные
+                         foreach ($blocks as $block) {
+                             $this->markCombinationAsUsed($block['affiliate'][1], $block['recipient'][1], $block['geo'][1]);
+                         }
+                     }
+                 }
+             }
+         }
          
          return $variants;
      }
@@ -1479,27 +1499,13 @@ class CreateTestChats extends Command
             }
             
             // Порядок полей в блоке (основные поля для каждого блока)
-            $blockFieldOrder = ['affiliate', 'recipient', 'cap', 'geo'];
+            $blockFieldOrder = ['affiliate', 'recipient', 'cap', 'geo', 'schedule', 'total', 'date', 'language', 'funnel', 'test', 'pending_acq', 'freeze_status_on_acq'];
             
             foreach ($blockFieldOrder as $field) {
                 if (isset($block[$field])) {
                     $fieldData = $block[$field];
                     $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
                 }
-            }
-        }
-        
-        // Добавляем общие поля для всех блоков (в конце сообщения)
-        $globalFields = ['schedule', 'total', 'date', 'language', 'funnel', 'test', 'pending_acq', 'freeze_status_on_acq'];
-        
-        $hasGlobalFields = false;
-        foreach ($globalFields as $field) {
-            if (isset($variant[$field])) {
-                if (!$hasGlobalFields) {
-                    $message .= "\n"; // Добавляем пустую строку перед глобальными полями
-                    $hasGlobalFields = true;
-                }
-                $message .= $variant[$field][0] . ' ' . $variant[$field][1] . "\n";
             }
         }
         
