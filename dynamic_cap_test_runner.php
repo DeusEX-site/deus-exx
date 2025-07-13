@@ -24,8 +24,9 @@ class DynamicCapTestRunner
     public function __construct(array $config = [])
     {
         // Bootstrap Laravel
-        $app = require_once 'bootstrap/app.php';
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+        $app = require_once __DIR__ . '/bootstrap/app.php';
+        $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+        $kernel->bootstrap();
         
         $this->generator = new DynamicCapTestGenerator();
         $this->engine = new DynamicCapTestEngine($config['verbose'] ?? true);
