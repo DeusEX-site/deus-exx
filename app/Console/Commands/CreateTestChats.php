@@ -181,7 +181,7 @@ class CreateTestChats extends Command
                 $this->info("");
                 $this->info("⏸️  ПАУЗА МЕЖДУ ЭТАПАМИ");
                 $this->info("───────────────────────────────────────────────────────────────");
-                sleep(1);
+                $this->ask("Нажмите Enter для продолжения...");
             }
         }
         
