@@ -190,6 +190,14 @@ class DynamicCapTestRunner
      */
     private function runCreateSingleCapTest(array $testCase): array
     {
+        if (!isset($testCase['values'])) {
+            return [
+                'success' => false,
+                'error' => 'Отсутствуют данные values в testCase',
+                'message' => 'N/A'
+            ];
+        }
+        
         $capData = $testCase['values'];
         $result = $this->engine->testSingleCapCreation($capData);
         
@@ -210,6 +218,14 @@ class DynamicCapTestRunner
      */
     private function runCreateMultiCapTest(array $testCase): array
     {
+        if (!isset($testCase['caps']) || !isset($testCase['geo_funnel']['values'])) {
+            return [
+                'success' => false,
+                'error' => 'Отсутствуют данные caps или geo_funnel в testCase',
+                'message' => 'N/A'
+            ];
+        }
+        
         $baseData = [
             'affiliate' => 'aff1',
             'recipient' => 'brok1'
@@ -239,6 +255,14 @@ class DynamicCapTestRunner
      */
     private function runCreateGroupCapTest(array $testCase): array
     {
+        if (!isset($testCase['blocks'])) {
+            return [
+                'success' => false,
+                'error' => 'Отсутствуют данные blocks в testCase',
+                'message' => 'N/A'
+            ];
+        }
+        
         $blocks = $testCase['blocks'];
         $result = $this->engine->testGroupCapCreation($blocks);
         
@@ -283,7 +307,24 @@ class DynamicCapTestRunner
         }
         
         // Берем первую доступную капу для обновления
+        if (empty($this->currentCapData)) {
+            return [
+                'success' => false,
+                'error' => 'Нет доступных кап для обновления',
+                'message' => 'N/A'
+            ];
+        }
+        
         $identifierFields = $this->currentCapData[0];
+        
+        if (!isset($testCase['values'])) {
+            return [
+                'success' => false,
+                'error' => 'Отсутствуют данные values в testCase для обновления',
+                'message' => 'N/A'
+            ];
+        }
+        
         $updateFields = $testCase['values'];
         
         // Определяем тип обновления
@@ -342,7 +383,13 @@ class DynamicCapTestRunner
      */
     private function isTimeoutExceeded(): bool
     {
-        return (microtime(true) - $this->reporter->getStatistics()['start_time'] ?? 0) > $this->config['test_timeout'];
+        $statistics = $this->reporter->getStatistics();
+        if (!is_array($statistics)) {
+            return false; // Если статистика недоступна, считаем что таймаут не превышен
+        }
+        
+        $startTime = $statistics['start_time'] ?? 0;
+        return (microtime(true) - $startTime) > $this->config['test_timeout'];
     }
 
     /**
