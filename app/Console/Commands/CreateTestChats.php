@@ -1123,6 +1123,9 @@ class CreateTestChats extends Command
         $messageId = 10000 + $index;
         $userId = 2000 + $index;
         
+        // Добавляем ID сообщения к affiliate для гарантии уникальности
+        $variant = $this->addMessageIdToAffiliate($variant, $messageId);
+        
         // Генерируем сообщение используя максимальные варианты
         $messageText = $this->generateMessageByVariant($operationType, $variant);
         
@@ -1174,6 +1177,25 @@ class CreateTestChats extends Command
         }
         
         return $telegramMessage;
+    }
+
+    private function addMessageIdToAffiliate($variant, $messageId)
+    {
+        // Для одиночных сообщений
+        if (isset($variant['affiliate']) && is_array($variant['affiliate'])) {
+            $variant['affiliate'][1] = $variant['affiliate'][1] . $messageId;
+        }
+        
+        // Для групповых сообщений
+        if (isset($variant['blocks']) && is_array($variant['blocks'])) {
+            foreach ($variant['blocks'] as &$block) {
+                if (isset($block['affiliate']) && is_array($block['affiliate'])) {
+                    $block['affiliate'][1] = $block['affiliate'][1] . $messageId;
+                }
+            }
+        }
+        
+        return $variant;
     }
 
     private function generateMessageByVariant($operationType, $variant)
