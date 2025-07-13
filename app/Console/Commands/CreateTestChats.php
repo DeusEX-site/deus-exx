@@ -4,110 +4,176 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Chat;
+use App\Models\Message;
+use App\Models\Cap;
+use App\Models\CapHistory;
+use App\Http\Controllers\TelegramWebhookController;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 
 class CreateTestChats extends Command
 {
     protected $signature = 'test:create-chats {count=100 : Количество чатов для создания}';
-    protected $description = 'Создает тестовые чаты в базе данных';
+    protected $description = 'Создает тестовые чаты используя существующую логику системы';
 
     public function handle()
     {
         $count = (int) $this->argument('count');
         
-        $this->info("Создание {$count} тестовых чатов...");
+        $this->info("Создание {$count} тестовых чатов через систему...");
         
-        // Очищаем существующие данные с учетом foreign key constraints
+        // Очищаем существующие данные
         $this->warn('Очистка существующих данных...');
+        $this->clearDatabase();
         
-        // Сначала очищаем зависимые таблицы
+        // Создаем контроллер для обработки сообщений
+        $webhookController = app(TelegramWebhookController::class);
+        
+        $this->info('Отправка тестовых сообщений через webhook...');
+        
+        $successCount = 0;
+        $errorCount = 0;
+        
+        for ($i = 1; $i <= $count; $i++) {
+            try {
+                // Создаем тестовое сообщение для чата
+                $testMessage = $this->generateTestMessage($i);
+                
+                // Отправляем через webhook контроллер
+                $request = new Request($testMessage);
+                $response = $webhookController->handle($request);
+                
+                if ($response->getStatusCode() == 200) {
+                    $successCount++;
+                    if ($i % 10 == 0) {
+                        $this->info("Обработано чатов: {$i}");
+                    }
+                } else {
+                    $errorCount++;
+                    $this->error("Ошибка для чата {$i}: " . $response->getContent());
+                }
+                
+                // Небольшая задержка для имитации реального времени
+                usleep(10000); // 0.01 секунды
+                
+            } catch (\Exception $e) {
+                $errorCount++;
+                $this->error("Исключение для чата {$i}: " . $e->getMessage());
+            }
+        }
+        
+        $this->info("✅ Обработано сообщений: {$successCount}");
+        if ($errorCount > 0) {
+            $this->warn("⚠️ Ошибок: {$errorCount}");
+        }
+        
+        // Показываем статистику
+        $this->showStatistics();
+    }
+
+    private function clearDatabase()
+    {
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         DB::table('caps_history')->truncate();
-        DB::table('caps')->truncate();
+        DB::table('caps')->truncate();  
         DB::table('messages')->truncate();
         DB::table('chats')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
         
-        $this->info('Создание новых чатов...');
+        $this->info('База данных очищена');
+    }
+
+    private function generateTestMessage($index)
+    {
+        $chatTypes = ['private', 'group', 'supergroup', 'channel'];
+        $chatType = $chatTypes[array_rand($chatTypes)];
         
-        $chats = [];
-        $now = Carbon::now();
+        $chatId = 1000 + $index;
+        $messageId = 10000 + $index;
+        $userId = 2000 + $index;
         
-        for ($i = 1; $i <= $count; $i++) {
-            $chatTypes = ['private', 'group', 'supergroup', 'channel'];
-            $type = $chatTypes[array_rand($chatTypes)];
-            
-            $chat = [
-                'chat_id' => 1000 + $i, // Начинаем с 1001
-                'type' => $type,
-                'title' => $this->generateChatTitle($type, $i),
-                'username' => $this->generateUsername($type, $i),
-                'description' => $this->generateDescription($type, $i),
-                'is_active' => true,
-                'last_message_at' => $now->copy()->subMinutes(rand(0, 1440)), // Случайное время за последние 24 часа
-                'message_count' => rand(0, 1000),
-                'display_order' => $i <= 10 ? $i : 0, // Первые 10 чатов в топе
-                'display_name' => null, // Будет генерироваться автоматически
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-            
-            $chats[] = $chat;
-        }
+        // Генерируем разные типы сообщений
+        $messageTexts = [
+            "CAP {$index} TestAff{$index} - TestBroker{$index} : US/CA\n10-19",
+            "CAP " . (20 + $index) . " Partner{$index} - Broker{$index} : EU/UK\n24/7",
+            "CAP " . (30 + $index) . " Affiliate{$index} - Recipient{$index} : RU/KZ\n14.05",
+            "Обычное сообщение в чате номер {$index}",
+            "Тестовое сообщение для проверки системы {$index}",
+            "CAP " . (40 + $index) . " TestPartner{$index} - TestRecipient{$index} : AU/NZ\n09-18",
+        ];
         
-        // Вставляем все чаты одним запросом
-        Chat::insert($chats);
+        $messageText = $messageTexts[$index % count($messageTexts)];
         
-        $this->info("✅ Успешно создано {$count} тестовых чатов");
-        
-        // Показываем статистику
-        $this->showStatistics();
+        // Структура сообщения Telegram API
+        return [
+            'update_id' => $index,
+            'message' => [
+                'message_id' => $messageId,
+                'from' => [
+                    'id' => $userId,
+                    'is_bot' => false,
+                    'first_name' => "TestUser{$index}",
+                    'last_name' => "LastName{$index}",
+                    'username' => "testuser{$index}",
+                    'language_code' => 'ru'
+                ],
+                'chat' => [
+                    'id' => $chatId,
+                    'type' => $chatType,
+                    'title' => $this->generateChatTitle($chatType, $index),
+                    'username' => $this->generateChatUsername($chatType, $index),
+                    'description' => $this->generateChatDescription($chatType, $index)
+                ],
+                'date' => Carbon::now()->subMinutes(rand(0, 1440))->timestamp,
+                'text' => $messageText
+            ]
+        ];
     }
 
     private function generateChatTitle($type, $index)
     {
         switch ($type) {
             case 'private':
-                return null; // У приватных чатов нет title
+                return null;
             case 'group':
-                return "Группа #{$index}";
+                return "Группа тестирования #{$index}";
             case 'supergroup':
-                return "Супергруппа #{$index}";
+                return "Супергруппа тестирования #{$index}";
             case 'channel':
-                return "Канал #{$index}";
+                return "Канал тестирования #{$index}";
             default:
                 return "Чат #{$index}";
         }
     }
 
-    private function generateUsername($type, $index)
+    private function generateChatUsername($type, $index)
     {
         switch ($type) {
             case 'private':
-                return "user_{$index}";
+                return "testuser{$index}";
             case 'group':
-                return null; // У групп обычно нет username
+                return null;
             case 'supergroup':
-                return rand(0, 1) ? "supergroup_{$index}" : null;
+                return rand(0, 1) ? "testgroup{$index}" : null;
             case 'channel':
-                return "channel_{$index}";
+                return "testchannel{$index}";
             default:
-                return "user_{$index}";
+                return "testuser{$index}";
         }
     }
 
-    private function generateDescription($type, $index)
+    private function generateChatDescription($type, $index)
     {
         switch ($type) {
             case 'private':
-                return "Приватный чат с пользователем #{$index}";
+                return null;
             case 'group':
-                return "Тестовая группа #{$index} для проверки системы";
+                return "Тестовая группа для проверки системы #{$index}";
             case 'supergroup':
-                return "Тестовая супергруппа #{$index} с расширенными возможностями";
+                return "Тестовая супергруппа с расширенными возможностями #{$index}";
             case 'channel':
-                return "Тестовый канал #{$index} для публикации сообщений";
+                return "Тестовый канал для публикации сообщений #{$index}";
             default:
                 return "Тестовый чат #{$index}";
         }
@@ -115,20 +181,48 @@ class CreateTestChats extends Command
 
     private function showStatistics()
     {
-        $this->info("\n📊 Статистика созданных чатов:");
+        $this->info("\n📊 Статистика созданных данных:");
         
-        $types = Chat::selectRaw('type, COUNT(*) as count')
+        // Статистика чатов
+        $chatCount = Chat::count();
+        $this->line("📁 Всего чатов: {$chatCount}");
+        
+        $chatTypes = Chat::selectRaw('type, COUNT(*) as count')
                      ->groupBy('type')
                      ->pluck('count', 'type')
                      ->toArray();
         
-        foreach ($types as $type => $count) {
+        foreach ($chatTypes as $type => $count) {
             $this->line("  - {$type}: {$count}");
         }
         
-        $topTenCount = Chat::where('display_order', '>', 0)->count();
-        $this->line("  - В топ-10: {$topTenCount}");
+        // Статистика сообщений
+        $messageCount = Message::count();
+        $this->line("💬 Всего сообщений: {$messageCount}");
         
-        $this->info("\n🎯 Чаты готовы для тестирования!");
+        // Статистика кап
+        $capCount = Cap::count();
+        $this->line("🎯 Всего кап: {$capCount}");
+        
+        if ($capCount > 0) {
+            $capsByGeo = Cap::selectRaw('geos, COUNT(*) as count')
+                          ->groupBy('geos')
+                          ->pluck('count', 'geos')
+                          ->toArray();
+            
+            $this->line("📍 Капы по регионам:");
+            foreach (array_slice($capsByGeo, 0, 5) as $geo => $count) {
+                $this->line("  - {$geo}: {$count}");
+            }
+        }
+        
+        // Статистика истории кап
+        $capHistoryCount = CapHistory::count();
+        $this->line("📚 Записей в истории кап: {$capHistoryCount}");
+        
+        $this->info("\n🎯 Система готова для тестирования!");
+        $this->info("✅ Чаты созданы через TelegramWebhookController");
+        $this->info("✅ Сообщения обработаны через CapAnalysisService");
+        $this->info("✅ Капы найдены и сохранены автоматически");
     }
 } 
