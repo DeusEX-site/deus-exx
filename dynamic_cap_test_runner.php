@@ -3,6 +3,10 @@
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/bootstrap/app.php';
 
+$app = require_once __DIR__ . '/bootstrap/app.php';
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel->bootstrap();
+
 require_once 'vendor/autoload.php';
 require_once 'DynamicCapTestGenerator.php';
 require_once 'DynamicCapTestEngine.php';
@@ -23,11 +27,6 @@ class DynamicCapTestRunner
 
     public function __construct(array $config = [])
     {
-        // Bootstrap Laravel
-        $app = require_once __DIR__ . '/bootstrap/app.php';
-        $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-        $kernel->bootstrap();
-        
         $this->generator = new DynamicCapTestGenerator();
         $this->engine = new DynamicCapTestEngine($config['verbose'] ?? true);
         $this->combinations = new DynamicCapCombinationGenerator(
