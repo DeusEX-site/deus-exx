@@ -643,10 +643,11 @@ class CapAnalysisService
     private function isStandardCapMessage($messageText)
     {
         // Ищем обязательные поля: Affiliate, Recipient, Cap, Geo
-        $hasAffiliate = preg_match('/^affiliate:\s*(.+)$/mi', $messageText);
-        $hasRecipient = preg_match('/^recipient:\s*(.+)$/mi', $messageText);
-        $hasCap = preg_match('/^cap:\s*(.+)$/mi', $messageText);
-        $hasGeo = preg_match('/^geo:\s*(.+)$/mi', $messageText);
+        // Изменено: (.+) -> (.*) чтобы поддерживать пустые поля
+        $hasAffiliate = preg_match('/^affiliate:\s*(.*)$/mi', $messageText);
+        $hasRecipient = preg_match('/^recipient:\s*(.*)$/mi', $messageText);
+        $hasCap = preg_match('/^cap:\s*(.*)$/mi', $messageText);
+        $hasGeo = preg_match('/^geo:\s*(.*)$/mi', $messageText);
         
         return $hasAffiliate && $hasRecipient && $hasCap && $hasGeo;
     }
@@ -842,49 +843,58 @@ class CapAnalysisService
      */
     private function parseStandardCapMessage($messageText)
     {
-        // Парсим аффилейта и получателя (обязательные единичные поля)
+        // Парсим аффилейта и получателя (поддерживаем пустые поля)
         $affiliate = null;
         $recipient = null;
 
-        if (preg_match('/^affiliate:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^affiliate:\s*(.*)$/m', $messageText, $matches)) {
             $affiliateValue = trim($matches[1]);
-            if (!$this->isEmpty($affiliateValue)) {
-                $affiliate = $affiliateValue;
-            }
+            $affiliate = $this->isEmpty($affiliateValue) ? null : $affiliateValue;
         }
 
-        if (preg_match('/^recipient:\s*(.+)$/m', $messageText, $matches)) {
+        if (preg_match('/^recipient:\s*(.*)$/m', $messageText, $matches)) {
             $recipientValue = trim($matches[1]);
-            if (!$this->isEmpty($recipientValue)) {
-                $recipient = $recipientValue;
-            }
+            $recipient = $this->isEmpty($recipientValue) ? null : $recipientValue;
         }
 
-        // Проверяем обязательные единичные поля
-        if (!$affiliate || !$recipient) {
-            return null;
-        }
-
-        // Парсим списки Cap и Geo (обязательные)
+        // Парсим списки Cap и Geo (поддерживаем пустые поля)
         $caps = [];
         $geos = [];
 
         // Поддержка cap
-        if (preg_match('/^cap:\s*(.+)$/mi', $messageText, $matches)) {
-            $capValues = $this->parseMultipleValues($matches[1]);
-            foreach ($capValues as $cap) {
-                if (is_numeric($cap)) {
-                    $caps[] = intval($cap);
+        if (preg_match('/^cap:\s*(.*)$/mi', $messageText, $matches)) {
+            $capValue = trim($matches[1]);
+            if (!$this->isEmpty($capValue)) {
+                $capValues = $this->parseMultipleValues($capValue);
+                foreach ($capValues as $cap) {
+                    if (is_numeric($cap)) {
+                        $caps[] = intval($cap);
+                    }
                 }
             }
         }
 
-        if (preg_match('/^geo:\s*(.+)$/mi', $messageText, $matches)) {
-            $geos = $this->parseMultipleValues($matches[1]);
+        if (preg_match('/^geo:\s*(.*)$/mi', $messageText, $matches)) {
+            $geoValue = trim($matches[1]);
+            if (!$this->isEmpty($geoValue)) {
+                $geos = $this->parseMultipleValues($geoValue);
+            }
         }
 
-        // Проверяем, что Cap и Geo заполнены и их количество совпадает
-        if (empty($caps) || empty($geos) || count($caps) !== count($geos)) {
+        // Если cap и geo оба пустые, создаем одну пустую комбинацию
+        if (empty($caps) && empty($geos)) {
+            $caps = [null];
+            $geos = [null];
+        }
+        // Если только один из них пустой, выравниваем количество
+        elseif (empty($caps) && !empty($geos)) {
+            $caps = array_fill(0, count($geos), null);
+        }
+        elseif (!empty($caps) && empty($geos)) {
+            $geos = array_fill(0, count($caps), null);
+        }
+        // Проверяем, что количество совпадает
+        elseif (count($caps) !== count($geos)) {
             return null;
         }
 
