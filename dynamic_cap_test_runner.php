@@ -32,6 +32,17 @@ class DynamicCapTestRunner
             }
         }
         
+        // Инициализируем конфигурацию перед использованием log()
+        $this->config = array_merge([
+            'verbose' => true,
+            'save_reports' => true,
+            'cleanup_after_test' => true,
+            'test_types' => 'all', // 'all', 'create_only', 'update_only', 'status_only'
+            'max_tests_per_type' => 100,
+            'test_timeout' => 300, // 5 minutes
+            'parallel_execution' => false
+        ], $config);
+        
         $this->generator = new DynamicCapTestGenerator();
         $this->engine = new DynamicCapTestEngine($config['verbose'] ?? true);
         $this->combinations = new DynamicCapCombinationGenerator(
@@ -42,16 +53,6 @@ class DynamicCapTestRunner
         
         $this->log("🔧 Компоненты системы инициализированы");
         $this->log("📊 Конфигурация: " . json_encode(array_intersect_key($config, array_flip(['verbose', 'max_combination_size', 'max_permutations', 'test_types', 'max_tests_per_type']))));
-        
-        $this->config = array_merge([
-            'verbose' => true,
-            'save_reports' => true,
-            'cleanup_after_test' => true,
-            'test_types' => 'all', // 'all', 'create_only', 'update_only', 'status_only'
-            'max_tests_per_type' => 100,
-            'test_timeout' => 300, // 5 minutes
-            'parallel_execution' => false
-        ], $config);
         
         $this->currentCapData = [];
     }
@@ -70,13 +71,19 @@ class DynamicCapTestRunner
         
         // Получаем статистику для планирования
         $stats = $this->combinations->getTestStatistics();
+        
+        if (!is_array($stats)) {
+            $this->log("⚠️  Не удалось получить статистику тестов");
+            $stats = ['total' => 0];
+        }
+        
         $this->log("📊 Планируемое количество тестов:");
         foreach ($stats as $type => $count) {
             if ($type !== 'total') {
                 $this->log("   • {$type}: {$count} тестов");
             }
         }
-        $this->log("   • Всего: {$stats['total']} тестов");
+        $this->log("   • Всего: " . ($stats['total'] ?? 0) . " тестов");
         $this->log("");
         
         // Запускаем тесты по типам операций
@@ -93,9 +100,13 @@ class DynamicCapTestRunner
             
             $testResults = $this->runOperationTests($operationType, $completedTests, $totalTests);
             
-            foreach ($testResults as $testName => $result) {
-                $this->reporter->addTestResult($operationType, $testName, $result);
-                $completedTests++;
+            if (is_array($testResults)) {
+                foreach ($testResults as $testName => $result) {
+                    $this->reporter->addTestResult($operationType, $testName, $result);
+                    $completedTests++;
+                }
+            } else {
+                $this->log("⚠️  Не удалось получить результаты тестов для операции: {$operationType}");
             }
             
             $this->log("✅ Завершено тестирование операции: {$operationType}");
@@ -202,11 +213,11 @@ class DynamicCapTestRunner
         $result = $this->engine->testSingleCapCreation($capData);
         
         // Сохраняем данные капы для последующих тестов обновления
-        if ($result['success']) {
+        if (is_array($result) && ($result['success'] ?? false)) {
             $this->currentCapData[] = [
-                'affiliate' => $capData['affiliate'],
-                'recipient' => $capData['recipient'],
-                'geo' => $capData['geo']
+                'affiliate' => $capData['affiliate'] ?? '',
+                'recipient' => $capData['recipient'] ?? '',
+                'geo' => $capData['geo'] ?? ''
             ];
         }
         
@@ -237,12 +248,12 @@ class DynamicCapTestRunner
         $result = $this->engine->testMultiCapCreation($baseData, $capValues, $geoFunnelValues);
         
         // Сохраняем данные кап для последующих тестов
-        if ($result['success']) {
+        if (is_array($result) && ($result['success'] ?? false)) {
             foreach ($geoFunnelValues as $value) {
                 $this->currentCapData[] = [
-                    'affiliate' => $baseData['affiliate'],
-                    'recipient' => $baseData['recipient'],
-                    'geo' => $value
+                    'affiliate' => $baseData['affiliate'] ?? '',
+                    'recipient' => $baseData['recipient'] ?? '',
+                    'geo' => $value ?? ''
                 ];
             }
         }
@@ -267,12 +278,12 @@ class DynamicCapTestRunner
         $result = $this->engine->testGroupCapCreation($blocks);
         
         // Сохраняем данные кап для последующих тестов
-        if ($result['success']) {
+        if (is_array($result) && ($result['success'] ?? false)) {
             foreach ($blocks as $block) {
                 $this->currentCapData[] = [
-                    'affiliate' => $block['affiliate'],
-                    'recipient' => $block['recipient'],
-                    'geo' => $block['geo']
+                    'affiliate' => $block['affiliate'] ?? '',
+                    'recipient' => $block['recipient'] ?? '',
+                    'geo' => $block['geo'] ?? ''
                 ];
             }
         }
@@ -289,20 +300,20 @@ class DynamicCapTestRunner
         if (empty($this->currentCapData)) {
             // Создаем базовую капу для обновления
             $baseCapData = $this->generator->generateBaseCapFields();
-            $createResult = $this->engine->testSingleCapCreation($baseCapData);
-            
-            if (!$createResult['success']) {
-                return [
-                    'success' => false,
-                    'error' => 'Не удалось создать базовую капу для обновления',
-                    'message' => 'N/A'
-                ];
-            }
+                    $createResult = $this->engine->testSingleCapCreation($baseCapData);
+        
+        if (!is_array($createResult) || !($createResult['success'] ?? false)) {
+            return [
+                'success' => false,
+                'error' => 'Не удалось создать базовую капу для обновления',
+                'message' => 'N/A'
+            ];
+        }
             
             $this->currentCapData[] = [
-                'affiliate' => $baseCapData['affiliate'],
-                'recipient' => $baseCapData['recipient'],
-                'geo' => $baseCapData['geo']
+                'affiliate' => $baseCapData['affiliate'] ?? '',
+                'recipient' => $baseCapData['recipient'] ?? '',
+                'geo' => $baseCapData['geo'] ?? ''
             ];
         }
         
@@ -425,7 +436,7 @@ class DynamicCapTestRunner
      */
     private function log(string $message): void
     {
-        if ($this->config['verbose']) {
+        if (isset($this->config) && is_array($this->config) && ($this->config['verbose'] ?? false)) {
             echo $message . "\n";
         }
     }
@@ -441,15 +452,15 @@ class DynamicCapTestRunner
         $baseCapData = $this->generator->generateBaseCapFields();
         $createResult = $this->engine->testSingleCapCreation($baseCapData);
         
-        if (!$createResult['success']) {
+        if (!is_array($createResult) || !($createResult['success'] ?? false)) {
             $this->log("❌ Не удалось создать базовую капу для тестирования статуса");
             return;
         }
         
         $identifierFields = [
-            'affiliate' => $baseCapData['affiliate'],
-            'recipient' => $baseCapData['recipient'],
-            'geo' => $baseCapData['geo']
+            'affiliate' => $baseCapData['affiliate'] ?? '',
+            'recipient' => $baseCapData['recipient'] ?? '',
+            'geo' => $baseCapData['geo'] ?? ''
         ];
         
         $commands = $this->generator->getStatusCommands();
@@ -462,7 +473,7 @@ class DynamicCapTestRunner
             
             $this->reporter->addTestResult('status_commands', $testName, $result);
             
-            if ($result['success']) {
+            if (is_array($result) && ($result['success'] ?? false)) {
                 $this->log("✅ Команда {$command} выполнена успешно");
             } else {
                 $this->log("❌ Ошибка в команде {$command}");
@@ -495,15 +506,15 @@ class DynamicCapTestRunner
         
         $createResult = $this->engine->testSingleCapCreation($fullCapData);
         
-        if (!$createResult['success']) {
+        if (!is_array($createResult) || !($createResult['success'] ?? false)) {
             $this->log("❌ Не удалось создать капу для тестирования сброса");
             return;
         }
         
         $identifierFields = [
-            'affiliate' => $fullCapData['affiliate'],
-            'recipient' => $fullCapData['recipient'],
-            'geo' => $fullCapData['geo']
+            'affiliate' => $fullCapData['affiliate'] ?? '',
+            'recipient' => $fullCapData['recipient'] ?? '',
+            'geo' => $fullCapData['geo'] ?? ''
         ];
         
         $resetCombinations = $this->combinations->generateResetCombinations();

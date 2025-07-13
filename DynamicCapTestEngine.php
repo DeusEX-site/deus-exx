@@ -338,33 +338,33 @@ class DynamicCapTestEngine
         
         $analysisResult = $this->analyzeMessage($message);
         
-        if (!$analysisResult['success']) {
+        if (!is_array($analysisResult) || !($analysisResult['success'] ?? false)) {
             $this->log("❌ Анализ завершился неудачно");
             return [
                 'success' => false,
-                'error' => "Ошибка анализа: " . $analysisResult['error'],
+                'error' => "Ошибка анализа: " . ($analysisResult['error'] ?? 'Неизвестная ошибка'),
                 'message' => $messageText
             ];
         }
         
         $expectedCaps = [
             [
-                'affiliate' => $capData['affiliate'],
-                'recipient' => $capData['recipient'],
-                'geo' => $capData['geo'],
+                'affiliate' => $capData['affiliate'] ?? '',
+                'recipient' => $capData['recipient'] ?? '',
+                'geo' => $capData['geo'] ?? '',
                 'cap_amounts' => intval($capData['cap'] ?? '10')
             ]
         ];
         
         $this->log("🎯 Ожидаемые капы для валидации: " . json_encode($expectedCaps));
         
-        $errors = $this->validateCapCreation($expectedCaps, $analysisResult['result']);
+        $errors = $this->validateCapCreation($expectedCaps, $analysisResult['result'] ?? []);
         
         $result = [
             'success' => empty($errors),
             'errors' => $errors,
             'message' => $messageText,
-            'analysis_result' => $analysisResult['result'],
+            'analysis_result' => $analysisResult['result'] ?? [],
             'caps_created_in_db' => $analysisResult['caps_created'] ?? 0,
             'caps_history_created' => $analysisResult['caps_history_created'] ?? 0
         ];
@@ -394,10 +394,10 @@ class DynamicCapTestEngine
         
         $analysisResult = $this->analyzeMessage($message);
         
-        if (!$analysisResult['success']) {
+        if (!is_array($analysisResult) || !($analysisResult['success'] ?? false)) {
             return [
                 'success' => false,
-                'error' => "Ошибка анализа: " . $analysisResult['error'],
+                'error' => "Ошибка анализа: " . ($analysisResult['error'] ?? 'Неизвестная ошибка'),
                 'message' => $messageText
             ];
         }
@@ -406,20 +406,20 @@ class DynamicCapTestEngine
         $expectedCaps = [];
         foreach ($geoValues as $index => $geo) {
             $expectedCaps[] = [
-                'affiliate' => $baseData['affiliate'],
-                'recipient' => $baseData['recipient'],
-                'geo' => $geo,
-                'cap_amounts' => intval(count($capValues) === 1 ? $capValues[0] : $capValues[$index])
+                'affiliate' => $baseData['affiliate'] ?? '',
+                'recipient' => $baseData['recipient'] ?? '',
+                'geo' => $geo ?? '',
+                'cap_amounts' => intval(count($capValues) === 1 ? ($capValues[0] ?? '10') : ($capValues[$index] ?? '10'))
             ];
         }
         
-        $errors = $this->validateCapCreation($expectedCaps, $analysisResult['result']);
+        $errors = $this->validateCapCreation($expectedCaps, $analysisResult['result'] ?? []);
         
         return [
             'success' => empty($errors),
             'errors' => $errors,
             'message' => $messageText,
-            'analysis_result' => $analysisResult['result']
+            'analysis_result' => $analysisResult['result'] ?? []
         ];
     }
 
