@@ -957,29 +957,55 @@ class CreateTestChats extends Command
          $affiliateCount = preg_match_all('/^affiliate:\s*(.+)$/im', $messageText);
          
          if ($affiliateCount > 1) {
-             // Групповое сообщение - проверяем есть ли мульти-капы в любом блоке
+             // Групповое сообщение - проверяем есть ли мульти-значения в любом блоке
              $blocks = preg_split('/\n\s*\n/', $messageText);
              
              foreach ($blocks as $block) {
+                 $isMulti = false;
+                 
+                 // Проверяем cap
                  if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
                      $capValues = preg_split('/\s+/', trim($matches[1]));
                      if (count($capValues) > 1) {
-                         return 'group_multi'; // Групповое сообщение с мульти-капами
+                         $isMulti = true;
                      }
+                 }
+                 
+                 // Проверяем geo
+                 if (preg_match('/^geo:\s*(.+)$/im', $block, $matches)) {
+                     $geoValues = preg_split('/\s+/', trim($matches[1]));
+                     if (count($geoValues) > 1) {
+                         $isMulti = true;
+                     }
+                 }
+                 
+                 if ($isMulti) {
+                     return 'group_multi'; // Групповое сообщение с мульти-значениями
                  }
              }
              
-             return 'group_single'; // Групповое сообщение с одиночными капами
+             return 'group_single'; // Групповое сообщение с одиночными значениями
          } else {
-             // Одиночное сообщение - проверяем количество кап
+             // Одиночное сообщение - проверяем количество cap и geo
+             $isMulti = false;
+             
+             // Проверяем cap
              if (preg_match('/^cap:\s*(.+)$/im', $messageText, $matches)) {
                  $capValues = preg_split('/\s+/', trim($matches[1]));
                  if (count($capValues) > 1) {
-                     return 'single_multi'; // Одиночное сообщение с мульти-капами
+                     $isMulti = true;
                  }
              }
              
-             return 'single_single'; // Одиночное сообщение с одиночной капой
+             // Проверяем geo
+             if (preg_match('/^geo:\s*(.+)$/im', $messageText, $matches)) {
+                 $geoValues = preg_split('/\s+/', trim($matches[1]));
+                 if (count($geoValues) > 1) {
+                     $isMulti = true;
+                 }
+             }
+             
+             return $isMulti ? 'single_multi' : 'single_single';
          }
      }
      
