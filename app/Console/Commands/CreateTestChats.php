@@ -107,6 +107,8 @@ class CreateTestChats extends Command
         $errorCount = 0;
         $totalMessages = 0;
         $messageIndex = 1;
+        $correctResults = 0;
+        $incorrectResults = 0;
         
         $operationTypes = $this->getOperationTypesToTest($operations);
         
@@ -118,13 +120,33 @@ class CreateTestChats extends Command
                 foreach ($variants as $variant) {
                     try {
                         $testMessage = $this->generateCapMessage($messageIndex, $operationType, $variant, $chatIndex);
+                        $messageText = $testMessage['message']['text'];
                         
-                        // Отправляем через webhook контроллер
+                        // 1. АНАЛИЗИРУЕМ ОЖИДАЕМЫЕ РЕЗУЛЬТАТЫ
+                        $expectedResults = $this->analyzeExpectedResults($messageText, $operationType, $variant);
+                        
+                        // Получаем данные ДО отправки для корректного сравнения
+                        $beforeCounts = $this->getDatabaseCounts();
+                        
+                        // 2. ОТПРАВЛЯЕМ СООБЩЕНИЕ
                         $request = new Request($testMessage);
                         $response = $this->webhookController->handle($request);
                         
                         if ($response->getStatusCode() == 200) {
                             $successCount++;
+                            
+                            // 3. ПРОВЕРЯЕМ ФАКТИЧЕСКИЕ РЕЗУЛЬТАТЫ
+                            $actualResults = $this->checkActualResults($messageText, $operationType, $beforeCounts, $testMessage);
+                            
+                            // 4. СРАВНИВАЕМ И ВЫВОДИМ ОТЧЕТ
+                            $isCorrect = $this->compareAndReportResults($messageIndex, $expectedResults, $actualResults, $messageText, $operationType);
+                            
+                            if ($isCorrect) {
+                                $correctResults++;
+                            } else {
+                                $incorrectResults++;
+                            }
+                            
                         } else {
                             $errorCount++;
                             if ($errorCount <= 10) { // Показываем только первые 10 ошибок
@@ -135,9 +157,9 @@ class CreateTestChats extends Command
                         $totalMessages++;
                         $messageIndex++;
                         
-                        // Показываем прогресс каждые 100 сообщений
-                        if ($totalMessages % 100 == 0) {
-                            $this->info("Обработано сообщений: {$totalMessages}, Успешно: {$successCount}, Ошибок: {$errorCount}");
+                        // Показываем прогресс каждые 50 сообщений
+                        if ($totalMessages % 50 == 0) {
+                            $this->info("Обработано: {$totalMessages}, Успешно: {$successCount}, Ошибок: {$errorCount}, Корректно: {$correctResults}, Некорректно: {$incorrectResults}");
                         }
                         
                     } catch (\Exception $e) {
@@ -155,6 +177,13 @@ class CreateTestChats extends Command
         $this->info("Всего сообщений: {$totalMessages}");
         $this->info("Успешно обработано: {$successCount}");
         $this->info("Ошибок: {$errorCount}");
+        $this->info("Корректных результатов: {$correctResults}");
+        $this->info("Некорректных результатов: {$incorrectResults}");
+        
+        if ($correctResults > 0) {
+            $accuracy = round(($correctResults / ($correctResults + $incorrectResults)) * 100, 2);
+            $this->info("Точность системы: {$accuracy}%");
+        }
     }
     
     private function generateAllVariantsForOperation($operationType, $combinations, $baseIndex)
@@ -699,5 +728,260 @@ class CreateTestChats extends Command
         } else {
             $this->info("✅ Отличный процент распознавания!");
         }
+    }
+
+    /**
+     * Анализирует ожидаемые результаты перед отправкой сообщения
+     */
+    private function analyzeExpectedResults($messageText, $operationType, $variant)
+    {
+        $expected = [
+            'should_create_cap' => false,
+            'should_update_cap' => false,
+            'should_create_message' => true,
+            'should_update_status' => false,
+            'expected_fields' => [],
+            'expected_status' => null,
+            'operation_type' => $operationType
+        ];
+        
+        // Анализируем тип операции
+        if (str_contains($operationType, 'status')) {
+            $expected['should_update_status'] = true;
+            $expected['expected_status'] = $this->extractStatusFromMessage($messageText);
+        } elseif (str_contains($operationType, 'update') || str_contains($operationType, 'reply') || str_contains($operationType, 'quote')) {
+            $expected['should_update_cap'] = true;
+            $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
+        } elseif (str_contains($operationType, 'create')) {
+            $expected['should_create_cap'] = true;
+            $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
+        }
+        
+        return $expected;
+    }
+
+    /**
+     * Проверяет фактические результаты в базе данных
+     */
+    private function checkActualResults($messageText, $operationType, $beforeCounts, $testMessage)
+    {
+        $afterCounts = $this->getDatabaseCounts();
+        
+        $actual = [
+            'created_messages' => $afterCounts['messages'] - $beforeCounts['messages'],
+            'created_caps' => $afterCounts['caps'] - $beforeCounts['caps'],
+            'created_history' => $afterCounts['cap_history'] - $beforeCounts['cap_history'],
+            'updated_caps' => 0,
+            'actual_fields' => [],
+            'actual_status' => null
+        ];
+        
+        // Получаем созданное сообщение
+        $chatId = $testMessage['message']['chat']['id'];
+        $messageId = $testMessage['message']['message_id'];
+        
+        $message = Message::where('telegram_chat_id', $chatId)
+            ->where('telegram_message_id', $messageId)
+            ->first();
+        
+        if ($message) {
+            // Получаем связанные капы
+            $caps = Cap::where('message_id', $message->id)->get();
+            
+            if ($caps->count() > 0) {
+                $cap = $caps->first();
+                $actual['actual_fields'] = [
+                    'affiliate' => $cap->affiliate,
+                    'recipient' => $cap->recipient,
+                    'geos' => $cap->geos,
+                    'total' => $cap->total,
+                    'schedule' => $cap->schedule,
+                    'date' => $cap->date,
+                    'language' => $cap->language,
+                    'funnel' => $cap->funnel,
+                    'pending_acq' => $cap->pending_acq,
+                    'freeze_status_on_acq' => $cap->freeze_status_on_acq,
+                    'status' => $cap->status
+                ];
+                $actual['actual_status'] = $cap->status;
+            }
+            
+            // Проверяем обновления через историю
+            $historyRecords = CapHistory::where('message_id', $message->id)->get();
+            $actual['updated_caps'] = $historyRecords->count();
+        }
+        
+        return $actual;
+    }
+
+    /**
+     * Сравнивает ожидаемые и фактические результаты
+     */
+    private function compareAndReportResults($messageIndex, $expectedResults, $actualResults, $messageText, $operationType)
+    {
+        $isCorrect = true;
+        
+        // Сокращаем сообщение для вывода
+        $shortMessage = mb_substr($messageText, 0, 100) . (mb_strlen($messageText) > 100 ? '...' : '');
+        
+        $this->info("════════════════════════════════════════════════════════════════");
+        $this->info("📝 СООБЩЕНИЕ #{$messageIndex} ({$operationType})");
+        $this->info("Текст: {$shortMessage}");
+        $this->info("────────────────────────────────────────────────────────────────");
+        
+        // Проверяем создание сообщения
+        if ($expectedResults['should_create_message'] && $actualResults['created_messages'] == 0) {
+            $this->error("❌ Сообщение не создано в базе данных!");
+            $isCorrect = false;
+        } elseif ($actualResults['created_messages'] > 0) {
+            $this->info("✅ Сообщение создано в базе данных");
+        }
+        
+        // Проверяем создание капы
+        if ($expectedResults['should_create_cap']) {
+            if ($actualResults['created_caps'] > 0) {
+                $this->info("✅ Кап создан (ожидалось: создание)");
+                $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
+            } else {
+                $this->error("❌ Кап НЕ создан (ожидалось: создание)");
+                $isCorrect = false;
+            }
+        }
+        
+        // Проверяем обновление капы
+        if ($expectedResults['should_update_cap']) {
+            if ($actualResults['updated_caps'] > 0 || $actualResults['created_caps'] > 0) {
+                $this->info("✅ Кап обновлен/создан (ожидалось: обновление)");
+                $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
+            } else {
+                $this->error("❌ Кап НЕ обновлен (ожидалось: обновление)");
+                $isCorrect = false;
+            }
+        }
+        
+        // Проверяем изменение статуса
+        if ($expectedResults['should_update_status']) {
+            if ($expectedResults['expected_status'] && $actualResults['actual_status'] == $expectedResults['expected_status']) {
+                $this->info("✅ Статус изменен корректно: {$actualResults['actual_status']}");
+            } else {
+                $this->error("❌ Статус НЕ изменен или некорректен. Ожидалось: {$expectedResults['expected_status']}, Получено: {$actualResults['actual_status']}");
+                $isCorrect = false;
+            }
+        }
+        
+        // Выводим итоговый результат
+        if ($isCorrect) {
+            $this->info("🎉 РЕЗУЛЬТАТ: КОРРЕКТНО");
+        } else {
+            $this->error("💥 РЕЗУЛЬТАТ: НЕКОРРЕКТНО");
+        }
+        
+        return $isCorrect;
+    }
+
+    /**
+     * Проверяет соответствие полей
+     */
+    private function checkFieldsMatch($expectedFields, $actualFields)
+    {
+        if (empty($expectedFields)) {
+            return;
+        }
+        
+        $this->info("📊 ПРОВЕРКА ПОЛЕЙ:");
+        
+        foreach ($expectedFields as $field => $expectedValue) {
+            if (empty($expectedValue)) {
+                continue;
+            }
+            
+            $actualValue = $actualFields[$field] ?? null;
+            
+            if ($this->compareFieldValues($expectedValue, $actualValue)) {
+                $this->info("  ✅ {$field}: '{$expectedValue}' = '{$actualValue}'");
+            } else {
+                $this->error("  ❌ {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'");
+            }
+        }
+    }
+
+    /**
+     * Сравнивает значения полей с учетом массивов и строк
+     */
+    private function compareFieldValues($expected, $actual)
+    {
+        if (is_array($expected) && is_array($actual)) {
+            return array_diff($expected, $actual) === array_diff($actual, $expected);
+        }
+        
+        if (is_array($expected)) {
+            $expected = implode(' ', $expected);
+        }
+        
+        if (is_array($actual)) {
+            $actual = implode(' ', $actual);
+        }
+        
+        return strtolower(trim($expected)) === strtolower(trim($actual));
+    }
+
+    /**
+     * Извлекает поля из сообщения
+     */
+    private function extractFieldsFromMessage($messageText)
+    {
+        $fields = [];
+        
+        // Конвертируем в нижний регистр для анализа
+        $lowerText = strtolower($messageText);
+        
+        // Извлекаем все поля, которые система должна распознать
+        $fieldPatterns = [
+            'affiliate' => '/affiliate:\s*([^\n]+)/i',
+            'recipient' => '/recipient:\s*([^\n]+)/i',
+            'geo' => '/geo:\s*([^\n]+)/i',
+            'total' => '/total:\s*([^\n]+)/i',
+            'schedule' => '/schedule:\s*([^\n]+)/i',
+            'date' => '/date:\s*([^\n]+)/i',
+            'language' => '/language:\s*([^\n]+)/i',
+            'funnel' => '/funnel:\s*([^\n]+)/i',
+            'pending_acq' => '/pending acq:\s*([^\n]+)/i',
+            'freeze_status_on_acq' => '/freeze status on acq:\s*([^\n]+)/i'
+        ];
+        
+        foreach ($fieldPatterns as $field => $pattern) {
+            if (preg_match($pattern, $lowerText, $matches)) {
+                $fields[$field] = trim($matches[1]);
+            }
+        }
+        
+        return $fields;
+    }
+
+    /**
+     * Извлекает статус из сообщения
+     */
+    private function extractStatusFromMessage($messageText)
+    {
+        $lowerText = strtolower(trim($messageText));
+        
+        if (in_array($lowerText, ['run', 'stop', 'delete', 'restore'])) {
+            return $lowerText;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Получает количество записей в базе данных
+     */
+    private function getDatabaseCounts()
+    {
+        return [
+            'chats' => Chat::count(),
+            'messages' => Message::count(),
+            'caps' => Cap::count(),
+            'cap_history' => CapHistory::count()
+        ];
     }
 } 
