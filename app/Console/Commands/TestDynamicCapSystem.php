@@ -8,13 +8,15 @@ class TestDynamicCapSystem extends Command
 {
     protected $signature = 'test:dynamic-cap-system 
                            {type=full : Тип тестирования (full, quick, create, update, status, reset)}
-                           {--max-tests=50 : Максимальное количество тестов на тип операции}
+                           {--max-tests=0 : Максимальное количество тестов на тип операции (0 = без ограничений)}
                            {--max-combinations=3 : Максимальный размер комбинаций полей}
                            {--max-permutations=12 : Максимальное количество перестановок}
                            {--no-reports : Не сохранять отчеты в файлы}
                            {--no-cleanup : Не очищать тестовые данные после завершения}
                            {--silent : Тихий режим (минимальный вывод)}
-                           {--timeout=300 : Таймаут выполнения в секундах}';
+                           {--timeout=1800 : Таймаут выполнения в секундах}
+                           {--verbose : Подробный вывод в реальном времени}
+                           {--pause-on-error : Пауза на каждой ошибке}';
 
     protected $description = 'Запускает динамические тесты системы кап с полным покрытием всех операций';
 
@@ -77,14 +79,16 @@ class TestDynamicCapSystem extends Command
     {
         return [
             'skip_laravel_init' => true, // Пропускаем инициализацию Laravel, т.к. уже в Artisan
-            'verbose' => !$this->option('silent'),
-            'save_reports' => !$this->option('no-reports'),
+            'verbose' => $this->option('verbose') || !$this->option('silent'),
+            'save_reports' => false, // Отключаем сохранение отчетов по умолчанию
             'cleanup_after_test' => !$this->option('no-cleanup'),
             'test_types' => $this->getTestTypes(),
             'max_tests_per_type' => (int)$this->option('max-tests'),
             'max_combination_size' => (int)$this->option('max-combinations'),
             'max_permutations' => (int)$this->option('max-permutations'),
-            'test_timeout' => (int)$this->option('timeout')
+            'test_timeout' => (int)$this->option('timeout'),
+            'pause_on_error' => $this->option('pause-on-error'),
+            'real_time_output' => $this->option('verbose') || !$this->option('silent')
         ];
     }
 
@@ -116,13 +120,15 @@ class TestDynamicCapSystem extends Command
     {
         $this->info('📋 Конфигурация тестирования:');
         $this->line("   • Тип тестов: {$config['test_types']}");
-        $this->line("   • Максимум тестов на тип: {$config['max_tests_per_type']}");
+        $this->line("   • Максимум тестов на тип: " . ($config['max_tests_per_type'] == 0 ? 'Без ограничений' : $config['max_tests_per_type']));
         $this->line("   • Максимум комбинаций: {$config['max_combination_size']}");
         $this->line("   • Максимум перестановок: {$config['max_permutations']}");
         $this->line("   • Таймаут: {$config['test_timeout']} сек");
         $this->line("   • Сохранение отчетов: " . ($config['save_reports'] ? 'Да' : 'Нет'));
         $this->line("   • Очистка после тестов: " . ($config['cleanup_after_test'] ? 'Да' : 'Нет'));
         $this->line("   • Режим вывода: " . ($config['verbose'] ? 'Подробный' : 'Тихий'));
+        $this->line("   • Пауза на ошибках: " . ($config['pause_on_error'] ? 'Да' : 'Нет'));
+        $this->line("   • Вывод в реальном времени: " . ($config['real_time_output'] ? 'Да' : 'Нет'));
         $this->info('');
     }
 

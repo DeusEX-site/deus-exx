@@ -35,12 +35,14 @@ class DynamicCapTestRunner
         // Инициализируем конфигурацию перед использованием log()
         $this->config = array_merge([
             'verbose' => true,
-            'save_reports' => true,
+            'save_reports' => false,
             'cleanup_after_test' => true,
             'test_types' => 'all', // 'all', 'create_only', 'update_only', 'status_only'
-            'max_tests_per_type' => 100,
-            'test_timeout' => 300, // 5 minutes
-            'parallel_execution' => false
+            'max_tests_per_type' => 0, // без ограничений
+            'test_timeout' => 1800, // 30 minutes
+            'parallel_execution' => false,
+            'pause_on_error' => false,
+            'real_time_output' => true
         ], $config);
         
         $this->generator = new DynamicCapTestGenerator();
@@ -96,15 +98,35 @@ class DynamicCapTestRunner
         }
         
         foreach ($operationTypes as $operationType) {
-            $this->log("🔍 Тестирование операции: {$operationType}");
+            $this->log("\n" . str_repeat("=", 60));
+            $this->log("🔍 ТЕСТИРОВАНИЕ ОПЕРАЦИИ: {$operationType}");
+            $this->log(str_repeat("=", 60));
             
             $testResults = $this->runOperationTests($operationType, $completedTests, $totalTests);
             
             if (is_array($testResults)) {
+                $successCount = 0;
+                $failureCount = 0;
+                
                 foreach ($testResults as $testName => $result) {
                     $this->reporter->addTestResult($operationType, $testName, $result);
                     $completedTests++;
+                    
+                    if (is_array($result) && ($result['success'] ?? false)) {
+                        $successCount++;
+                        $this->log("✅ {$testName} - УСПЕХ");
+                    } else {
+                        $failureCount++;
+                        $this->log("❌ {$testName} - НЕУДАЧА");
+                        $this->pauseOnError($testName, $result);
+                    }
                 }
+                
+                $this->log("\n📊 Итоги операции {$operationType}:");
+                $this->log("   ✅ Успешно: {$successCount}");
+                $this->log("   ❌ Неудачно: {$failureCount}");
+                $this->log("   📈 Всего: " . ($successCount + $failureCount));
+                
             } else {
                 $this->log("⚠️  Не удалось получить результаты тестов для операции: {$operationType}");
             }
@@ -113,9 +135,16 @@ class DynamicCapTestRunner
             $this->log("");
         }
         
-        // Финализация и создание отчетов
+        // Финализация
         $this->reporter->finalize();
-        $this->generateReports();
+        
+        // Генерируем отчеты только если включено
+        if ($this->config['save_reports']) {
+            $this->generateReports();
+        }
+        
+        // Выводим итоговый отчет
+        $this->displayFinalReport();
         
         if ($this->config['cleanup_after_test']) {
             $this->engine->cleanup();
@@ -138,16 +167,37 @@ class DynamicCapTestRunner
         }
         
         $currentTestIndex = $startIndex;
+        $totalTestsInSuite = count($testSuite);
+        
+        $this->log("📋 Всего тестов в наборе: {$totalTestsInSuite}");
         
         foreach ($testSuite as $testIndex => $testCase) {
             $testName = $this->generateTestName($operationType, $testIndex, $testCase);
             
-            $this->reporter->printProgress($currentTestIndex + 1, $totalTests, $testName);
+            $this->log("\n🔍 Тест " . ($testIndex + 1) . "/{$totalTestsInSuite}: {$testName}");
             
+            // Показываем детали теста
+            if (isset($testCase['values'])) {
+                $this->log("   📝 Поля: " . implode(', ', array_keys($testCase['values'])));
+            }
+            
+            $startTime = microtime(true);
             $result = $this->runSingleTest($operationType, $testCase);
-            $results[$testName] = $result;
+            $endTime = microtime(true);
+            $duration = round(($endTime - $startTime) * 1000, 2);
             
+            $results[$testName] = $result;
             $currentTestIndex++;
+            
+            // Выводим результат сразу
+            if (is_array($result) && ($result['success'] ?? false)) {
+                $this->log("   ✅ УСПЕХ ({$duration}ms)");
+            } else {
+                $this->log("   ❌ НЕУДАЧА ({$duration}ms)");
+                if (!empty($result['error'])) {
+                    $this->log("   🔍 Ошибка: " . $result['error']);
+                }
+            }
             
             // Проверяем таймаут
             if ($this->isTimeoutExceeded()) {
@@ -438,7 +488,51 @@ class DynamicCapTestRunner
     {
         if (isset($this->config) && is_array($this->config) && ($this->config['verbose'] ?? false)) {
             echo $message . "\n";
+            if ($this->config['real_time_output'] ?? false) {
+                flush();
+            }
         }
+    }
+    
+    /**
+     * Пауза на ошибке
+     */
+    private function pauseOnError(string $testName, array $result): void
+    {
+        if (!($this->config['pause_on_error'] ?? false)) {
+            return;
+        }
+        
+        echo "\n" . str_repeat("=", 80) . "\n";
+        echo "❌ ОШИБКА В ТЕСТЕ: {$testName}\n";
+        echo str_repeat("=", 80) . "\n";
+        
+        if (!empty($result['errors'])) {
+            echo "🔍 Детали ошибок:\n";
+            foreach ($result['errors'] as $error) {
+                echo "   • {$error}\n";
+            }
+        }
+        
+        if (!empty($result['error'])) {
+            echo "🔍 Основная ошибка: {$result['error']}\n";
+        }
+        
+        if (!empty($result['message'])) {
+            echo "📝 Сообщение: {$result['message']}\n";
+        }
+        
+        if (!empty($result['expected_caps'])) {
+            echo "🎯 Ожидаемые капы:\n";
+            foreach ($result['expected_caps'] as $cap) {
+                echo "   • {$cap['affiliate']} -> {$cap['recipient']} ({$cap['geo']}) = {$cap['cap_amounts']}\n";
+            }
+        }
+        
+        echo str_repeat("=", 80) . "\n";
+        echo "Нажмите Enter для продолжения...";
+        fgets(STDIN);
+        echo "\n";
     }
 
     /**
@@ -551,6 +645,32 @@ class DynamicCapTestRunner
     {
         return $this->combinations->getTestStatistics();
     }
+    
+    /**
+     * Показывает итоговый отчет
+     */
+    private function displayFinalReport(): void
+    {
+        $this->log("\n" . str_repeat("=", 80));
+        $this->log("📊 ИТОГОВЫЙ ОТЧЕТ");
+        $this->log(str_repeat("=", 80));
+        
+        $statistics = $this->reporter->getStatistics();
+        
+        if (is_array($statistics)) {
+            $this->log("⏱️  Общее время выполнения: " . round($statistics['duration'] ?? 0, 2) . " сек");
+            $this->log("📈 Всего тестов: " . ($statistics['total_tests'] ?? 0));
+            $this->log("✅ Успешных: " . ($statistics['successful_tests'] ?? 0));
+            $this->log("❌ Неудачных: " . ($statistics['failed_tests'] ?? 0));
+            
+            if (($statistics['total_tests'] ?? 0) > 0) {
+                $successRate = round((($statistics['successful_tests'] ?? 0) / ($statistics['total_tests'] ?? 0)) * 100, 2);
+                $this->log("🎯 Процент успеха: {$successRate}%");
+            }
+        }
+        
+        $this->log(str_repeat("=", 80));
+    }
 }
 
 // Проверяем, был ли файл запущен напрямую
@@ -558,41 +678,19 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_NAME'])) {
     echo "🚀 Система динамических тестов кап\n";
     echo "=====================================\n\n";
     
-    // Конфигурация из аргументов командной строки
+    // Простая конфигурация для полного тестирования
     $config = [
         'verbose' => true,
-        'save_reports' => true,
+        'save_reports' => false,
         'cleanup_after_test' => true,
         'test_types' => 'all',
-        'max_tests_per_type' => 50, // Ограничиваем для демонстрации
+        'max_tests_per_type' => 0, // Без ограничений
         'max_combination_size' => 3,
-        'max_permutations' => 12
+        'max_permutations' => 12,
+        'pause_on_error' => true,
+        'real_time_output' => true
     ];
     
-    // Проверяем аргументы
-    if (isset($argv[1])) {
-        switch ($argv[1]) {
-            case 'quick':
-                $config['test_types'] = 'create_only';
-                $config['max_tests_per_type'] = 10;
-                $config['max_combination_size'] = 2;
-                break;
-            case 'full':
-                $config['max_tests_per_type'] = 0; // Без ограничений
-                break;
-            case 'status':
-                $config['test_types'] = 'status_only';
-                break;
-        }
-    }
-    
     $runner = new DynamicCapTestRunner($config);
-    
-    if (isset($argv[1]) && $argv[1] === 'quick') {
-        $runner->runQuickTest();
-    } elseif (isset($argv[1]) && $argv[1] === 'status') {
-        $runner->runStatusCommandTests();
-    } else {
-        $runner->runFullTestSuite();
-    }
+    $runner->runFullTestSuite();
 } 
