@@ -1233,37 +1233,49 @@ class CreateTestChats extends Command
 
     private function getCompatibleCapGeoPair($messageType, $index)
     {
-        // Определяем совместимые cap-geo пары для каждого типа сообщения
+        // Определяем совместимые cap-geo-funnel пары для каждого типа сообщения
         $singleSinglePairs = [
-            ['cap' => ['cap:', '10'], 'geo' => ['geo:', 'RU']],
-            ['cap' => ['cap:', '50'], 'geo' => ['geo:', 'KZ']],
-            ['cap' => ['cap:', '100'], 'geo' => ['geo:', 'IE']],
-            ['cap' => ['cap:', '200'], 'geo' => ['geo:', 'UK']],
-            ['cap' => ['cap:', '500'], 'geo' => ['geo:', 'DE']],
-            ['cap' => ['cap:', '1000'], 'geo' => ['geo:', 'FR']],
-            ['cap' => ['cap:', '75'], 'geo' => ['geo:', 'IT']],
-            ['cap' => ['cap:', '25'], 'geo' => ['geo:', 'ES']],
-            ['cap' => ['cap:', '300'], 'geo' => ['geo:', 'PL']],
-            ['cap' => ['cap:', '150'], 'geo' => ['geo:', 'CZ']],
+            ['cap' => ['cap:', '10'], 'geo' => ['geo:', 'RU'], 'funnel' => ['funnel:', 'crypto']],
+            ['cap' => ['cap:', '50'], 'geo' => ['geo:', 'KZ'], 'funnel' => ['funnel:', 'forex']],
+            ['cap' => ['cap:', '100'], 'geo' => ['geo:', 'IE'], 'funnel' => ['funnel:', 'binary']],
+            ['cap' => ['cap:', '200'], 'geo' => ['geo:', 'UK'], 'funnel' => ['funnel:', 'stocks']],
+            ['cap' => ['cap:', '500'], 'geo' => ['geo:', 'DE'], 'funnel' => ['funnel:', 'options']],
+            ['cap' => ['cap:', '1000'], 'geo' => ['geo:', 'FR'], 'funnel' => ['funnel:', 'futures']],
+            ['cap' => ['cap:', '75'], 'geo' => ['geo:', 'IT'], 'funnel' => ['funnel:', 'etf']],
+            ['cap' => ['cap:', '25'], 'geo' => ['geo:', 'ES'], 'funnel' => ['funnel:', 'bonds']],
+            ['cap' => ['cap:', '300'], 'geo' => ['geo:', 'PL'], 'funnel' => ['funnel:', 'commodities']],
+            ['cap' => ['cap:', '150'], 'geo' => ['geo:', 'CZ'], 'funnel' => ['funnel:', 'indices']],
         ];
         
         $singleMultiPairs = [
-            ['cap' => ['cap:', '20 30'], 'geo' => ['geo:', 'RU UA']],
-            ['cap' => ['cap:', '5 10'], 'geo' => ['geo:', 'AU NZ']],
-            ['cap' => ['cap:', '999 888'], 'geo' => ['geo:', 'US UK']],
-            ['cap' => ['cap:', '100 200 300'], 'geo' => ['geo:', 'DE AT CH']],
-            ['cap' => ['cap:', '50 75'], 'geo' => ['geo:', 'IT ES']],
-            ['cap' => ['cap:', '10 20'], 'geo' => ['geo:', 'PL CZ']],
-            ['cap' => ['cap:', '25 35'], 'geo' => ['geo:', 'FR BE']],
-            ['cap' => ['cap:', '100 150'], 'geo' => ['geo:', 'SE NO']],
-            ['cap' => ['cap:', '80 90'], 'geo' => ['geo:', 'DK FI']],
-            ['cap' => ['cap:', '200 250'], 'geo' => ['geo:', 'LT LV']],
-            ['cap' => ['cap:', '40 60 80'], 'geo' => ['geo:', 'PT BR MX']],
-            ['cap' => ['cap:', '15 25 35'], 'geo' => ['geo:', 'CA US AU']],
+            ['cap' => ['cap:', '20 30'], 'geo' => ['geo:', 'RU UA'], 'funnel' => ['funnel:', 'crypto,forex']],
+            ['cap' => ['cap:', '5 10'], 'geo' => ['geo:', 'AU NZ'], 'funnel' => ['funnel:', 'binary,stocks']],
+            ['cap' => ['cap:', '999 888'], 'geo' => ['geo:', 'US UK'], 'funnel' => ['funnel:', 'options,futures']],
+            ['cap' => ['cap:', '100 200 300'], 'geo' => ['geo:', 'DE AT CH'], 'funnel' => ['funnel:', 'crypto,forex,binary']],
+            ['cap' => ['cap:', '50 75'], 'geo' => ['geo:', 'IT ES'], 'funnel' => ['funnel:', 'stocks,etf']],
+            ['cap' => ['cap:', '10 20'], 'geo' => ['geo:', 'PL CZ'], 'funnel' => ['funnel:', 'bonds,commodities']],
+            ['cap' => ['cap:', '25 35'], 'geo' => ['geo:', 'FR BE'], 'funnel' => ['funnel:', 'indices,crypto']],
+            ['cap' => ['cap:', '100 150'], 'geo' => ['geo:', 'SE NO'], 'funnel' => ['funnel:', 'forex,binary']],
+            ['cap' => ['cap:', '80 90'], 'geo' => ['geo:', 'DK FI'], 'funnel' => ['funnel:', 'stocks,options']],
+            ['cap' => ['cap:', '200 250'], 'geo' => ['geo:', 'LT LV'], 'funnel' => ['funnel:', 'futures,etf']],
+            ['cap' => ['cap:', '40 60 80'], 'geo' => ['geo:', 'PT BR MX'], 'funnel' => ['funnel:', 'bonds,commodities,indices']],
+            ['cap' => ['cap:', '15 25 35'], 'geo' => ['geo:', 'CA US AU'], 'funnel' => ['funnel:', 'crypto,forex,binary']],
+        ];
+        
+        // Также добавляем пары для тестирования размножения funnel
+        $funnelMultiplyPairs = [
+            ['cap' => ['cap:', '100'], 'geo' => ['geo:', 'DE'], 'funnel' => ['funnel:', 'crypto,forex,binary']],
+            ['cap' => ['cap:', '50'], 'geo' => ['geo:', 'US'], 'funnel' => ['funnel:', 'stocks,options']],
+            ['cap' => ['cap:', '200 300'], 'geo' => ['geo:', 'UK'], 'funnel' => ['funnel:', 'futures,etf']],
+            ['cap' => ['cap:', '25 35 45'], 'geo' => ['geo:', 'FR'], 'funnel' => ['funnel:', 'bonds,commodities,indices']],
         ];
         
         switch ($messageType) {
             case 'single_single':
+                // Иногда возвращаем пары с размножением funnel
+                if ($index % 5 === 0) {
+                    return $funnelMultiplyPairs[$index % count($funnelMultiplyPairs)];
+                }
                 return $singleSinglePairs[$index % count($singleSinglePairs)];
             case 'single_multi':
                 return $singleMultiPairs[$index % count($singleMultiPairs)];
@@ -1288,6 +1300,7 @@ class CreateTestChats extends Command
             foreach ($blocks as $block) {
                 $capCount = 1;
                 $geoCount = 1;
+                $funnelCount = 1;
                 
                 // Проверяем cap
                 if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
@@ -1301,15 +1314,22 @@ class CreateTestChats extends Command
                     $geoCount = count($geoValues);
                 }
                 
-                // Количества должны совпадать или одно из них должно быть 1 (для размножения)
-                if ($capCount > 1 && $geoCount > 1 && $capCount !== $geoCount) {
-                    return false; // Несовпадающие количества
+                // Проверяем funnel
+                if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
+                    $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
+                    $funnelCount = count($funnelValues);
+                }
+                
+                // Проверяем совместимость количеств
+                if (!$this->areCountsCompatible($capCount, $geoCount, $funnelCount)) {
+                    return false;
                 }
             }
         } else {
             // Одиночное сообщение
             $capCount = 1;
             $geoCount = 1;
+            $funnelCount = 1;
             
             // Проверяем cap
             if (preg_match('/^cap:\s*(.+)$/im', $messageText, $matches)) {
@@ -1323,13 +1343,38 @@ class CreateTestChats extends Command
                 $geoCount = count($geoValues);
             }
             
-            // Количества должны совпадать или одно из них должно быть 1 (для размножения)
-            if ($capCount > 1 && $geoCount > 1 && $capCount !== $geoCount) {
-                return false; // Несовпадающие количества
+            // Проверяем funnel
+            if (preg_match('/^funnel:\s*(.+)$/im', $messageText, $matches)) {
+                $funnelValues = preg_split('/[,\s]+/', trim($matches[1]));
+                $funnelCount = count($funnelValues);
+            }
+            
+            // Проверяем совместимость количеств
+            if (!$this->areCountsCompatible($capCount, $geoCount, $funnelCount)) {
+                return false;
             }
         }
         
         return true; // Совместимые количества
+    }
+    
+    private function areCountsCompatible($capCount, $geoCount, $funnelCount)
+    {
+        // Логика совместимости:
+        // 1. Если все поля имеют одинаковое количество - совместимы
+        // 2. Если одно поле имеет 1 значение, а другие несколько - совместимы (размножение)
+        // 3. Если несколько полей имеют разное количество (>1) - несовместимы
+        
+        $counts = [$capCount, $geoCount, $funnelCount];
+        $nonSingleCounts = array_filter($counts, function($count) { return $count > 1; });
+        
+        if (count($nonSingleCounts) <= 1) {
+            return true; // Максимум одно поле имеет >1 значения
+        }
+        
+        // Проверяем что все поля с >1 значениями имеют одинаковое количество
+        $uniqueNonSingleCounts = array_unique($nonSingleCounts);
+        return count($uniqueNonSingleCounts) === 1;
     }
 
     private function generateMessageByVariant($operationType, $variant)
@@ -1681,13 +1726,10 @@ class CreateTestChats extends Command
         
         switch ($messageType) {
             case 'single_single':
-                $expectedCapCount = 1;
-                break;
-            case 'single_multi':
-                // Система создает записи попарно (cap[0] с geo[0], cap[1] с geo[1], и т.д.)
-                // Количество записей = максимальное количество между cap и geo
+                // Подсчитываем количество элементов в cap, geo и funnel
                 $capCount = 1;
                 $geoCount = 1;
+                $funnelCount = 1;
                 
                 if (isset($fields['cap'])) {
                     $caps = preg_split('/\s+/', trim($fields['cap']));
@@ -1699,10 +1741,41 @@ class CreateTestChats extends Command
                     $geoCount = count($geos);
                 }
                 
-                // Система создает max(capCount, geoCount) записей
+                if (isset($fields['funnel'])) {
+                    $funnels = preg_split('/[,\s]+/', trim($fields['funnel']));
+                    $funnelCount = count($funnels);
+                }
+                
+                // Система создает max(capCount, geoCount, funnelCount) записей
+                // Если одно поле имеет 1 значение, а другое несколько - то одно размножается
+                $expectedCapCount = max($capCount, $geoCount, $funnelCount);
+                break;
+            case 'single_multi':
+                // Подсчитываем количество элементов в cap, geo и funnel
+                $capCount = 1;
+                $geoCount = 1;
+                $funnelCount = 1;
+                
+                if (isset($fields['cap'])) {
+                    $caps = preg_split('/\s+/', trim($fields['cap']));
+                    $capCount = count($caps);
+                }
+                
+                if (isset($fields['geo'])) {
+                    $geos = preg_split('/\s+/', trim($fields['geo']));
+                    $geoCount = count($geos);
+                }
+                
+                if (isset($fields['funnel'])) {
+                    $funnels = preg_split('/[,\s]+/', trim($fields['funnel']));
+                    $funnelCount = count($funnels);
+                }
+                
+                // Система создает max(capCount, geoCount, funnelCount) записей
                 // Если cap меньше geo, то cap размножается
                 // Если geo меньше cap, то geo размножается
-                $expectedCapCount = max($capCount, $geoCount);
+                // Если funnel меньше cap, то funnel размножается
+                $expectedCapCount = max($capCount, $geoCount, $funnelCount);
                 break;
             case 'group_single':
                 // Подсчитываем количество блоков affiliate
@@ -1710,11 +1783,12 @@ class CreateTestChats extends Command
                 $expectedCapCount = $affiliateCount;
                 break;
             case 'group_multi':
-                // Подсчитываем общее количество кап во всех блоках (попарно cap+geo)
+                // Подсчитываем общее количество кап во всех блоках (попарно cap+geo+funnel)
                 $blocks = preg_split('/\n\s*\n/', $messageText);
                 foreach ($blocks as $block) {
                     $capCount = 1;
                     $geoCount = 1;
+                    $funnelCount = 1;
                     
                     if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
                         $caps = preg_split('/\s+/', trim($matches[1]));
@@ -1726,8 +1800,13 @@ class CreateTestChats extends Command
                         $geoCount = count($geos);
                     }
                     
+                    if (preg_match('/^funnel:\s*(.+)$/im', $block, $matches)) {
+                        $funnels = preg_split('/[,\s]+/', trim($matches[1]));
+                        $funnelCount = count($funnels);
+                    }
+                    
                     // Логика аналогична single_multi для каждого блока
-                    $expectedCapCount += max($capCount, $geoCount);
+                    $expectedCapCount += max($capCount, $geoCount, $funnelCount);
                 }
                 break;
         }
