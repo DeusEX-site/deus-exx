@@ -26,6 +26,7 @@ class Cap extends Model
         'timezone',
         'language',
         'funnel',
+        'test',
         'pending_acq',
         'freeze_status_on_acq',
         'highlighted_text',

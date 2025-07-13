@@ -118,6 +118,7 @@ class CapAnalysisService
                         'work_hours' => $capData['work_hours'],
                         'language' => $capData['language'],
                         'funnel' => $capData['funnel'],
+                        'test' => $capData['test'],
                         'pending_acq' => $capData['pending_acq'],
                         'freeze_status_on_acq' => $capData['freeze_status_on_acq'],
                         'start_time' => $capData['start_time'],
@@ -229,6 +230,16 @@ class CapAnalysisService
             
             if ($existingCap->funnel != $newFunnel) {
                 $updateData['funnel'] = $newFunnel;
+            }
+        }
+        
+        // Test - обновляем если указан в сообщении (даже если пустой - сбрасываем до null)
+        if ($this->isFieldSpecifiedInMessage($messageText, 'test')) {
+            $rawTestValue = $this->getRawFieldValue($messageText, 'test');
+            $newTest = $this->isEmpty($rawTestValue) ? null : ($newCapData['test'] ?? null); // По умолчанию null
+            
+            if ($existingCap->test != $newTest) {
+                $updateData['test'] = $newTest;
             }
         }
         
@@ -608,6 +619,7 @@ class CapAnalysisService
             'date' => '/^date:\s*(.*)$/m',
             'language' => '/^language:\s*(.*)$/m',
             'funnel' => '/^funnel:\s*(.*)$/m',
+            'test' => '/^test:\s*(.*)$/m',
             'pending_acq' => '/^pending acq:\s*(.*)$/m',
             'freeze_status_on_acq' => '/^freeze status on acq:\s*(.*)$/m'
         ];
@@ -630,6 +642,7 @@ class CapAnalysisService
             'date' => '/^date:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
             'language' => '/^language:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
             'funnel' => '/^funnel:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
+            'test' => '/^test:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
             'pending_acq' => '/^pending acq:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m',
             'freeze_status_on_acq' => '/^freeze status on acq:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m'
         ];
@@ -958,6 +971,25 @@ class CapAnalysisService
             }
         }
 
+        // Обработка Test с учетом возможных дубликатов и пустых значений
+        $tests = [];
+        if (preg_match_all('/^test:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
+            $testValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $testValue = $trimmed;
+                    break;
+                }
+            }
+            
+            if (!$this->isEmpty($testValue)) {
+                $tests = $this->parseMultipleValues($testValue, true); // Только запятые
+            } else {
+                $tests = [null]; // Значение по умолчанию для пустого поля
+            }
+        }
+
         // Обработка Total с учетом возможных дубликатов и пустых значений
         if (preg_match_all('/^total:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $totalValue = null;
@@ -1085,6 +1117,9 @@ class CapAnalysisService
         if (count($funnels) === 1) {
             $funnels = array_fill(0, $count, $funnels[0]);
         }
+        if (count($tests) === 1) {
+            $tests = array_fill(0, $count, $tests[0]);
+        }
         if (count($totals) === 1) {
             $totals = array_fill(0, $count, $totals[0]);
         }
@@ -1107,6 +1142,7 @@ class CapAnalysisService
             // Берем значения по индексу или значения по умолчанию
             $language = isset($languages[$i]) ? $languages[$i] : 'en';
             $funnel = isset($funnels[$i]) ? $funnels[$i] : null;
+            $test = isset($tests[$i]) ? $tests[$i] : null;
             $total = isset($totals[$i]) ? $totals[$i] : -1; // Бесконечность
             $schedule = isset($schedules[$i]) ? $schedules[$i] : '24/7';
             $pendingAcq = isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : false;
@@ -1123,6 +1159,7 @@ class CapAnalysisService
                 'geos' => [$geos[$i]],
                 'language' => $language,
                 'funnel' => $funnel,
+                'test' => $test,
                 'total_amount' => $total,
                 'schedule' => $scheduleData['schedule'],
                 'work_hours' => $scheduleData['work_hours'],
@@ -1662,6 +1699,24 @@ class CapAnalysisService
             }
         }
         
+        // Test
+        if (preg_match_all('/^test:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
+            $testValue = null;
+            foreach ($matches[1] as $match) {
+                $trimmed = trim($match);
+                if (!$this->isEmpty($trimmed)) {
+                    $testValue = $trimmed;
+                    break;
+                }
+            }
+            
+            if (!$this->isEmpty($testValue)) {
+                $tests = $this->parseMultipleValues($testValue, true); // Только запятые
+            } else {
+                $tests = [null];
+            }
+        }
+        
         // Pending ACQ
         if (preg_match_all('/^pending acq:\s*([^:\n\r]*?)(?:\s*\w+:|$)/m', $messageText, $matches)) {
             $pendingValue = null;
@@ -1729,6 +1784,9 @@ class CapAnalysisService
         if (count($funnels) === 1 || ($hasEmptyValues && count($funnels) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($funnels) === 1)) {
             $funnels = count($funnels) > 0 ? array_fill(0, $count, $funnels[0]) : [];
         }
+        if (count($tests) === 1 || ($hasEmptyValues && count($tests) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($tests) === 1)) {
+            $tests = count($tests) > 0 ? array_fill(0, $count, $tests[0]) : [];
+        }
         if (count($totals) === 1 || ($hasEmptyValues && count($totals) <= 1) || ($hasMultipleCaps && $hasSingleValueParams && count($totals) === 1)) {
             $totals = count($totals) > 0 ? array_fill(0, $count, $totals[0]) : [];
         }
@@ -1768,6 +1826,7 @@ class CapAnalysisService
                     'geos' => [$geo], // Новое гео
                     'language' => isset($languages[$i]) ? $languages[$i] : $originalCap->language,
                     'funnel' => isset($funnels[$i]) ? $funnels[$i] : $originalCap->funnel,
+                    'test' => isset($tests[$i]) ? $tests[$i] : $originalCap->test,
                     'date' => isset($dates[$i]) ? $dates[$i] : $originalCap->date,
                     'pending_acq' => isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : $originalCap->pending_acq,
                     'freeze_status_on_acq' => isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : $originalCap->freeze_status_on_acq,
@@ -1815,6 +1874,7 @@ class CapAnalysisService
                 'total_amount' => isset($totals[$i]) ? $totals[$i] : $existingCap->total_amount,
                 'language' => isset($languages[$i]) ? $languages[$i] : $existingCap->language,
                 'funnel' => isset($funnels[$i]) ? $funnels[$i] : $existingCap->funnel,
+                'test' => isset($tests[$i]) ? $tests[$i] : $existingCap->test,
                 'date' => isset($dates[$i]) ? $dates[$i] : $existingCap->date,
                 'pending_acq' => isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : $existingCap->pending_acq,
                 'freeze_status_on_acq' => isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : $existingCap->freeze_status_on_acq,
@@ -1827,6 +1887,9 @@ class CapAnalysisService
                 }
                 if ($this->isFieldSpecifiedInMessage($messageText, 'funnel') && $this->isEmpty($this->getRawFieldValue($messageText, 'funnel'))) {
                     $updateCapData['funnel'] = null; // Значение по умолчанию
+                }
+                if ($this->isFieldSpecifiedInMessage($messageText, 'test') && $this->isEmpty($this->getRawFieldValue($messageText, 'test'))) {
+                    $updateCapData['test'] = null; // Значение по умолчанию
                 }
                 if ($this->isFieldSpecifiedInMessage($messageText, 'date') && $this->isEmpty($this->getRawFieldValue($messageText, 'date'))) {
                     $updateCapData['date'] = null; // Значение по умолчанию

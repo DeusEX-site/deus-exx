@@ -54,6 +54,10 @@ class CreateTestChats extends Command
             'keys' => ['funnel:', 'Funnel:', 'FUNNEL:', 'fUnNeL:', 'funnel :', ' funnel:', 'funnel: '],
             'values' => ['crypto', 'forex', 'binary', 'stocks', 'options', 'trading', 'investment', 'crypto,forex', 'deusexx', 'premium', 'vip', 'standard', 'test']
         ],
+        'test' => [
+            'keys' => ['test:', 'Test:', 'TEST:', 'tEsT:', 'test :', ' test:', 'test: '],
+            'values' => ['yes', 'no', 'true', 'false', 'active', 'inactive', 'on', 'off', 'enabled', 'disabled', 'debug', 'live', 'staging', 'production']
+        ],
         'total' => [
             'keys' => ['total:', 'Total:', 'TOTAL:', 'tOtAl:', 'total :', ' total:', 'total: '],
             'values' => ['100', '500 1000', '200 400 600', '-', '999', '50 100 150', '1000', 'unlimited', '∞', '0', '1', '10000']
@@ -113,7 +117,7 @@ class CreateTestChats extends Command
         $operationTypes = $this->getOperationTypesToTest($operations);
         
         // ПОСЛЕДОВАТЕЛЬНАЯ ОБРАБОТКА ПО ТИПАМ ОПЕРАЦИЙ
-        foreach ($operationTypes as $operationType) {
+        foreach ($operationTypes as $index => $operationType) {
             $this->info("🔄 НАЧИНАЕМ ОБРАБОТКУ: {$operationType}");
             $this->info("═══════════════════════════════════════════════════════════════");
             
@@ -179,6 +183,16 @@ class CreateTestChats extends Command
             
             $this->info("✅ ЗАВЕРШЕНО: {$operationType}");
             $this->info("═══════════════════════════════════════════════════════════════");
+            
+            // ПАУЗА МЕЖДУ ЭТАПАМИ (кроме последнего)
+            if ($index < count($operationTypes) - 1) {
+                $this->info("");
+                $this->info("⏸️  ПАУЗА МЕЖДУ ЭТАПАМИ");
+                $this->info("Нажмите ENTER для продолжения или Ctrl+C для выхода...");
+                $this->info("");
+                fgets(STDIN);
+                $this->info("");
+            }
         }
         
         $this->info("🎉 ГЕНЕРАЦИЯ ЗАВЕРШЕНА!");
@@ -242,6 +256,7 @@ class CreateTestChats extends Command
         $totalVariants = $this->getFieldVariants('total', $baseIndex);
         $dateVariants = $this->getFieldVariants('date', $baseIndex);
         $funnelVariants = $this->getFieldVariants('funnel', $baseIndex);
+        $testVariants = $this->getFieldVariants('test', $baseIndex);
         $pendingVariants = $this->getFieldVariants('pending_acq', $baseIndex);
         $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $baseIndex);
         
@@ -266,6 +281,7 @@ class CreateTestChats extends Command
                 if ($combinations === 'full') {
                     $variant['date'] = $dateVariants[$i % count($dateVariants)];
                     $variant['funnel'] = $funnelVariants[$i % count($funnelVariants)];
+                    $variant['test'] = $testVariants[$i % count($testVariants)];
                     $variant['pending_acq'] = $pendingVariants[$i % count($pendingVariants)];
                     $variant['freeze_status_on_acq'] = $freezeVariants[$i % count($freezeVariants)];
                 }
@@ -429,7 +445,9 @@ class CreateTestChats extends Command
             ['language', 'funnel'],
             ['date', 'pending_acq'],
             ['freeze_status_on_acq'],
+            ['test'],
             ['schedule', 'language', 'total'],
+            ['test', 'funnel'],
         ];
         
         return $emptyVariants[$index % count($emptyVariants)];
@@ -441,6 +459,7 @@ class CreateTestChats extends Command
             ['schedule' => '24/7', 'total' => '500'],
             ['language' => 'en', 'funnel' => 'crypto'],
             ['pending_acq' => 'yes', 'freeze_status_on_acq' => 'no'],
+            ['test' => 'yes', 'funnel' => 'forex'],
             ['schedule' => '10-19', 'language' => 'ru'],
             ['total' => '-', 'date' => ''],
         ];
@@ -454,6 +473,7 @@ class CreateTestChats extends Command
             ['schedule' => '10-19', 'total' => '300'],
             ['geo' => 'RU UA KZ', 'schedule' => '24/7'],
             ['language' => 'en', 'funnel' => 'forex'],
+            ['test' => 'debug', 'total' => '999'],
             ['pending_acq' => 'yes', 'total' => '1000'],
         ];
         
@@ -466,6 +486,7 @@ class CreateTestChats extends Command
             ['schedule' => '12-20', 'total' => '400'],
             ['geo' => 'DE FR IT', 'schedule' => '24/7'],
             ['language' => 'de', 'funnel' => 'binary'],
+            ['test' => 'live', 'funnel' => 'crypto'],
         ];
         
         return $quoteFields[$index % count($quoteFields)];
