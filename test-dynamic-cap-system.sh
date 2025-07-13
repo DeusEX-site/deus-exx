@@ -142,8 +142,31 @@ print_warning "ВНИМАНИЕ: Полное тестирование може�
 print_info "Система будет тестировать все 16 типов операций с капами"
 
 echo
-print_info "Нажмите Enter для продолжения или Ctrl+C для отмены..."
-read -r
+print_info "Выберите режим тестирования:"
+echo "  1. Полное тестирование (по умолчанию)"
+echo "  2. Быстрая диагностика"
+echo "  3. Только проверка системы"
+echo ""
+print_info "Введите номер (1-3) или нажмите Enter для полного тестирования:"
+read -r test_mode
+
+case "$test_mode" in
+    "2")
+        echo
+        print_info "Режим: Быстрая диагностика"
+        TEST_COMMAND="php artisan test:dynamic-cap-system quick --detailed"
+        ;;
+    "3")
+        echo
+        print_info "Режим: Только проверка системы"
+        TEST_COMMAND="php artisan test:dynamic-cap-system stats --detailed"
+        ;;
+    *)
+        echo
+        print_info "Режим: Полное тестирование"
+        TEST_COMMAND="php artisan test:dynamic-cap-system full --detailed --pause-on-error"
+        ;;
+esac
 
 echo
 print_separator
@@ -155,11 +178,59 @@ start_time=$(date +%s)
 print_info "Время начала: $(date)"
 
 echo
+print_info "Предварительная диагностика..."
+
+# Test database connection
+print_info "Проверка подключения к базе данных..."
+db_test=$(php artisan migrate:status 2>&1)
+if [ $? -eq 0 ]; then
+    print_success "База данных доступна"
+else
+    print_warning "Проблемы с базой данных:"
+    echo "$db_test" | head -5
+fi
+
+# Test basic artisan command
+print_info "Проверка базовых команд Laravel..."
+php artisan --version > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    print_success "Laravel команды работают"
+else
+    print_error "Проблемы с Laravel командами"
+    exit 1
+fi
+
+# Check if our test command exists
+print_info "Проверка команды test:dynamic-cap-system..."
+php artisan list | grep "test:dynamic-cap-system" > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    print_success "Команда test:dynamic-cap-system найдена"
+else
+    print_error "Команда test:dynamic-cap-system не найдена"
+    print_info "Доступные команды test:"
+    php artisan list | grep "test:"
+    exit 1
+fi
+
+# Test with help first
+print_info "Проверка справки команды..."
+php artisan test:dynamic-cap-system --help > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    print_success "Справка команды работает"
+else
+    print_error "Проблемы со справкой команды"
+    php artisan test:dynamic-cap-system --help
+    exit 1
+fi
+
+echo
 print_info "Запуск системы динамических тестов..."
 
-# Run the tests and capture exit code
-php artisan test:dynamic-cap-system full --detailed --pause-on-error
-exit_code=$?
+# Run the tests and capture exit code with better error handling
+set -o pipefail
+print_info "Выполняется: $TEST_COMMAND"
+$TEST_COMMAND 2>&1 | tee /tmp/dynamic_cap_test.log
+exit_code=${PIPESTATUS[0]}
 
 # Record end time
 end_time=$(date +%s)
@@ -178,10 +249,69 @@ if [ $exit_code -eq 0 ]; then
     print_success "Все компоненты системы работают корректно"
 else
     print_error "Тестирование завершено с ошибками (код: $exit_code)"
-    print_warning "Проверьте логи выше для получения подробностей"
+    
+    case $exit_code in
+        1)
+            print_warning "Общая ошибка - проверьте конфигурацию"
+            ;;
+        255)
+            print_warning "Критическая ошибка PHP/Laravel - проверьте код и зависимости"
+            ;;
+        127)
+            print_warning "Команда не найдена"
+            ;;
+        *)
+            print_warning "Неизвестная ошибка с кодом $exit_code"
+            ;;
+    esac
+    
+    if [ -f "/tmp/dynamic_cap_test.log" ]; then
+        echo
+        print_info "Последние строки лога:"
+        print_separator
+        tail -20 /tmp/dynamic_cap_test.log | while IFS= read -r line; do
+            echo "  $line"
+        done
+        print_separator
+        print_info "Полный лог сохранен в: /tmp/dynamic_cap_test.log"
+    fi
+    
+    echo
+    print_info "Попробуйте диагностику:"
+    echo "  1. php artisan test:dynamic-cap-system --help"
+    echo "  2. php artisan migrate:status"
+    echo "  3. php artisan config:cache"
+    echo "  4. composer dump-autoload"
 fi
 
 echo
+print_separator
+if [ $exit_code -ne 0 ]; then
+    print_info "Хотите запустить диагностику? (y/n)"
+    read -r run_diag
+    if [[ "$run_diag" =~ ^[Yy]$ ]]; then
+        echo
+        print_info "Запуск диагностики..."
+        print_separator
+        echo "📋 Проверка автозагрузки классов:"
+        composer dump-autoload -q
+        print_success "Автозагрузка обновлена"
+        
+        echo
+        echo "📋 Очистка кэша конфигурации:"
+        php artisan config:clear
+        php artisan cache:clear
+        print_success "Кэш очищен"
+        
+        echo
+        echo "📋 Проверка миграций:"
+        php artisan migrate:status | head -10
+        
+        echo
+        print_info "Попробуйте запустить тест еще раз"
+    fi
+fi
+
 print_separator
 print_info "Нажмите Enter для завершения..."
 read -r 
