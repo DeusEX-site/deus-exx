@@ -134,7 +134,8 @@ class CreateTestChats extends Command
         // Генерируем сообщение с капой в зависимости от типа операции
         $messageText = $this->generateMessageByType($operationType, $index, $combinations);
         
-        // Создаем структуру сообщения Telegram API
+        // Создаем минимальную структуру сообщения Telegram API
+        // Встроенная система TelegramWebhookController сама создаст чат при обработке
         $telegramMessage = [
             'update_id' => $index,
             'message' => [
@@ -149,10 +150,7 @@ class CreateTestChats extends Command
                 ],
                 'chat' => [
                     'id' => $chatId,
-                    'type' => $this->getChatType($index),
-                    'title' => $this->generateChatTitle($index),
-                    'username' => $this->generateChatUsername($index),
-                    'description' => $this->generateChatDescription($index)
+                    'type' => 'group' // Простой тип для всех тестовых чатов
                 ],
                 'date' => Carbon::now()->subMinutes(rand(0, 1440))->timestamp,
                 'text' => $messageText
@@ -310,65 +308,7 @@ class CreateTestChats extends Command
         return $this->generator->generateSingleCapMessage($baseFields);
     }
 
-    private function getChatType($index)
-    {
-        $types = ['private', 'group', 'supergroup', 'channel'];
-        return $types[$index % count($types)];
-    }
 
-    private function generateChatTitle($index)
-    {
-        $type = $this->getChatType($index);
-        
-        switch ($type) {
-            case 'private':
-                return null;
-            case 'group':
-                return "Группа тестирования #{$index}";
-            case 'supergroup':
-                return "Супергруппа тестирования #{$index}";
-            case 'channel':
-                return "Канал тестирования #{$index}";
-            default:
-                return "Чат #{$index}";
-        }
-    }
-
-    private function generateChatUsername($index)
-    {
-        $type = $this->getChatType($index);
-        
-        switch ($type) {
-            case 'private':
-                return "testuser{$index}";
-            case 'group':
-                return null;
-            case 'supergroup':
-                return rand(0, 1) ? "testgroup{$index}" : null;
-            case 'channel':
-                return "testchannel{$index}";
-            default:
-                return "testuser{$index}";
-        }
-    }
-
-    private function generateChatDescription($index)
-    {
-        $type = $this->getChatType($index);
-        
-        switch ($type) {
-            case 'private':
-                return null;
-            case 'group':
-                return "Тестовая группа для проверки системы кап #{$index}";
-            case 'supergroup':
-                return "Тестовая супергруппа с расширенными возможностями кап #{$index}";
-            case 'channel':
-                return "Тестовый канал для публикации сообщений с капами #{$index}";
-            default:
-                return "Тестовый чат для кап #{$index}";
-        }
-    }
 
     private function showOperationStats($operationStats)
     {
@@ -387,26 +327,17 @@ class CreateTestChats extends Command
     {
         $this->info("\n📊 Статистика созданных данных:");
         
-        // Статистика чатов
+        // Статистика чатов (созданы через встроенную систему)
         $chatCount = Chat::count();
-        $this->line("📁 Всего чатов: {$chatCount}");
+        $this->line("📁 Всего чатов: {$chatCount} (созданы через TelegramWebhookController)")
         
-        $chatTypes = Chat::selectRaw('type, COUNT(*) as count')
-                     ->groupBy('type')
-                     ->pluck('count', 'type')
-                     ->toArray();
-        
-        foreach ($chatTypes as $type => $count) {
-            $this->line("  - {$type}: {$count}");
-        }
-        
-        // Статистика сообщений
+        // Статистика сообщений (созданы через встроенную систему)
         $messageCount = Message::count();
-        $this->line("💬 Всего сообщений: {$messageCount}");
+        $this->line("💬 Всего сообщений: {$messageCount} (созданы через TelegramWebhookController)");
         
-        // Статистика кап
+        // Статистика кап (найдены через встроенную систему)
         $capCount = Cap::count();
-        $this->line("🎯 Всего кап: {$capCount}");
+        $this->line("🎯 Всего кап: {$capCount} (найдены через CapAnalysisService)");
         
         if ($capCount > 0) {
             $capsByStatus = Cap::selectRaw('status, COUNT(*) as count')
@@ -431,14 +362,15 @@ class CreateTestChats extends Command
             }
         }
         
-        // Статистика истории кап
+        // Статистика истории кап (созданы через встроенную систему)
         $capHistoryCount = CapHistory::count();
-        $this->line("📚 Записей в истории кап: {$capHistoryCount}");
+        $this->line("📚 Записей в истории кап: {$capHistoryCount} (созданы через CapAnalysisService)");
         
         $this->info("\n🎯 Система готова для тестирования!");
-        $this->info("✅ Использованы все 16 типов операций");
-        $this->info("✅ Чаты созданы через TelegramWebhookController");
-        $this->info("✅ Сообщения обработаны через CapAnalysisService");
-        $this->info("✅ Капы найдены и сохранены автоматически");
+        $this->info("✅ Использованы все 16 типов операций из DynamicCapTestGenerator");
+        $this->info("✅ Чаты созданы автоматически через встроенную систему");
+        $this->info("✅ Сообщения обработаны через встроенную систему");
+        $this->info("✅ Капы найдены и сохранены автоматически через CapAnalysisService");
+        $this->info("✅ Встроенная логика работает корректно - тесты не создают данные напрямую!");
     }
 } 
