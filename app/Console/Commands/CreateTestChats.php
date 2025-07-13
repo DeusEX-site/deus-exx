@@ -777,38 +777,44 @@ class CreateTestChats extends Command
         ];
         
         // Получаем созданное сообщение
-        $chatId = $testMessage['message']['chat']['id'];
-        $messageId = $testMessage['message']['message_id'];
+        $telegramChatId = $testMessage['message']['chat']['id'];
+        $telegramMessageId = $testMessage['message']['message_id'];
         
-        $message = Message::where('telegram_chat_id', $chatId)
-            ->where('telegram_message_id', $messageId)
-            ->first();
+        // Сначала найдем чат по telegram chat_id
+        $chat = Chat::where('chat_id', $telegramChatId)->first();
         
-        if ($message) {
-            // Получаем связанные капы
-            $caps = Cap::where('message_id', $message->id)->get();
+        if ($chat) {
+            // Теперь найдем сообщение по chat_id (внешний ключ) и telegram_message_id
+            $message = Message::where('chat_id', $chat->id)
+                ->where('telegram_message_id', $telegramMessageId)
+                ->first();
             
-            if ($caps->count() > 0) {
-                $cap = $caps->first();
-                $actual['actual_fields'] = [
-                    'affiliate' => $cap->affiliate,
-                    'recipient' => $cap->recipient,
-                    'geos' => $cap->geos,
-                    'total' => $cap->total,
-                    'schedule' => $cap->schedule,
-                    'date' => $cap->date,
-                    'language' => $cap->language,
-                    'funnel' => $cap->funnel,
-                    'pending_acq' => $cap->pending_acq,
-                    'freeze_status_on_acq' => $cap->freeze_status_on_acq,
-                    'status' => $cap->status
-                ];
-                $actual['actual_status'] = $cap->status;
+            if ($message) {
+                // Получаем связанные капы
+                $caps = Cap::where('message_id', $message->id)->get();
+                
+                if ($caps->count() > 0) {
+                    $cap = $caps->first();
+                    $actual['actual_fields'] = [
+                        'affiliate' => $cap->affiliate_name,
+                        'recipient' => $cap->recipient_name,
+                        'geos' => $cap->geos,
+                        'total' => $cap->total_amount,
+                        'schedule' => $cap->schedule,
+                        'date' => $cap->date,
+                        'language' => $cap->language,
+                        'funnel' => $cap->funnel,
+                        'pending_acq' => $cap->pending_acq,
+                        'freeze_status_on_acq' => $cap->freeze_status_on_acq,
+                        'status' => $cap->status
+                    ];
+                    $actual['actual_status'] = $cap->status;
+                }
+                
+                // Проверяем обновления через историю
+                $historyRecords = CapHistory::where('message_id', $message->id)->get();
+                $actual['updated_caps'] = $historyRecords->count();
             }
-            
-            // Проверяем обновления через историю
-            $historyRecords = CapHistory::where('message_id', $message->id)->get();
-            $actual['updated_caps'] = $historyRecords->count();
         }
         
         return $actual;
@@ -939,7 +945,7 @@ class CreateTestChats extends Command
         $fieldPatterns = [
             'affiliate' => '/affiliate:\s*([^\n]+)/i',
             'recipient' => '/recipient:\s*([^\n]+)/i',
-            'geo' => '/geo:\s*([^\n]+)/i',
+            'geos' => '/geo:\s*([^\n]+)/i',
             'total' => '/total:\s*([^\n]+)/i',
             'schedule' => '/schedule:\s*([^\n]+)/i',
             'date' => '/date:\s*([^\n]+)/i',
