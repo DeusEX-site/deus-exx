@@ -1,12 +1,5 @@
 <?php
 
-require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/bootstrap/app.php';
-
-$app = require_once __DIR__ . '/bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
-
 require_once 'vendor/autoload.php';
 require_once 'DynamicCapTestGenerator.php';
 require_once 'DynamicCapTestEngine.php';
@@ -27,6 +20,24 @@ class DynamicCapTestRunner
 
     public function __construct(array $config = [])
     {
+        // Инициализация Laravel
+        try {
+            $app = require_once 'bootstrap/app.php';
+            
+            // Проверяем, что получили корректный объект Application
+            if (!$app instanceof Illuminate\Foundation\Application) {
+                throw new Exception("Failed to load Laravel application");
+            }
+            
+            $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+            $kernel->bootstrap();
+            
+        } catch (Exception $e) {
+            echo "❌ Ошибка инициализации Laravel: " . $e->getMessage() . "\n";
+            echo "Убедитесь, что вы запускаете скрипт из корневой директории Laravel проекта.\n";
+            exit(1);
+        }
+        
         $this->generator = new DynamicCapTestGenerator();
         $this->engine = new DynamicCapTestEngine($config['verbose'] ?? true);
         $this->combinations = new DynamicCapCombinationGenerator(
