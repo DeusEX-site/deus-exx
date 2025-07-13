@@ -286,6 +286,11 @@ class CreateTestChats extends Command
                 continue; // Пропускаем если количества не совпадают
             }
             
+            // Проверяем совпадение количества элементов в cap и funnel (если funnel присутствует)
+            if (isset($variant['funnel']) && !$this->validateCapFunnelCount($variant['cap'][1], $variant['funnel'][1])) {
+                continue; // Пропускаем если количества не совпадают
+            }
+            
             // Проверяем уникальность комбинации
             if (!$this->isUniqueCombination($variant['affiliate'][1], $variant['recipient'][1], $variant['geo'][1])) {
                 // Пытаемся найти уникальную комбинацию
@@ -324,6 +329,12 @@ class CreateTestChats extends Command
                 if ($combinations === 'full') {
                     $variant['date'] = $dateVariants[$i % count($dateVariants)];
                     $variant['funnel'] = $funnelVariants[$i % count($funnelVariants)];
+                    
+                    // Проверяем совпадение количества элементов в cap и funnel после добавления funnel
+                    if (!$this->validateCapFunnelCount($variant['cap'][1], $variant['funnel'][1])) {
+                        continue; // Пропускаем если количества не совпадают
+                    }
+                    
                     $variant['test'] = $testVariants[$i % count($testVariants)];
                     $variant['pending_acq'] = $pendingVariants[$i % count($pendingVariants)];
                     $variant['freeze_status_on_acq'] = $freezeVariants[$i % count($freezeVariants)];
@@ -353,7 +364,55 @@ class CreateTestChats extends Command
             }
         }
         
-        return $variants;
+        // Добавляем тесты для всех типов создания кап
+        $creationTypeVariants = $this->generateAllCapCreationTypes($combinations);
+        
+        foreach ($creationTypeVariants as $creationVariant) {
+            if ($this->isUniqueCombination($creationVariant['affiliate'][1], $creationVariant['recipient'][1], $creationVariant['geo'][1])) {
+                $this->markCombinationAsUsed($creationVariant['affiliate'][1], $creationVariant['recipient'][1], $creationVariant['geo'][1]);
+                $variants[] = $creationVariant;
+            }
+        }
+        
+                          // Добавляем тесты для разделённых кап по funnel
+         $funnelVariants = $this->generateFunnelSeparatedCapVariants($combinations);
+         
+         foreach ($funnelVariants as $funnelVariant) {
+             // Проверяем совпадение количества элементов cap и funnel
+             if (isset($funnelVariant['funnel']) && !$this->validateCapFunnelCount($funnelVariant['cap'][1], $funnelVariant['funnel'][1])) {
+                 continue; // Пропускаем если количества не совпадают
+             }
+             
+             if ($this->isUniqueCombination($funnelVariant['affiliate'][1], $funnelVariant['recipient'][1], $funnelVariant['geo'][1])) {
+                 $this->markCombinationAsUsed($funnelVariant['affiliate'][1], $funnelVariant['recipient'][1], $funnelVariant['geo'][1]);
+                 $variants[] = $funnelVariant;
+             }
+         }
+         
+         // Добавляем тесты для групповых сообщений
+         $groupVariants = $this->generateGroupMessageVariants($combinations);
+         
+         foreach ($groupVariants as $groupVariant) {
+             // Для групповых сообщений проверяем уникальность всех блоков
+             $canAddGroup = true;
+             
+             foreach ($groupVariant['blocks'] as $block) {
+                 if (!$this->isUniqueCombination($block['affiliate'][1], $block['recipient'][1], $block['geo'][1])) {
+                     $canAddGroup = false;
+                     break;
+                 }
+             }
+             
+             if ($canAddGroup) {
+                 // Регистрируем все блоки как использованные
+                 foreach ($groupVariant['blocks'] as $block) {
+                     $this->markCombinationAsUsed($block['affiliate'][1], $block['recipient'][1], $block['geo'][1]);
+                 }
+                 $variants[] = $groupVariant;
+             }
+         }
+         
+         return $variants;
     }
     
     private function isUniqueCombination($affiliate, $recipient, $geo)
@@ -374,6 +433,14 @@ class CreateTestChats extends Command
         $geoCount = count(explode(' ', trim($geoValue)));
         
         return $capCount === $geoCount;
+    }
+
+    private function validateCapFunnelCount($capValue, $funnelValue)
+    {
+        $capCount = count(explode(' ', trim($capValue)));
+        $funnelCount = count(explode(',', trim($funnelValue)));
+        
+        return $capCount === $funnelCount;
     }
     
     private function generateUpdateVariants($combinations, $baseIndex)
@@ -458,8 +525,246 @@ class CreateTestChats extends Command
         
         return $variants;
     }
-    
-    private function getFieldVariants($fieldName, $baseIndex)
+
+    private function generateFunnelSeparatedCapVariants($combinations)
+    {
+        $variants = [];
+        
+        // Тест 1: Одиночное сообщение → Одна капа + funnel
+        $variants[] = [
+            'test_type' => 'single_message_single_cap',
+            'affiliate' => ['affiliate:', 'FUNNEL_TEST_01'],
+            'recipient' => ['recipient:', 'SingleCapBroker'],
+            'cap' => ['cap:', '50'],
+            'geo' => ['geo:', 'RU'],
+            'funnel' => ['funnel:', 'crypto']
+        ];
+        
+        // Тест 2: Одиночное сообщение → Много кап + funnel
+        $variants[] = [
+            'test_type' => 'single_message_multi_cap',
+            'affiliate' => ['affiliate:', 'FUNNEL_TEST_02'],
+            'recipient' => ['recipient:', 'MultiCapBroker'],
+            'cap' => ['cap:', '50 100'],
+            'geo' => ['geo:', 'RU UA'],
+            'funnel' => ['funnel:', 'crypto,forex']
+        ];
+        
+        // Тест 3: Групповое сообщение → Одна капа + funnel
+        $variants[] = [
+            'test_type' => 'group_message_single_cap', 
+            'affiliate' => ['affiliate:', 'FUNNEL_TEST_03'],
+            'recipient' => ['recipient:', 'GroupSingleBroker'],
+            'cap' => ['cap:', '75'],
+            'geo' => ['geo:', 'DE'],
+            'funnel' => ['funnel:', 'binary']
+        ];
+        
+        // Тест 4: Групповое сообщение → Много кап + funnel
+        $variants[] = [
+            'test_type' => 'group_message_multi_cap',
+            'affiliate' => ['affiliate:', 'FUNNEL_TEST_04'],
+            'recipient' => ['recipient:', 'GroupMultiBroker'],
+            'cap' => ['cap:', '25 50 75'],
+            'geo' => ['geo:', 'DE AT CH'],
+            'funnel' => ['funnel:', 'stocks,options,trading']
+        ];
+        
+        // Тест 5: Смешанный тест с максимальными полями
+        $variants[] = [
+            'test_type' => 'mixed_max_fields',
+            'affiliate' => ['affiliate:', 'FUNNEL_TEST_05'],
+            'recipient' => ['recipient:', 'MixedMaxBroker'],
+            'cap' => ['cap:', '100 200 300 400'],
+            'geo' => ['geo:', 'US UK CA AU'],
+            'funnel' => ['funnel:', 'crypto,forex,binary,stocks'],
+            'schedule' => ['schedule:', '10:00/19:00 GMT+01:00'],
+            'language' => ['language:', 'en de fr es'],
+            'total' => ['total:', '500 1000 1500 2000'],
+            'date' => ['date:', '01.01 02.02 03.03 04.04'],
+            'test' => ['test:', 'yes']
+        ];
+        
+                 return $variants;
+     }
+
+     private function generateAllCapCreationTypes($combinations)
+     {
+         $variants = [];
+         
+         // ТИП 1: Одиночное сообщение → Одна капа
+         $variants[] = [
+             'creation_type' => 'single_message_single_cap',
+             'affiliate' => ['affiliate:', 'SINGLE_CAP_01'],
+             'recipient' => ['recipient:', 'SingleCapTest'],
+             'cap' => ['cap:', '100'],
+             'geo' => ['geo:', 'RU']
+         ];
+         
+         // ТИП 2: Одиночное сообщение → Много кап
+         $variants[] = [
+             'creation_type' => 'single_message_multi_cap',
+             'affiliate' => ['affiliate:', 'MULTI_CAP_01'],
+             'recipient' => ['recipient:', 'MultiCapTest'],
+             'cap' => ['cap:', '100 200'],
+             'geo' => ['geo:', 'RU UA']
+         ];
+         
+         // ТИП 3: Групповое сообщение → Одна капа
+         $variants[] = [
+             'creation_type' => 'group_message_single_cap',
+             'affiliate' => ['affiliate:', 'GROUP_SINGLE_01'],
+             'recipient' => ['recipient:', 'GroupSingleTest'],
+             'cap' => ['cap:', '150'],
+             'geo' => ['geo:', 'DE']
+         ];
+         
+         // ТИП 4: Групповое сообщение → Много кап
+         $variants[] = [
+             'creation_type' => 'group_message_multi_cap',
+             'affiliate' => ['affiliate:', 'GROUP_MULTI_01'],
+             'recipient' => ['recipient:', 'GroupMultiTest'],
+             'cap' => ['cap:', '50 100 150'],
+             'geo' => ['geo:', 'DE AT CH']
+         ];
+         
+         // Дополнительные тесты с опциональными полями
+         if ($combinations === 'full' || $combinations === 'advanced') {
+             // Тест с schedule
+             $variants[] = [
+                 'creation_type' => 'single_with_schedule',
+                 'affiliate' => ['affiliate:', 'SCHEDULE_TEST_01'],
+                 'recipient' => ['recipient:', 'ScheduleTestBroker'],
+                 'cap' => ['cap:', '200'],
+                 'geo' => ['geo:', 'FR'],
+                 'schedule' => ['schedule:', '09:00/18:00 GMT+01:00']
+             ];
+             
+             // Тест с language
+             $variants[] = [
+                 'creation_type' => 'multi_with_language',
+                 'affiliate' => ['affiliate:', 'LANGUAGE_TEST_01'],
+                 'recipient' => ['recipient:', 'LanguageTestBroker'],
+                 'cap' => ['cap:', '100 200'],
+                 'geo' => ['geo:', 'ES IT'],
+                 'language' => ['language:', 'es it']
+             ];
+             
+             // Тест с total
+             $variants[] = [
+                 'creation_type' => 'multi_with_total',
+                 'affiliate' => ['affiliate:', 'TOTAL_TEST_01'],
+                 'recipient' => ['recipient:', 'TotalTestBroker'],
+                 'cap' => ['cap:', '50 100 150'],
+                 'geo' => ['geo:', 'US UK CA'],
+                 'total' => ['total:', '500 1000 1500']
+             ];
+         }
+         
+         return $variants;
+     }
+
+     private function generateGroupMessageVariants($combinations)
+     {
+         $variants = [];
+         
+         // Групповое сообщение → Одна капа (несколько блоков с одной капой в каждом)
+         $variants[] = [
+             'group_type' => 'group_single_cap',
+             'is_group_message' => true,
+             'blocks' => [
+                 [
+                     'affiliate' => ['affiliate:', 'GROUP_BLOCK_01'],
+                     'recipient' => ['recipient:', 'GroupBroker1'],
+                     'cap' => ['cap:', '100'],
+                     'geo' => ['geo:', 'RU']
+                 ],
+                 [
+                     'affiliate' => ['affiliate:', 'GROUP_BLOCK_02'],
+                     'recipient' => ['recipient:', 'GroupBroker2'],
+                     'cap' => ['cap:', '150'],
+                     'geo' => ['geo:', 'UA']
+                 ]
+             ]
+         ];
+         
+         // Групповое сообщение → Много кап (несколько блоков с множественными капами)
+         $variants[] = [
+             'group_type' => 'group_multi_cap',
+             'is_group_message' => true,
+             'blocks' => [
+                 [
+                     'affiliate' => ['affiliate:', 'GROUP_MULTI_01'],
+                     'recipient' => ['recipient:', 'GroupMultiBroker1'],
+                     'cap' => ['cap:', '50 100'],
+                     'geo' => ['geo:', 'DE AT']
+                 ],
+                 [
+                     'affiliate' => ['affiliate:', 'GROUP_MULTI_02'],
+                     'recipient' => ['recipient:', 'GroupMultiBroker2'],
+                     'cap' => ['cap:', '75 125'],
+                     'geo' => ['geo:', 'FR ES']
+                 ]
+             ]
+         ];
+         
+         // Смешанное групповое сообщение
+         $variants[] = [
+             'group_type' => 'group_mixed',
+             'is_group_message' => true,
+             'blocks' => [
+                 [
+                     'affiliate' => ['affiliate:', 'GROUP_MIXED_01'],
+                     'recipient' => ['recipient:', 'MixedBroker1'],
+                     'cap' => ['cap:', '200'],
+                     'geo' => ['geo:', 'US']
+                 ],
+                 [
+                     'affiliate' => ['affiliate:', 'GROUP_MIXED_02'],
+                     'recipient' => ['recipient:', 'MixedBroker2'],
+                     'cap' => ['cap:', '100 150 200'],
+                     'geo' => ['geo:', 'UK CA AU']
+                 ]
+             ]
+         ];
+         
+         return $variants;
+     }
+
+     private function determineMessageType($messageText)
+     {
+         // Подсчитываем количество блоков affiliate
+         $affiliateBlocks = preg_match_all('/^affiliate:\s*(.+)$/m', $messageText);
+         
+         // Если больше одного блока - групповое сообщение
+         if ($affiliateBlocks > 1) {
+             // Проверяем количество кап в каждом блоке
+             $blocks = preg_split('/\n\s*\n/', $messageText);
+             $hasMultiCaps = false;
+             
+             foreach ($blocks as $block) {
+                 if (preg_match('/^cap:\s*(.+)$/m', $block, $matches)) {
+                     $caps = preg_split('/\s+/', trim($matches[1]));
+                     if (count($caps) > 1) {
+                         $hasMultiCaps = true;
+                         break;
+                     }
+                 }
+             }
+             
+             return $hasMultiCaps ? 'group_multi' : 'group_single';
+         } else {
+             // Одиночное сообщение - проверяем количество кап
+             if (preg_match('/^cap:\s*(.+)$/m', $messageText, $matches)) {
+                 $caps = preg_split('/\s+/', trim($matches[1]));
+                 return count($caps) > 1 ? 'single_multi' : 'single_single';
+             }
+         }
+         
+         return 'unknown';
+     }
+     
+     private function getFieldVariants($fieldName, $baseIndex)
     {
         if (!isset($this->fieldVariants[$fieldName])) {
             return [[$fieldName . ':', 'default_value']];
@@ -636,6 +941,9 @@ class CreateTestChats extends Command
         // Генерируем сообщение используя максимальные варианты
         $messageText = $this->generateMessageByVariant($operationType, $variant);
         
+        // Определяем тип сообщения
+        $messageType = $this->determineMessageType($messageText);
+        
         $telegramMessage = [
             'update_id' => $index,
             'message' => [
@@ -653,7 +961,8 @@ class CreateTestChats extends Command
                     'type' => 'group'
                 ],
                 'date' => Carbon::now()->subMinutes(rand(0, 1440))->timestamp,
-                'text' => $messageText
+                'text' => $messageText,
+                'message_type' => $messageType // Добавляем тип сообщения
             ]
         ];
         
@@ -707,6 +1016,11 @@ class CreateTestChats extends Command
     
     private function generateCreateMessage($variant)
     {
+        // Проверяем, является ли сообщение групповым
+        if (isset($variant['is_group_message']) && $variant['is_group_message']) {
+            return $this->generateGroupMessage($variant);
+        }
+        
         $message = '';
         
         // Определяем порядок полей
@@ -721,6 +1035,30 @@ class CreateTestChats extends Command
                     // Для пустых полей добавляем только двоеточие без значения
                     $message .= $fieldData[0] . "\n";
                 } else {
+                    $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
+                }
+            }
+        }
+        
+        return rtrim($message);
+    }
+
+    private function generateGroupMessage($variant)
+    {
+        $message = '';
+        $blocks = $variant['blocks'] ?? [];
+        
+        foreach ($blocks as $blockIndex => $block) {
+            if ($blockIndex > 0) {
+                $message .= "\n\n"; // Разделитель между блоками
+            }
+            
+            // Порядок полей в блоке
+            $fieldOrder = ['affiliate', 'recipient', 'cap', 'geo'];
+            
+            foreach ($fieldOrder as $field) {
+                if (isset($block[$field])) {
+                    $fieldData = $block[$field];
                     $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
                 }
             }
@@ -849,6 +1187,109 @@ class CreateTestChats extends Command
         } else {
             $this->info("✅ Отличный процент распознавания!");
         }
+        
+        $this->showTestTypeStatistics();
+    }
+
+    private function showTestTypeStatistics()
+    {
+        $this->info('');
+        $this->info('🧪 ПОКРЫТИЕ ТИПОВ ТЕСТОВ:');
+        
+        // Подсчитываем типы тестов по названиям affiliate
+        $testTypes = [
+            'single_message_single_cap' => 0,
+            'single_message_multi_cap' => 0,
+            'group_message_single_cap' => 0,
+            'group_message_multi_cap' => 0,
+            'funnel_separated_caps' => 0,
+            'extreme_variants' => 0,
+            'basic_variants' => 0
+        ];
+        
+        // Получаем статистику по типам сообщений из базы данных
+        $messageTypes = Message::select('message_type')
+            ->whereNotNull('message_type')
+            ->get()
+            ->countBy('message_type');
+        
+        // Обновляем статистику на основе реальных типов сообщений
+        foreach ($messageTypes as $type => $count) {
+            switch ($type) {
+                case 'single_single':
+                    $testTypes['single_message_single_cap'] = $count;
+                    break;
+                case 'single_multi':
+                    $testTypes['single_message_multi_cap'] = $count;
+                    break;
+                case 'group_single':
+                    $testTypes['group_message_single_cap'] = $count;
+                    break;
+                case 'group_multi':
+                    $testTypes['group_message_multi_cap'] = $count;
+                    break;
+                case 'unknown':
+                    $testTypes['basic_variants'] = $count;
+                    break;
+            }
+        }
+        
+        // Дополнительно подсчитываем специальные типы по affiliate
+        $caps = Cap::select('affiliate_name')->get();
+        foreach ($caps as $cap) {
+            $affiliate = $cap->affiliate_name;
+            
+            if (strpos($affiliate, 'FUNNEL_TEST') !== false) {
+                $testTypes['funnel_separated_caps']++;
+            } elseif (strpos($affiliate, 'Very-Long-Affiliate') !== false) {
+                $testTypes['extreme_variants']++;
+            }
+        }
+        
+        $this->info('📊 Типы тестов создания кап:');
+        $this->info('   ✅ Одиночное сообщение → Одна капа: ' . $testTypes['single_message_single_cap']);
+        $this->info('   ✅ Одиночное сообщение → Много кап: ' . $testTypes['single_message_multi_cap']);
+        $this->info('   ✅ Групповое сообщение → Одна капа: ' . $testTypes['group_message_single_cap']);
+        $this->info('   ✅ Групповое сообщение → Много кап: ' . $testTypes['group_message_multi_cap']);
+        $this->info('   ✅ Тесты с funnel разделением: ' . $testTypes['funnel_separated_caps']);
+        $this->info('   ✅ Экстремальные варианты: ' . $testTypes['extreme_variants']);
+        $this->info('   ✅ Базовые варианты: ' . $testTypes['basic_variants']);
+        
+        // Показываем детальную статистику по типам сообщений
+        $this->info('');
+        $this->info('📈 Детальная статистика по типам сообщений:');
+        $totalMessages = Message::count();
+        $messageTypes = Message::select('message_type')
+            ->whereNotNull('message_type')
+            ->get()
+            ->countBy('message_type');
+        
+        foreach ($messageTypes as $type => $count) {
+            $percentage = $totalMessages > 0 ? round(($count / $totalMessages) * 100, 1) : 0;
+            $this->info("   📝 {$type}: {$count} ({$percentage}%)");
+        }
+        
+        // Проверяем покрытие всех обязательных типов
+        $requiredTypes = [
+            'single_message_single_cap', 
+            'single_message_multi_cap', 
+            'group_message_single_cap', 
+            'group_message_multi_cap'
+        ];
+        
+        $allTypesPresent = true;
+        foreach ($requiredTypes as $type) {
+            if ($testTypes[$type] == 0) {
+                $allTypesPresent = false;
+                break;
+            }
+        }
+        
+        if ($allTypesPresent) {
+            $this->info('✅ Все обязательные типы тестов присутствуют!');
+        } else {
+            $this->warn('⚠️  Не все обязательные типы тестов присутствуют!');
+        }
     }
 
     /**
@@ -875,6 +1316,38 @@ class CreateTestChats extends Command
             $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
         } elseif (str_contains($operationType, 'create')) {
             $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
+            
+            // ПРОВЕРКА РАЗНОБОЯ КОЛИЧЕСТВА
+            if (isset($expected['expected_fields']['cap']) && isset($expected['expected_fields']['geo'])) {
+                $caps = preg_split('/\s+/', trim($expected['expected_fields']['cap']));
+                $geos = preg_split('/\s+/', trim($expected['expected_fields']['geo']));
+                
+                $capCount = count($caps);
+                $geoCount = count($geos);
+                
+                // Если разнобой количества И ни одно не равно 1 - НЕ должно создавать кап
+                if ($capCount !== $geoCount && $capCount !== 1 && $geoCount !== 1) {
+                    $expected['should_create_cap'] = false;
+                    $expected['should_update_cap'] = false;
+                    $expected['is_count_mismatch'] = true;
+                    $expected['mismatch_reason'] = "Разнобой количества cap($capCount) и geo($geoCount)";
+                    return $expected;
+                }
+                
+                // Проверяем funnel если есть
+                if (isset($expected['expected_fields']['funnel'])) {
+                    $funnels = preg_split('/,/', trim($expected['expected_fields']['funnel']));
+                    $funnelCount = count($funnels);
+                    
+                    if ($funnelCount !== $capCount && $funnelCount !== 1 && $capCount !== 1) {
+                        $expected['should_create_cap'] = false;
+                        $expected['should_update_cap'] = false;
+                        $expected['is_count_mismatch'] = true;
+                        $expected['mismatch_reason'] = "Разнобой количества cap($capCount) и funnel($funnelCount)";
+                        return $expected;
+                    }
+                }
+            }
             
             // Проверяем, существует ли уже такая комбинация в базе данных
             $existingCap = null;
@@ -905,8 +1378,11 @@ class CreateTestChats extends Command
             }
             
             if ($existingCap) {
-                $expected['should_update_cap'] = true;
+                // Повтор - просто пропускаем
+                $expected['should_update_cap'] = false;
                 $expected['should_create_cap'] = false;
+                $expected['is_duplicate'] = true;
+                $expected['duplicate_reason'] = 'Комбинация уже существует в базе';
             } else {
                 $expected['should_create_cap'] = true;
                 $expected['should_update_cap'] = false;
@@ -1013,9 +1489,37 @@ class CreateTestChats extends Command
         if ($expectedResults['should_create_cap']) {
             if ($actualResults['created_caps'] > 0) {
                 $this->info("✅ Кап создан (ожидалось: создание)");
-                $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
+                
+                // Проверяем соответствие полей только если есть фактические данные
+                if (isset($actualResults['actual_fields'])) {
+                    $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
+                }
             } else {
                 $this->error("❌ Кап НЕ создан (ожидалось: создание)");
+                $isCorrect = false;
+            }
+        }
+        
+        // Проверяем случаи с разнобоем количества
+        if (isset($expectedResults['is_count_mismatch']) && $expectedResults['is_count_mismatch']) {
+            if ($actualResults['created_caps'] == 0 && $actualResults['updated_caps'] == 0) {
+                $this->info("✅ Кап НЕ создан (ожидалось: НЕ создание из-за разнобоя)");
+                $this->info("💡 Причина: " . $expectedResults['mismatch_reason']);
+            } else {
+                $this->error("❌ Кап создан или обновлен (ожидалось: НЕ создание из-за разнобоя)");
+                $this->error("💡 Причина: " . $expectedResults['mismatch_reason']);
+                $isCorrect = false;
+            }
+        }
+        
+        // Проверяем случаи с дубликатами
+        if (isset($expectedResults['is_duplicate']) && $expectedResults['is_duplicate']) {
+            if ($actualResults['created_caps'] == 0 && $actualResults['updated_caps'] == 0) {
+                $this->info("✅ Повтор пропущен (ожидалось: пропуск дубликата)");
+                $this->info("💡 Причина: " . $expectedResults['duplicate_reason']);
+            } else {
+                $this->error("❌ Кап создан или обновлен (ожидалось: пропуск дубликата)");
+                $this->error("💡 Причина: " . $expectedResults['duplicate_reason']);
                 $isCorrect = false;
             }
         }

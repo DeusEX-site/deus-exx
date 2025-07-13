@@ -145,6 +145,9 @@ class TelegramWebhookController extends Controller
             }
         }
         
+        // Определяем тип cap-сообщения
+        $capMessageType = $this->determineCapMessageType($messageText);
+        
         $message = Message::create([
             'chat_id' => $chatModel->id,
             'message' => $messageText,
@@ -157,7 +160,7 @@ class TelegramWebhookController extends Controller
             'telegram_first_name' => $user['first_name'] ?? null,
             'telegram_last_name' => $user['last_name'] ?? null,
             'telegram_date' => Carbon::createFromTimestamp($messageData['date']),
-            'message_type' => $messageType,
+            'message_type' => $capMessageType,
             'telegram_raw_data' => $messageData,
         ]);
         
@@ -238,5 +241,38 @@ class TelegramWebhookController extends Controller
         // Обновляем last_message_at только для входящих сообщений
         // (исходящие сообщения обрабатываются в TelegramBotController)
         $chatModel->update(['last_message_at' => now()]);
+    }
+
+    private function determineCapMessageType($messageText)
+    {
+        // Подсчитываем количество блоков affiliate
+        $affiliateBlocks = preg_match_all('/^affiliate:\s*(.+)$/m', $messageText);
+        
+        // Если больше одного блока - групповое сообщение
+        if ($affiliateBlocks > 1) {
+            // Проверяем количество кап в каждом блоке
+            $blocks = preg_split('/\n\s*\n/', $messageText);
+            $hasMultiCaps = false;
+            
+            foreach ($blocks as $block) {
+                if (preg_match('/^cap:\s*(.+)$/m', $block, $matches)) {
+                    $caps = preg_split('/\s+/', trim($matches[1]));
+                    if (count($caps) > 1) {
+                        $hasMultiCaps = true;
+                        break;
+                    }
+                }
+            }
+            
+            return $hasMultiCaps ? 'group_multi' : 'group_single';
+        } else {
+            // Одиночное сообщение - проверяем количество кап
+            if (preg_match('/^cap:\s*(.+)$/m', $messageText, $matches)) {
+                $caps = preg_split('/\s+/', trim($matches[1]));
+                return count($caps) > 1 ? 'single_multi' : 'single_single';
+            }
+        }
+        
+        return 'unknown';
     }
 } 
