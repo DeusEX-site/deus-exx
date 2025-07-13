@@ -198,7 +198,7 @@ class DynamicCapTestEngine
             
             $foundCap = Cap::where('affiliate_name', strtolower($expectedCap['affiliate']))
                           ->where('recipient_name', strtolower($expectedCap['recipient']))
-                          ->whereJsonContains('geos', strtolower($expectedCap['geo']))
+                          ->where('geo', strtolower($expectedCap['geo']))
                           ->first();
             
             if (!$foundCap) {
@@ -261,7 +261,7 @@ class DynamicCapTestEngine
         foreach ($expectedUpdates as $expectedUpdate) {
             $foundCap = Cap::where('affiliate_name', strtolower($expectedUpdate['affiliate']))
                           ->where('recipient_name', strtolower($expectedUpdate['recipient']))
-                          ->whereJsonContains('geos', strtolower($expectedUpdate['geo']))
+                          ->where('geo', strtolower($expectedUpdate['geo']))
                           ->first();
             
             if (!$foundCap) {
@@ -303,7 +303,7 @@ class DynamicCapTestEngine
         foreach ($expectedStatuses as $expectedStatus) {
             $foundCap = Cap::where('affiliate_name', strtolower($expectedStatus['affiliate']))
                           ->where('recipient_name', strtolower($expectedStatus['recipient']))
-                          ->whereJsonContains('geos', strtolower($expectedStatus['geo']))
+                          ->where('geo', strtolower($expectedStatus['geo']))
                           ->first();
             
             if (!$foundCap) {
@@ -565,7 +565,7 @@ class DynamicCapTestEngine
         // Проверяем, что поля сброшены до значений по умолчанию
         $foundCap = Cap::where('affiliate_name', strtolower($identifierFields['affiliate']))
                       ->where('recipient_name', strtolower($identifierFields['recipient']))
-                      ->whereJsonContains('geos', strtolower($identifierFields['geo']))
+                      ->where('geo', strtolower($identifierFields['geo']))
                       ->first();
         
         $errors = [];

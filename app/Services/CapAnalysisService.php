@@ -98,7 +98,15 @@ class CapAnalysisService
                 }
                 
                 if ($existingCap) {
-                    // Найден дубликат - определяем какие поля нужно обновить
+                    // Найден дубликат
+                    
+                    // Если это НЕ reply_to_message - пропускаем (не обновляем)
+                    if (!$currentMessage || !$currentMessage->reply_to_message_id) {
+                        // Пропускаем дубликат - не создаем и не обновляем
+                        continue;
+                    }
+                    
+                    // Если это reply_to_message - обновляем
                     $updateData = $this->getFieldsToUpdate($existingCap, $capData, [$geo], $messageText, $messageText);
                     
                     if (!empty($updateData)) {

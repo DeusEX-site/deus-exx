@@ -83,17 +83,17 @@ echo "Записей в истории: {$historyCount}\n\n";
 // Проверяем конкретные записи
 $deCap = Cap::where('affiliate_name', 'G06')
             ->where('recipient_name', 'TMedia')
-            ->whereJsonContains('geos', 'DE')
+            ->where('geo', 'DE')
             ->first();
             
 $atCap = Cap::where('affiliate_name', 'G06')
             ->where('recipient_name', 'TMedia')
-            ->whereJsonContains('geos', 'AT')
+            ->where('geo', 'AT')
             ->first();
             
 $chCap = Cap::where('affiliate_name', 'G06')
             ->where('recipient_name', 'TMedia')
-            ->whereJsonContains('geos', 'CH')
+            ->where('geo', 'CH')
             ->first();
 
 echo "✅ Результаты проверки:\n";
@@ -164,7 +164,7 @@ echo "Обновлено кап: " . $result3['updated_entries_count'] . "\n";
 // Проверяем сброс до значений по умолчанию
 $deCapAfterReset = Cap::where('affiliate_name', 'G06')
                       ->where('recipient_name', 'TMedia')
-                      ->whereJsonContains('geos', 'DE')
+                      ->where('geo', 'DE')
                       ->first();
 
 if ($deCapAfterReset) {

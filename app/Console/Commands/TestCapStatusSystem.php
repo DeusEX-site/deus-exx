@@ -48,7 +48,7 @@ class TestCapStatusSystem extends Command
         // Проверяем что капа создана со статусом RUN
         $cap = Cap::where('affiliate_name', 'G06')
                  ->where('recipient_name', 'TMedia')
-                 ->whereJsonContains('geos', 'AT')
+                 ->where('geo', 'AT')
                  ->first();
         
         if ($cap && $cap->status === 'RUN') {
@@ -91,7 +91,7 @@ class TestCapStatusSystem extends Command
         // Проверяем существующие капы перед попыткой обновления
         $existingCaps = Cap::where('affiliate_name', 'G06')
                           ->where('recipient_name', 'TMedia')
-                          ->whereJsonContains('geos', 'AT')
+                          ->where('geo', 'AT')
                           ->get();
         
         $this->info("DEBUG: Существующих кап G06→TMedia(AT): " . $existingCaps->count());
@@ -182,7 +182,7 @@ class TestCapStatusSystem extends Command
         // Получаем новую активную капу
         $activeCap = Cap::where('affiliate_name', 'G06')
                        ->where('recipient_name', 'TMedia')
-                       ->whereJsonContains('geos', 'AT')
+                       ->where('geo', 'AT')
                        ->where('status', 'RUN')
                        ->first();
         
@@ -454,11 +454,11 @@ class TestCapStatusSystem extends Command
         // Проверяем что лимит изменился
         $updatedCap = Cap::where('affiliate_name', 'TestAffiliate')
                          ->where('recipient_name', 'TestRecipient')
-                         ->whereJsonContains('geos', 'DE')
+                         ->where('geo', 'DE')
                          ->where('status', 'RUN')
                          ->first();
         
-        if ($updatedCap && $updatedCap->cap_amounts[0] === 35) {
+        if ($updatedCap && $updatedCap->cap_amount === 35) {
             $this->info("✅ Лимит капы обновлен с 30 до 35");
         } else {
             $this->error("❌ Ошибка: лимит капы не обновился");
