@@ -20,7 +20,7 @@ echo ⏸️  Пауза на каждой ошибке
 echo.
 
 REM Запускаем полное тестирование
-php artisan test:dynamic-cap-system full --verbose --pause-on-error
+php artisan test:dynamic-cap-system full --detailed --pause-on-error
 
 echo.
 echo ✅ Тестирование завершено!

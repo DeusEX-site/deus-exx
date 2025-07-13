@@ -158,7 +158,7 @@ echo
 print_info "Запуск системы динамических тестов..."
 
 # Run the tests and capture exit code
-php artisan test:dynamic-cap-system full --verbose --pause-on-error
+php artisan test:dynamic-cap-system full --detailed --pause-on-error
 exit_code=$?
 
 # Record end time

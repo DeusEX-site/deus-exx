@@ -15,7 +15,7 @@ class TestDynamicCapSystem extends Command
                            {--no-cleanup : Не очищать тестовые данные после завершения}
                            {--silent : Тихий режим (минимальный вывод)}
                            {--timeout=1800 : Таймаут выполнения в секундах}
-                           {--verbose : Подробный вывод в реальном времени}
+                           {--detailed : Подробный вывод в реальном времени}
                            {--pause-on-error : Пауза на каждой ошибке}';
 
     protected $description = 'Запускает динамические тесты системы кап с полным покрытием всех операций';
@@ -79,7 +79,7 @@ class TestDynamicCapSystem extends Command
     {
         return [
             'skip_laravel_init' => true, // Пропускаем инициализацию Laravel, т.к. уже в Artisan
-            'verbose' => $this->option('verbose') || !$this->option('silent'),
+            'verbose' => $this->option('detailed') || !$this->option('silent'),
             'save_reports' => false, // Отключаем сохранение отчетов по умолчанию
             'cleanup_after_test' => !$this->option('no-cleanup'),
             'test_types' => $this->getTestTypes(),
@@ -88,7 +88,7 @@ class TestDynamicCapSystem extends Command
             'max_permutations' => (int)$this->option('max-permutations'),
             'test_timeout' => (int)$this->option('timeout'),
             'pause_on_error' => $this->option('pause-on-error'),
-            'real_time_output' => $this->option('verbose') || !$this->option('silent')
+            'real_time_output' => $this->option('detailed') || !$this->option('silent')
         ];
     }
 
