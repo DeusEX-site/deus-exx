@@ -69,7 +69,7 @@ class CreateTestChats extends Command
     ];
 
     // ПУСТЫЕ ЗНАЧЕНИЯ ДЛЯ ТЕСТИРОВАНИЯ СБРОСОВ
-    private $emptyValues = ['', '-', '  ', 'null', 'none', 'empty', '---'];
+    // Удален массив emptyValues - теперь пустые поля генерируются как "field:" без значения
 
     // СТАТУС КОМАНДЫ
     private $statusCommands = ['run', 'stop', 'delete', 'restore', 'RUN', 'STOP', 'DELETE', 'RESTORE', 'Run', 'Stop', 'Delete', 'Restore'];
@@ -600,8 +600,8 @@ class CreateTestChats extends Command
                 
                 // Проверяем, нужно ли сделать поле пустым
                 if (isset($variant['empty_fields']) && in_array($field, $variant['empty_fields'])) {
-                    $emptyValue = $this->emptyValues[array_rand($this->emptyValues)];
-                    $message .= $fieldData[0] . ' ' . $emptyValue . "\n";
+                    // Для пустых полей добавляем только двоеточие без значения
+                    $message .= $fieldData[0] . "\n";
                 } else {
                     $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
                 }
