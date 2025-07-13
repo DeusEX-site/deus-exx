@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\Chat;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class CreateTestChats extends Command
 {
@@ -17,9 +18,16 @@ class CreateTestChats extends Command
         
         $this->info("Создание {$count} тестовых чатов...");
         
-        // Очищаем существующие чаты
-        $this->warn('Очистка существующих чатов...');
-        Chat::truncate();
+        // Очищаем существующие данные с учетом foreign key constraints
+        $this->warn('Очистка существующих данных...');
+        
+        // Сначала очищаем зависимые таблицы
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        DB::table('caps_history')->truncate();
+        DB::table('caps')->truncate();
+        DB::table('messages')->truncate();
+        DB::table('chats')->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
         
         $this->info('Создание новых чатов...');
         
