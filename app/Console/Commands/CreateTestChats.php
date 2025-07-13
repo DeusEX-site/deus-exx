@@ -428,11 +428,17 @@ class CreateTestChats extends Command
     
     private function getRandomFieldOrder($index)
     {
+        // ЗАФИКСИРОВАННЫЙ СТАНДАРТ ПОРЯДКА ПОЛЕЙ:
+        // 1. affiliate: (всегда первое)
+        // 2. recipient: (всегда второе) 
+        // 3. cap: (всегда третье)
+        // 4. geo: (всегда четвертое)
+        // 5. опциональные поля (в разном порядке для тестирования)
         $orders = [
-            ['affiliate', 'recipient', 'cap', 'geo', 'schedule', 'total', 'language'],
-            ['geo', 'cap', 'affiliate', 'recipient', 'language', 'schedule', 'total'],
-            ['recipient', 'affiliate', 'geo', 'cap', 'total', 'language', 'schedule'],
-            ['cap', 'geo', 'recipient', 'affiliate', 'schedule', 'language', 'total'],
+            ['affiliate', 'recipient', 'cap', 'geo', 'schedule', 'total', 'language', 'funnel', 'test'],
+            ['affiliate', 'recipient', 'cap', 'geo', 'language', 'funnel', 'schedule', 'total', 'test'],
+            ['affiliate', 'recipient', 'cap', 'geo', 'total', 'language', 'funnel', 'test', 'schedule'],
+            ['affiliate', 'recipient', 'cap', 'geo', 'funnel', 'test', 'schedule', 'language', 'total'],
         ];
         
         return $orders[$index % count($orders)];
