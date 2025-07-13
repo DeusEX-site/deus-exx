@@ -270,12 +270,12 @@ class CapAnalysisService
         }
         
         // Полные команды с полями
-        return preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText) ||
-               (preg_match('/^Affiliate:\s*(.+)$/m', $messageText) &&
-                preg_match('/^Recipient:\s*(.+)$/m', $messageText) &&
+        return preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/mi', $messageText) ||
+               (preg_match('/^Affiliate:\s*(.+)$/mi', $messageText) &&
+                preg_match('/^Recipient:\s*(.+)$/mi', $messageText) &&
                 preg_match('/^(Cap|CAP|cap):\s*(.+)$/mi', $messageText) &&
-                preg_match('/^Geo:\s*(.+)$/m', $messageText) &&
-                preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText));
+                preg_match('/^Geo:\s*(.+)$/mi', $messageText) &&
+                preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/mi', $messageText));
     }
 
     /**
@@ -329,7 +329,7 @@ class CapAnalysisService
         $command = null;
         if (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/i', trim($messageText))) {
             $command = strtoupper(trim($messageText));
-        } elseif (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/m', $messageText, $matches)) {
+        } elseif (preg_match('/^(RUN|STOP|DELETE|RESTORE)\s*$/mi', $messageText, $matches)) {
             $command = $matches[1];
         }
 
