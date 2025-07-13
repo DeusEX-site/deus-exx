@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Models\Cap;
 use App\Models\CapHistory;
 use App\Http\Controllers\TelegramWebhookController;
+use App\Services\DynamicCapTestGenerator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -31,7 +32,7 @@ class CreateTestChats extends Command
         $this->info("Комбинации полей: {$combinations}");
         
         // Инициализация генератора
-        $this->generator = new \DynamicCapTestGenerator();
+        $this->generator = new DynamicCapTestGenerator();
         $this->webhookController = app(TelegramWebhookController::class);
         
         // Очищаем существующие данные

@@ -1,5 +1,7 @@
 <?php
 
+namespace App\Services;
+
 /**
  * Динамический генератор тестов для системы кап
  * Покрывает все 16 типов операций + команды статуса
@@ -251,14 +253,11 @@ class DynamicCapTestGenerator
         $permutations = [];
         
         for ($i = 0; $i < count($fields); $i++) {
-            $current = $fields[$i];
-            $remaining = array_merge(
-                array_slice($fields, 0, $i),
-                array_slice($fields, $i + 1)
-            );
+            $rest = array_slice($fields, 0, $i) + array_slice($fields, $i + 1);
+            $subPermutations = $this->generateFieldPermutations($rest);
             
-            foreach ($this->generateFieldPermutations($remaining) as $permutation) {
-                $permutations[] = array_merge([$current], $permutation);
+            foreach ($subPermutations as $perm) {
+                $permutations[] = array_merge([$fields[$i]], $perm);
             }
         }
         
@@ -266,41 +265,50 @@ class DynamicCapTestGenerator
     }
 
     /**
-     * Проверяет валидность комбинации cap и geo/funnel
+     * Проверяет валидность комбинации cap/geo/funnel
      */
     public function validateCapGeoFunnelCombination(array $caps, array $geoOrFunnel): bool
     {
-        // Если cap один, то может быть любое количество geo/funnel
-        if (count($caps) === 1) {
-            return true;
+        // Количество cap и geo/funnel должно совпадать
+        if (count($caps) != count($geoOrFunnel)) {
+            return false;
         }
         
-        // Если cap несколько, то должно быть точное соответствие
-        return count($caps) === count($geoOrFunnel);
+        // Все значения должны быть непустыми
+        foreach ($caps as $cap) {
+            if (empty($cap)) return false;
+        }
+        
+        foreach ($geoOrFunnel as $item) {
+            if (empty($item)) return false;
+        }
+        
+        return true;
     }
 
     /**
-     * Генерирует базовый набор полей для создания капы
+     * Генерирует базовый набор полей для капы
      */
     public function generateBaseCapFields(): array
     {
         return [
-            'affiliate' => 'aff1',
-            'recipient' => 'brok1',
-            'cap' => '10',
-            'geo' => 'ru'
+            'affiliate' => self::FIELD_VALUES['affiliate'][0],
+            'recipient' => self::FIELD_VALUES['recipient'][0],
+            'cap' => self::FIELD_VALUES['cap'][0],
+            'geo' => self::FIELD_VALUES['geo'][0],
+            'schedule' => self::FIELD_VALUES['schedule'][0]
         ];
     }
 
     /**
-     * Генерирует минимальный набор полей для поиска капы
+     * Генерирует минимальный набор полей для идентификации
      */
     public function generateMinimalIdentifierFields(): array
     {
         return [
-            'affiliate' => 'aff1',
-            'recipient' => 'brok1',
-            'geo' => 'ru'
+            'affiliate' => self::FIELD_VALUES['affiliate'][0],
+            'recipient' => self::FIELD_VALUES['recipient'][0],
+            'geo' => self::FIELD_VALUES['geo'][0]
         ];
     }
 
@@ -313,7 +321,7 @@ class DynamicCapTestGenerator
     }
 
     /**
-     * Получает команды статуса
+     * Получает все команды статуса
      */
     public function getStatusCommands(): array
     {
@@ -321,7 +329,7 @@ class DynamicCapTestGenerator
     }
 
     /**
-     * Получает поля для сброса
+     * Получает поля, которые можно сбрасывать
      */
     public function getResettableFields(): array
     {
@@ -337,7 +345,7 @@ class DynamicCapTestGenerator
     }
 
     /**
-     * Получает все поля
+     * Получает все поля системы
      */
     public function getAllFields(): array
     {
@@ -353,10 +361,10 @@ class DynamicCapTestGenerator
     }
 
     /**
-     * Нормализует текст в нижний регистр
+     * Нормализует текст для сравнения
      */
     public function normalizeText(string $text): string
     {
-        return strtolower($text);
+        return mb_strtolower(trim($text));
     }
 } 
