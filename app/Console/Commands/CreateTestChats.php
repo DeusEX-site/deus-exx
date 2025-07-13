@@ -19,6 +19,9 @@ class CreateTestChats extends Command
     protected $description = 'Создает максимальное количество тестовых вариантов - 30К+ сообщений с разными вариантами написания полей';
 
     private $webhookController;
+    
+    // Отслеживание использованных комбинаций для избежания дублирования
+    private $usedCombinations = [];
 
     // МАКСИМАЛЬНЫЕ ВАРИАНТЫ ПОЛЕЙ ДЛЯ ТЕСТИРОВАНИЯ
     private $fieldVariants = [
@@ -261,16 +264,51 @@ class CreateTestChats extends Command
         $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $baseIndex);
         
         $variantIndex = 0;
+        $maxAttempts = 100; // Предотвращаем бесконечный цикл
         
-        // Генерируем комбинации
-        for ($i = 0; $i < 5; $i++) { // 5 основных вариантов
+        // Генерируем уникальные комбинации
+        for ($i = 0; $i < 5 && $variantIndex < $maxAttempts; $i++) {
             $variant = [];
             
             // Обязательные поля
-            $variant['affiliate'] = $affiliateVariants[$i % count($affiliateVariants)];
-            $variant['recipient'] = $recipientVariants[$i % count($recipientVariants)];
-            $variant['cap'] = $capVariants[$i % count($capVariants)];
-            $variant['geo'] = $geoVariants[$i % count($geoVariants)];
+            $affiliateIndex = ($baseIndex + $i) % count($affiliateVariants);
+            $recipientIndex = ($baseIndex + $i) % count($recipientVariants);
+            $capIndex = ($baseIndex + $i) % count($capVariants);
+            $geoIndex = ($baseIndex + $i) % count($geoVariants);
+            
+            $variant['affiliate'] = $affiliateVariants[$affiliateIndex];
+            $variant['recipient'] = $recipientVariants[$recipientIndex];
+            $variant['cap'] = $capVariants[$capIndex];
+            $variant['geo'] = $geoVariants[$geoIndex];
+            
+            // Проверяем уникальность комбинации
+            if (!$this->isUniqueCombination($variant['affiliate'][1], $variant['recipient'][1], $variant['geo'][1])) {
+                // Пытаемся найти уникальную комбинацию
+                $found = false;
+                for ($j = 0; $j < 20 && !$found; $j++) {
+                    $newAffiliateIndex = ($baseIndex + $i + $j) % count($affiliateVariants);
+                    $newRecipientIndex = ($baseIndex + $i + $j * 2) % count($recipientVariants);
+                    $newGeoIndex = ($baseIndex + $i + $j * 3) % count($geoVariants);
+                    
+                    $testAffiliate = $affiliateVariants[$newAffiliateIndex][1];
+                    $testRecipient = $recipientVariants[$newRecipientIndex][1];
+                    $testGeo = $geoVariants[$newGeoIndex][1];
+                    
+                    if ($this->isUniqueCombination($testAffiliate, $testRecipient, $testGeo)) {
+                        $variant['affiliate'] = $affiliateVariants[$newAffiliateIndex];
+                        $variant['recipient'] = $recipientVariants[$newRecipientIndex];
+                        $variant['geo'] = $geoVariants[$newGeoIndex];
+                        $found = true;
+                    }
+                }
+                
+                if (!$found) {
+                    continue; // Пропускаем если не найдена уникальная комбинация
+                }
+            }
+            
+            // Регистрируем использование комбинации
+            $this->markCombinationAsUsed($variant['affiliate'][1], $variant['recipient'][1], $variant['geo'][1]);
             
             // Опциональные поля в зависимости от комбинаций
             if ($combinations === 'full' || $combinations === 'advanced') {
@@ -300,9 +338,29 @@ class CreateTestChats extends Command
         }
         
         // Добавляем специальные варианты с экстремальными случаями
-        $variants = array_merge($variants, $this->generateExtremeVariants($combinations));
+        $extremeVariants = $this->generateExtremeVariants($combinations);
+        
+        // Проверяем уникальность экстремальных вариантов
+        foreach ($extremeVariants as $extremeVariant) {
+            if ($this->isUniqueCombination($extremeVariant['affiliate'][1], $extremeVariant['recipient'][1], $extremeVariant['geo'][1])) {
+                $this->markCombinationAsUsed($extremeVariant['affiliate'][1], $extremeVariant['recipient'][1], $extremeVariant['geo'][1]);
+                $variants[] = $extremeVariant;
+            }
+        }
         
         return $variants;
+    }
+    
+    private function isUniqueCombination($affiliate, $recipient, $geo)
+    {
+        $key = strtolower($affiliate) . '|' . strtolower($recipient) . '|' . strtolower($geo);
+        return !isset($this->usedCombinations[$key]);
+    }
+    
+    private function markCombinationAsUsed($affiliate, $recipient, $geo)
+    {
+        $key = strtolower($affiliate) . '|' . strtolower($recipient) . '|' . strtolower($geo);
+        $this->usedCombinations[$key] = true;
     }
     
     private function generateUpdateVariants($combinations, $baseIndex)
@@ -519,12 +577,14 @@ class CreateTestChats extends Command
 
     private function clearDatabase()
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        CapHistory::truncate();
-        Cap::truncate();
+        // Очищаем все тестовые данные
         Message::truncate();
         Chat::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        Cap::truncate();
+        CapHistory::truncate();
+        
+        // Сбрасываем отслеживание использованных комбинаций
+        $this->usedCombinations = [];
         
         $this->info('База данных очищена');
     }
@@ -727,7 +787,7 @@ class CreateTestChats extends Command
                 $this->info("  {$stat->status}: {$stat->count}");
             }
             
-            $capsByGeo = Cap::selectRaw('JSON_EXTRACT(geos, "$[0]") as geo, COUNT(*) as count')
+            $capsByGeo = Cap::selectRaw('geo, COUNT(*) as count')
                            ->groupBy('geo')
                            ->orderBy('count', 'desc')
                            ->limit(10)
@@ -735,13 +795,16 @@ class CreateTestChats extends Command
             
             $this->info('Топ-10 гео по количеству кап:');
             foreach ($capsByGeo as $stat) {
-                $geo = trim($stat->geo, '"');
-                $this->info("  {$geo}: {$stat->count}");
+                $this->info("  {$stat->geo}: {$stat->count}");
             }
         }
         
         $recognitionRate = $messageCount > 0 ? round(($capCount / $messageCount) * 100, 2) : 0;
         $this->info("🎯 Процент распознавания кап: {$recognitionRate}%");
+        
+        // Статистика уникальных комбинаций
+        $uniqueCombinations = count($this->usedCombinations);
+        $this->info("🔗 Уникальных комбинаций создано: {$uniqueCombinations}");
         
         if ($recognitionRate < 80) {
             $this->warn("⚠️  Низкий процент распознавания! Возможно, есть проблемы с парсингом.");
@@ -773,8 +836,43 @@ class CreateTestChats extends Command
             $expected['should_update_cap'] = true;
             $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
         } elseif (str_contains($operationType, 'create')) {
-            $expected['should_create_cap'] = true;
             $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
+            
+            // Проверяем, существует ли уже такая комбинация в базе данных
+            $existingCap = null;
+            if (isset($expected['expected_fields']['affiliate']) && 
+                isset($expected['expected_fields']['recipient']) && 
+                isset($expected['expected_fields']['geo'])) {
+                
+                $affiliate = strtolower($expected['expected_fields']['affiliate']);
+                $recipient = strtolower($expected['expected_fields']['recipient']);
+                $geoString = strtolower($expected['expected_fields']['geo']);
+                
+                // Разделяем geo на отдельные значения
+                $geos = preg_split('/\s+/', trim($geoString));
+                
+                // Проверяем, существует ли хотя бы одна запись с любым из geo
+                foreach ($geos as $geo) {
+                    $geo = trim($geo);
+                    if (!empty($geo)) {
+                        $existingCap = Cap::where('affiliate_name', $affiliate)
+                                          ->where('recipient_name', $recipient)
+                                          ->where('geo', $geo)
+                                          ->first();
+                        if ($existingCap) {
+                            break; // Нашли существующую запись
+                        }
+                    }
+                }
+            }
+            
+            if ($existingCap) {
+                $expected['should_update_cap'] = true;
+                $expected['should_create_cap'] = false;
+            } else {
+                $expected['should_create_cap'] = true;
+                $expected['should_update_cap'] = false;
+            }
         }
         
         return $expected;
@@ -820,7 +918,7 @@ class CreateTestChats extends Command
                     $actual['actual_fields'] = [
                         'affiliate' => $cap->affiliate_name,
                         'recipient' => $cap->recipient_name,
-                        'geos' => $allGeos,
+                        'geo' => $allGeos,
                         'total' => $cap->total_amount,
                         'schedule' => $cap->schedule,
                         'date' => $cap->date,
@@ -878,8 +976,11 @@ class CreateTestChats extends Command
         
         // Проверяем обновление капы
         if ($expectedResults['should_update_cap']) {
-            if ($actualResults['updated_caps'] > 0 || $actualResults['created_caps'] > 0) {
-                $this->info("✅ Кап обновлен/создан (ожидалось: обновление)");
+            if ($actualResults['updated_caps'] > 0) {
+                $this->info("✅ Кап обновлен (ожидалось: обновление)");
+                $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
+            } elseif ($actualResults['created_caps'] > 0) {
+                $this->info("✅ Кап создан вместо обновления (комбинация была уникальной)");
                 $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
             } else {
                 $this->error("❌ Кап НЕ обновлен (ожидалось: обновление)");
@@ -971,7 +1072,7 @@ class CreateTestChats extends Command
         $fieldPatterns = [
             'affiliate' => '/affiliate:\s*([^\n]+)/i',
             'recipient' => '/recipient:\s*([^\n]+)/i',
-            'geos' => '/geo:\s*([^\n]+)/i',
+            'geo' => '/geo:\s*([^\n]+)/i',
             'total' => '/total:\s*([^\n]+)/i',
             'schedule' => '/schedule:\s*([^\n]+)/i',
             'date' => '/date:\s*([^\n]+)/i',
