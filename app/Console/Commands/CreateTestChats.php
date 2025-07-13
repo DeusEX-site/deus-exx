@@ -137,6 +137,13 @@ class CreateTestChats extends Command
                     
                     // Создаем сообщение
                     $telegramMessage = $this->generateCapMessage($messageIndex, $messageType, $variant, $chatIndex);
+                    
+                    // Пропускаем если сообщение было отклонено из-за несовместимости cap-geo
+                    if ($telegramMessage === null) {
+                        $errorCount++;
+                        continue;
+                    }
+                    
                     $messageText = $telegramMessage['message']['text'];
                     
                     // Проверяем ожидаемые результаты
@@ -221,8 +228,6 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
-        $capVariants = $this->getFieldVariants('cap', $index);
-        $geoVariants = $this->getFieldVariants('geo', $index);
         $scheduleVariants = $this->getFieldVariants('schedule', $index);
         $totalVariants = $this->getFieldVariants('total', $index);
         $dateVariants = $this->getFieldVariants('date', $index);
@@ -232,10 +237,11 @@ class CreateTestChats extends Command
         $pendingVariants = $this->getFieldVariants('pending_acq', $index);
         $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
+        // Получаем совместимую cap-geo пару для single_single (1 cap + 1 geo)
+        $capGeoPair = $this->getCompatibleCapGeoPair('single_single', $index);
+        
         $affiliate = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient = $recipientVariants[array_rand($recipientVariants)];
-        $cap = $capVariants[array_rand($capVariants)];
-        $geo = $geoVariants[array_rand($geoVariants)];
         $schedule = $scheduleVariants[array_rand($scheduleVariants)];
         $total = $totalVariants[array_rand($totalVariants)];
         $date = $dateVariants[array_rand($dateVariants)];
@@ -249,8 +255,8 @@ class CreateTestChats extends Command
             'message_type' => 'single_single',
             'affiliate' => $affiliate,
             'recipient' => $recipient,
-            'cap' => $cap,
-            'geo' => $geo,
+            'cap' => $capGeoPair['cap'],
+            'geo' => $capGeoPair['geo'],
             'schedule' => $schedule,
             'total' => $total,
             'date' => $date,
@@ -266,8 +272,6 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
-        $capVariants = $this->getFieldVariants('cap', $index);
-        $geoVariants = $this->getFieldVariants('geo', $index);
         $scheduleVariants = $this->getFieldVariants('schedule', $index);
         $totalVariants = $this->getFieldVariants('total', $index);
         $dateVariants = $this->getFieldVariants('date', $index);
@@ -277,10 +281,11 @@ class CreateTestChats extends Command
         $pendingVariants = $this->getFieldVariants('pending_acq', $index);
         $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
+        // Получаем совместимую cap-geo пару для single_multi (равное количество)
+        $capGeoPair = $this->getCompatibleCapGeoPair('single_multi', $index);
+        
         $affiliate = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient = $recipientVariants[array_rand($recipientVariants)];
-        $cap = $capVariants[array_rand($capVariants)];
-        $geo = $geoVariants[array_rand($geoVariants)];
         $schedule = $scheduleVariants[array_rand($scheduleVariants)];
         $total = $totalVariants[array_rand($totalVariants)];
         $date = $dateVariants[array_rand($dateVariants)];
@@ -294,8 +299,8 @@ class CreateTestChats extends Command
             'message_type' => 'single_multi',
             'affiliate' => $affiliate,
             'recipient' => $recipient,
-            'cap' => $cap,
-            'geo' => $geo,
+            'cap' => $capGeoPair['cap'],
+            'geo' => $capGeoPair['geo'],
             'schedule' => $schedule,
             'total' => $total,
             'date' => $date,
@@ -311,8 +316,6 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
-        $capVariants = $this->getFieldVariants('cap', $index);
-        $geoVariants = $this->getFieldVariants('geo', $index);
         $scheduleVariants = $this->getFieldVariants('schedule', $index);
         $totalVariants = $this->getFieldVariants('total', $index);
         $dateVariants = $this->getFieldVariants('date', $index);
@@ -322,15 +325,15 @@ class CreateTestChats extends Command
         $pendingVariants = $this->getFieldVariants('pending_acq', $index);
         $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
+        // Получаем совместимые cap-geo пары для group_single
+        $capGeoPair1 = $this->getCompatibleCapGeoPair('group_single', $index);
+        $capGeoPair2 = $this->getCompatibleCapGeoPair('group_single', $index + 1);
+        
         $affiliate1 = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient1 = $recipientVariants[array_rand($recipientVariants)];
-        $cap1 = $capVariants[array_rand($capVariants)];
-        $geo1 = $geoVariants[array_rand($geoVariants)];
         
         $affiliate2 = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient2 = $recipientVariants[array_rand($recipientVariants)];
-        $cap2 = $capVariants[array_rand($capVariants)];
-        $geo2 = $geoVariants[array_rand($geoVariants)];
         
         $schedule = $scheduleVariants[array_rand($scheduleVariants)];
         $total = $totalVariants[array_rand($totalVariants)];
@@ -348,14 +351,14 @@ class CreateTestChats extends Command
                 [
                     'affiliate' => $affiliate1,
                     'recipient' => $recipient1,
-                    'cap' => $cap1,
-                    'geo' => $geo1
+                    'cap' => $capGeoPair1['cap'],
+                    'geo' => $capGeoPair1['geo']
                 ],
                 [
                     'affiliate' => $affiliate2,
                     'recipient' => $recipient2,
-                    'cap' => $cap2,
-                    'geo' => $geo2
+                    'cap' => $capGeoPair2['cap'],
+                    'geo' => $capGeoPair2['geo']
                 ]
             ],
             'schedule' => $schedule,
@@ -373,8 +376,6 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
-        $capVariants = $this->getFieldVariants('cap', $index);
-        $geoVariants = $this->getFieldVariants('geo', $index);
         $scheduleVariants = $this->getFieldVariants('schedule', $index);
         $totalVariants = $this->getFieldVariants('total', $index);
         $dateVariants = $this->getFieldVariants('date', $index);
@@ -384,15 +385,15 @@ class CreateTestChats extends Command
         $pendingVariants = $this->getFieldVariants('pending_acq', $index);
         $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
+        // Получаем совместимые cap-geo пары для group_multi
+        $capGeoPair1 = $this->getCompatibleCapGeoPair('group_multi', $index);
+        $capGeoPair2 = $this->getCompatibleCapGeoPair('group_multi', $index + 1);
+        
         $affiliate1 = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient1 = $recipientVariants[array_rand($recipientVariants)];
-        $cap1 = $capVariants[array_rand($capVariants)];
-        $geo1 = $geoVariants[array_rand($geoVariants)];
         
         $affiliate2 = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient2 = $recipientVariants[array_rand($recipientVariants)];
-        $cap2 = $capVariants[array_rand($capVariants)];
-        $geo2 = $geoVariants[array_rand($geoVariants)];
         
         $schedule = $scheduleVariants[array_rand($scheduleVariants)];
         $total = $totalVariants[array_rand($totalVariants)];
@@ -410,14 +411,14 @@ class CreateTestChats extends Command
                 [
                     'affiliate' => $affiliate1,
                     'recipient' => $recipient1,
-                    'cap' => $cap1,
-                    'geo' => $geo1
+                    'cap' => $capGeoPair1['cap'],
+                    'geo' => $capGeoPair1['geo']
                 ],
                 [
                     'affiliate' => $affiliate2,
                     'recipient' => $recipient2,
-                    'cap' => $cap2,
-                    'geo' => $geo2
+                    'cap' => $capGeoPair2['cap'],
+                    'geo' => $capGeoPair2['geo']
                 ]
             ],
             'schedule' => $schedule,
@@ -1158,6 +1159,12 @@ class CreateTestChats extends Command
         // Определяем тип сообщения
         $messageType = $this->determineMessageType($messageText);
         
+        // Валидация: проверяем совместимость cap и geo количеств
+        if (!$this->validateCapGeoCompatibility($messageText)) {
+            $this->error("❌ ПРОПУСК: Несовпадающие количества cap и geo в сообщении #{$messageId}");
+            return null; // Пропускаем некорректные тесты
+        }
+        
         $telegramMessage = [
             'update_id' => $index,
             'message' => [
@@ -1222,6 +1229,107 @@ class CreateTestChats extends Command
         }
         
         return $variant;
+    }
+
+    private function getCompatibleCapGeoPair($messageType, $index)
+    {
+        // Определяем совместимые cap-geo пары для каждого типа сообщения
+        $singleSinglePairs = [
+            ['cap' => ['cap:', '10'], 'geo' => ['geo:', 'RU']],
+            ['cap' => ['cap:', '50'], 'geo' => ['geo:', 'KZ']],
+            ['cap' => ['cap:', '100'], 'geo' => ['geo:', 'IE']],
+            ['cap' => ['cap:', '200'], 'geo' => ['geo:', 'UK']],
+            ['cap' => ['cap:', '500'], 'geo' => ['geo:', 'DE']],
+            ['cap' => ['cap:', '1000'], 'geo' => ['geo:', 'FR']],
+            ['cap' => ['cap:', '75'], 'geo' => ['geo:', 'IT']],
+            ['cap' => ['cap:', '25'], 'geo' => ['geo:', 'ES']],
+            ['cap' => ['cap:', '300'], 'geo' => ['geo:', 'PL']],
+            ['cap' => ['cap:', '150'], 'geo' => ['geo:', 'CZ']],
+        ];
+        
+        $singleMultiPairs = [
+            ['cap' => ['cap:', '20 30'], 'geo' => ['geo:', 'RU UA']],
+            ['cap' => ['cap:', '5 10'], 'geo' => ['geo:', 'AU NZ']],
+            ['cap' => ['cap:', '999 888'], 'geo' => ['geo:', 'US UK']],
+            ['cap' => ['cap:', '100 200 300'], 'geo' => ['geo:', 'DE AT CH']],
+            ['cap' => ['cap:', '50 75'], 'geo' => ['geo:', 'IT ES']],
+            ['cap' => ['cap:', '10 20'], 'geo' => ['geo:', 'PL CZ']],
+            ['cap' => ['cap:', '25 35'], 'geo' => ['geo:', 'FR BE']],
+            ['cap' => ['cap:', '100 150'], 'geo' => ['geo:', 'SE NO']],
+            ['cap' => ['cap:', '80 90'], 'geo' => ['geo:', 'DK FI']],
+            ['cap' => ['cap:', '200 250'], 'geo' => ['geo:', 'LT LV']],
+            ['cap' => ['cap:', '40 60 80'], 'geo' => ['geo:', 'PT BR MX']],
+            ['cap' => ['cap:', '15 25 35'], 'geo' => ['geo:', 'CA US AU']],
+        ];
+        
+        switch ($messageType) {
+            case 'single_single':
+                return $singleSinglePairs[$index % count($singleSinglePairs)];
+            case 'single_multi':
+                return $singleMultiPairs[$index % count($singleMultiPairs)];
+            case 'group_single':
+                return $singleSinglePairs[$index % count($singleSinglePairs)];
+            case 'group_multi':
+                return $singleMultiPairs[$index % count($singleMultiPairs)];
+            default:
+                return $singleSinglePairs[0];
+        }
+    }
+
+    private function validateCapGeoCompatibility($messageText)
+    {
+        // Проверяем количество блоков affiliate (групповое vs одиночное)
+        $affiliateCount = preg_match_all('/^affiliate:\s*(.+)$/im', $messageText);
+        
+        if ($affiliateCount > 1) {
+            // Групповое сообщение - проверяем каждый блок
+            $blocks = preg_split('/\n\s*\n/', $messageText);
+            
+            foreach ($blocks as $block) {
+                $capCount = 1;
+                $geoCount = 1;
+                
+                // Проверяем cap
+                if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
+                    $capValues = preg_split('/\s+/', trim($matches[1]));
+                    $capCount = count($capValues);
+                }
+                
+                // Проверяем geo
+                if (preg_match('/^geo:\s*(.+)$/im', $block, $matches)) {
+                    $geoValues = preg_split('/\s+/', trim($matches[1]));
+                    $geoCount = count($geoValues);
+                }
+                
+                // Количества должны совпадать или одно из них должно быть 1 (для размножения)
+                if ($capCount > 1 && $geoCount > 1 && $capCount !== $geoCount) {
+                    return false; // Несовпадающие количества
+                }
+            }
+        } else {
+            // Одиночное сообщение
+            $capCount = 1;
+            $geoCount = 1;
+            
+            // Проверяем cap
+            if (preg_match('/^cap:\s*(.+)$/im', $messageText, $matches)) {
+                $capValues = preg_split('/\s+/', trim($matches[1]));
+                $capCount = count($capValues);
+            }
+            
+            // Проверяем geo
+            if (preg_match('/^geo:\s*(.+)$/im', $messageText, $matches)) {
+                $geoValues = preg_split('/\s+/', trim($matches[1]));
+                $geoCount = count($geoValues);
+            }
+            
+            // Количества должны совпадать или одно из них должно быть 1 (для размножения)
+            if ($capCount > 1 && $geoCount > 1 && $capCount !== $geoCount) {
+                return false; // Несовпадающие количества
+            }
+        }
+        
+        return true; // Совместимые количества
     }
 
     private function generateMessageByVariant($operationType, $variant)
