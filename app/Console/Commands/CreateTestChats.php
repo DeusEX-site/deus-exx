@@ -31,7 +31,7 @@ class CreateTestChats extends Command
         $this->info("Комбинации полей: {$combinations}");
         
         // Инициализация генератора
-        $this->generator = new ../../../DynamicCapTestGenerator();
+        $this->generator = new \DynamicCapTestGenerator();
         $this->webhookController = app(TelegramWebhookController::class);
         
         // Очищаем существующие данные
