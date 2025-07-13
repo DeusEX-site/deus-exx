@@ -53,11 +53,20 @@ class CapAnalysisService
             $updatedCount = 0;
             
             foreach ($allCombinations as $capData) {
-                // Поскольку теперь одна капа = одно гео, берем первое гео из массива
-                $geo = $capData['geos'][0] ?? null;
+                // Проверяем что geos является массивом и не пустым
+                $geos = $capData['geos'] ?? [];
+                if (!is_array($geos) || empty($geos)) {
+                    continue; // Пропускаем если нет geos
+                }
+                
+                // Проверяем что cap_amounts является массивом и не пустым
+                $capAmounts = $capData['cap_amounts'] ?? [];
+                if (!is_array($capAmounts) || empty($capAmounts)) {
+                    continue; // Пропускаем если нет cap_amounts
+                }
                 
                 // Дополнительная валидация - проверяем все обязательные поля
-                if (!$geo || !$capData['affiliate_name'] || !$capData['recipient_name'] || !$capData['cap_amount']) {
+                if (!$capData['affiliate_name'] || !$capData['recipient_name']) {
                     continue; // Пропускаем если нет обязательных полей
                 }
                 
@@ -73,24 +82,39 @@ class CapAnalysisService
                         $existingCap = null;
                     }
                                      
-                    // Проверяем что гео совпадает (это обязательное условие для обновления через reply)
-                    if ($existingCap && !in_array($geo, $existingCap->geos)) {
-                        $existingCap = null; // Сбрасываем если гео не совпадает
+                    // Проверяем что хотя бы одно гео совпадает (это обязательное условие для обновления через reply)
+                    if ($existingCap) {
+                        $hasMatchingGeo = false;
+                        foreach ($geos as $geo) {
+                            if (in_array($geo, $existingCap->geos)) {
+                                $hasMatchingGeo = true;
+                                break;
+                            }
+                        }
+                        if (!$hasMatchingGeo) {
+                            $existingCap = null; // Сбрасываем если ни одно гео не совпадает
+                        }
                     }
                 }
                 
                 // Если капа не найдена через reply_to_message, ищем дубликат обычным способом
                 if (!$existingCap) {
-                    $existingCap = Cap::findDuplicate(
-                        $capData['affiliate_name'],
-                        $capData['recipient_name'], 
-                        $geo
-                    );
+                    // Ищем дубликат по любому из гео
+                    foreach ($geos as $geo) {
+                        $existingCap = Cap::findDuplicate(
+                            $capData['affiliate_name'],
+                            $capData['recipient_name'], 
+                            $geo
+                        );
+                        if ($existingCap) {
+                            break; // Найден дубликат, выходим из цикла
+                        }
+                    }
                 }
                 
                 if ($existingCap) {
                     // Найден дубликат - определяем какие поля нужно обновить
-                    $updateData = $this->getFieldsToUpdate($existingCap, $capData, $geo, $messageText, $messageText);
+                    $updateData = $this->getFieldsToUpdate($existingCap, $capData, $geos, $messageText, $messageText);
                     
                     if (!empty($updateData)) {
                         CapHistory::createFromCap($existingCap);
@@ -107,14 +131,14 @@ class CapAnalysisService
                     // Дубликат не найден - создаем новую запись
                     Cap::create([
                         'message_id' => $messageId,
-                        'cap_amounts' => [$capData['cap_amount']],
+                        'cap_amounts' => $capAmounts, // Массив cap amounts
                         'total_amount' => $capData['total_amount'],
                         'schedule' => $capData['schedule'],
                         'date' => $capData['date'],
                         'is_24_7' => $capData['is_24_7'],
                         'affiliate_name' => $capData['affiliate_name'],
                         'recipient_name' => $capData['recipient_name'],
-                        'geos' => [$geo], // Одно гео
+                        'geos' => $geos, // Массив geos
                         'work_hours' => $capData['work_hours'],
                         'language' => $capData['language'],
                         'funnel' => $capData['funnel'],
@@ -146,15 +170,24 @@ class CapAnalysisService
     /**
      * Определяет, какие поля нужно обновить (только указанные в сообщении и измененные)
      */
-    private function getFieldsToUpdate($existingCap, $newCapData, $geo, $messageText, $originalMessage)
+    private function getFieldsToUpdate($existingCap, $newCapData, $geos, $messageText, $originalMessage)
     {
         $updateData = [];
         
-        // CAP amount - всегда обновляем если указан и не пустой (это обязательное поле)
-        if (isset($newCapData['cap_amount']) && $newCapData['cap_amount'] > 0 && 
-            is_array($existingCap->cap_amounts) && !empty($existingCap->cap_amounts) && 
-            $existingCap->cap_amounts[0] != $newCapData['cap_amount']) {
-            $updateData['cap_amounts'] = [$newCapData['cap_amount']];
+        // CAP amounts - всегда обновляем если указан и не пустой (это обязательное поле)
+        if (isset($newCapData['cap_amounts']) && is_array($newCapData['cap_amounts']) && !empty($newCapData['cap_amounts'])) {
+            // Сравниваем массивы cap_amounts
+            if (json_encode($existingCap->cap_amounts) != json_encode($newCapData['cap_amounts'])) {
+                $updateData['cap_amounts'] = $newCapData['cap_amounts'];
+            }
+        }
+        
+        // GEOs - обновляем если указаны
+        if (is_array($geos) && !empty($geos)) {
+            // Сравниваем массивы geos
+            if (json_encode($existingCap->geos) != json_encode($geos)) {
+                $updateData['geos'] = $geos;
+            }
         }
         
         // Total - обновляем если указан в сообщении (даже если пустой - сбрасываем до значения по умолчанию)
@@ -1136,44 +1169,43 @@ class CapAnalysisService
             $dates = array_fill(0, $count, $dates[0]);
         }
 
-        // Создаем записи с привязкой по порядку
+        // Создаем одну запись с массивами cap_amounts и geos
         $combinations = [];
-        for ($i = 0; $i < $count; $i++) {
-            // Берем значения по индексу или значения по умолчанию
-            $language = isset($languages[$i]) ? $languages[$i] : 'en';
-            $funnel = isset($funnels[$i]) ? $funnels[$i] : null;
-            $test = isset($tests[$i]) ? $tests[$i] : null;
-            $total = isset($totals[$i]) ? $totals[$i] : -1; // Бесконечность
-            $schedule = isset($schedules[$i]) ? $schedules[$i] : '24/7';
-            $pendingAcq = isset($pendingAcqs[$i]) ? $pendingAcqs[$i] : false;
-            $freezeStatus = isset($freezeStatuses[$i]) ? $freezeStatuses[$i] : false;
-            $date = isset($dates[$i]) ? $dates[$i] : null;
+        
+        // Берем значения по индексу или значения по умолчанию
+        $language = isset($languages[0]) ? $languages[0] : 'en';
+        $funnel = isset($funnels[0]) ? $funnels[0] : null;
+        $test = isset($tests[0]) ? $tests[0] : null;
+        $total = isset($totals[0]) ? $totals[0] : -1; // Бесконечность
+        $schedule = isset($schedules[0]) ? $schedules[0] : '24/7';
+        $pendingAcq = isset($pendingAcqs[0]) ? $pendingAcqs[0] : false;
+        $freezeStatus = isset($freezeStatuses[0]) ? $freezeStatuses[0] : false;
+        $date = isset($dates[0]) ? $dates[0] : null;
 
-            // Парсим время из расписания
-            $scheduleData = $this->parseScheduleTime($schedule);
+        // Парсим время из расписания
+        $scheduleData = $this->parseScheduleTime($schedule);
 
-            $combination = [
-                'affiliate_name' => $affiliate,
-                'recipient_name' => $recipient,
-                'cap_amount' => $caps[$i],
-                'geos' => [$geos[$i]],
-                'language' => $language,
-                'funnel' => $funnel,
-                'test' => $test,
-                'total_amount' => $total,
-                'schedule' => $scheduleData['schedule'],
-                'work_hours' => $scheduleData['work_hours'],
-                'is_24_7' => $scheduleData['is_24_7'],
-                'start_time' => $scheduleData['start_time'],
-                'end_time' => $scheduleData['end_time'],
-                'timezone' => $scheduleData['timezone'],
-                'date' => $date,
-                'pending_acq' => $pendingAcq,
-                'freeze_status_on_acq' => $freezeStatus
-            ];
+        $combination = [
+            'affiliate_name' => $affiliate,
+            'recipient_name' => $recipient,
+            'cap_amounts' => $caps, // Массив всех cap amounts
+            'geos' => $geos, // Массив всех geos
+            'language' => $language,
+            'funnel' => $funnel,
+            'test' => $test,
+            'total_amount' => $total,
+            'schedule' => $scheduleData['schedule'],
+            'work_hours' => $scheduleData['work_hours'],
+            'is_24_7' => $scheduleData['is_24_7'],
+            'start_time' => $scheduleData['start_time'],
+            'end_time' => $scheduleData['end_time'],
+            'timezone' => $scheduleData['timezone'],
+            'date' => $date,
+            'pending_acq' => $pendingAcq,
+            'freeze_status_on_acq' => $freezeStatus
+        ];
 
-            $combinations[] = $combination;
-        }
+        $combinations[] = $combination;
 
         return $combinations;
     }
