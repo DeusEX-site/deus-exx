@@ -40,6 +40,9 @@ class DynamicCapTestRunner
         );
         $this->reporter = new DynamicCapReportGenerator();
         
+        $this->log("🔧 Компоненты системы инициализированы");
+        $this->log("📊 Конфигурация: " . json_encode(array_intersect_key($config, array_flip(['verbose', 'max_combination_size', 'max_permutations', 'test_types', 'max_tests_per_type']))));
+        
         $this->config = array_merge([
             'verbose' => true,
             'save_reports' => true,

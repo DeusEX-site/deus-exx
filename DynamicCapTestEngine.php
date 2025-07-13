@@ -45,24 +45,41 @@ class DynamicCapTestEngine
      */
     private function setupTestChat(): void
     {
+        $this->log("📋 Настройка тестового чата...");
+        
         $this->testChat = Chat::updateOrCreate(
             ['chat_id' => -99999999],
             [
                 'type' => 'supergroup',
                 'title' => 'Dynamic Cap Test Chat',
                 'is_active' => true,
-                'display_order' => 1
+                'display_order' => 1,
+                'created_at' => now(),
+                'updated_at' => now()
             ]
         );
         
+        $this->log("✅ Тестовый чат создан/найден с ID: {$this->testChat->id} (chat_id: {$this->testChat->chat_id})");
+        
         // Очищаем старые тестовые данные
-        Message::where('chat_id', $this->testChat->id)->delete();
+        $this->log("🧹 Очистка старых тестовых данных...");
+        
+        $oldMessages = Message::where('chat_id', $this->testChat->id)->count();
+        $oldCaps = Cap::whereIn('message_id', function($query) {
+            $query->select('id')->from('messages')
+                  ->where('chat_id', $this->testChat->id);
+        })->count();
+        
+        $this->log("📊 Найдено для удаления: {$oldMessages} сообщений, {$oldCaps} кап");
+        
         Cap::whereIn('message_id', function($query) {
             $query->select('id')->from('messages')
                   ->where('chat_id', $this->testChat->id);
         })->delete();
         
-        $this->log("📋 Тестовый чат настроен (ID: {$this->testChat->id})");
+        Message::where('chat_id', $this->testChat->id)->delete();
+        
+        $this->log("✅ Тестовый чат настроен и очищен (ID: {$this->testChat->id})");
     }
 
     /**
@@ -80,6 +97,9 @@ class DynamicCapTestEngine
      */
     private function createTestMessage(string $content, ?int $replyToMessageId = null, ?string $quotedText = null): Message
     {
+        $this->log("💬 Создание тестового сообщения...");
+        $this->log("📝 Содержимое: " . substr($content, 0, 200) . "...");
+        
         $message = Message::create([
             'chat_id' => $this->testChat->id,
             'telegram_message_id' => $this->messageCounter++,
@@ -89,9 +109,17 @@ class DynamicCapTestEngine
             'reply_to_message_id' => $replyToMessageId,
             'quoted_text' => $quotedText,
             'telegram_user_id' => 999999,
+            'telegram_username' => 'dynamictestuser',
+            'telegram_first_name' => 'Dynamic',
+            'telegram_last_name' => 'Test',
+            'telegram_date' => now(),
+            'message_type' => 'text',
+            'is_outgoing' => false,
             'created_at' => now(),
             'updated_at' => now()
         ]);
+        
+        $this->log("✅ Сообщение создано с ID: {$message->id}");
         
         return $message;
     }
@@ -102,13 +130,35 @@ class DynamicCapTestEngine
     private function analyzeMessage(Message $message): array
     {
         try {
+            $this->log("🔍 Анализ сообщения ID: {$message->id}");
+            $this->log("📝 Текст сообщения: " . substr($message->message, 0, 100) . "...");
+            
+            // Подсчитываем записи до анализа
+            $capsBefore = Cap::where('message_id', $message->id)->count();
+            $this->log("📊 Кап до анализа: {$capsBefore}");
+            
             $result = $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $message->message);
+            
+            // Подсчитываем записи после анализа
+            $capsAfter = Cap::where('message_id', $message->id)->count();
+            $capsHistoryAfter = CapHistory::whereIn('cap_id', function($query) use ($message) {
+                $query->select('id')->from('caps')->where('message_id', $message->id);
+            })->count();
+            
+            $this->log("📊 Кап после анализа: {$capsAfter}");
+            $this->log("📊 История кап: {$capsHistoryAfter}");
+            $this->log("✅ Результат анализа: " . json_encode($result));
+            
             return [
                 'success' => true,
                 'result' => $result,
-                'error' => null
+                'error' => null,
+                'caps_created' => $capsAfter,
+                'caps_history_created' => $capsHistoryAfter
             ];
         } catch (Exception $e) {
+            $this->log("❌ Ошибка анализа: " . $e->getMessage());
+            $this->log("📍 Стек: " . $e->getTraceAsString());
             return [
                 'success' => false,
                 'result' => null,
@@ -124,24 +174,43 @@ class DynamicCapTestEngine
     {
         $errors = [];
         
+        $this->log("🔍 Валидация создания кап...");
+        $this->log("📊 Ожидаемые капы: " . json_encode($expectedCaps));
+        $this->log("📊 Результат анализа: " . json_encode($analysisResult));
+        
         // Проверяем количество созданных кап
         $expectedCount = count($expectedCaps);
         $actualCount = $analysisResult['cap_entries_count'] ?? 0;
+        
+        $this->log("📈 Ожидалось кап: {$expectedCount}, создано: {$actualCount}");
         
         if ($expectedCount !== $actualCount) {
             $errors[] = "Ожидалось {$expectedCount} кап, создано {$actualCount}";
         }
         
+        // Подсчитываем общее количество кап в БД
+        $totalCapsInDb = Cap::count();
+        $this->log("📈 Всего кап в БД: {$totalCapsInDb}");
+        
         // Проверяем создание записей в БД
-        foreach ($expectedCaps as $expectedCap) {
+        foreach ($expectedCaps as $index => $expectedCap) {
+            $this->log("🔍 Поиск капы #{$index}: {$expectedCap['affiliate']} -> {$expectedCap['recipient']} ({$expectedCap['geo']})");
+            
             $foundCap = Cap::where('affiliate_name', strtolower($expectedCap['affiliate']))
                           ->where('recipient_name', strtolower($expectedCap['recipient']))
                           ->whereJsonContains('geos', strtolower($expectedCap['geo']))
                           ->first();
             
             if (!$foundCap) {
+                $this->log("❌ Капа не найдена в БД");
                 $errors[] = "Не найдена капа: {$expectedCap['affiliate']} -> {$expectedCap['recipient']} ({$expectedCap['geo']})";
+                
+                // Показываем какие капы есть в БД для отладки
+                $allCaps = Cap::select('affiliate_name', 'recipient_name', 'geos', 'cap_amounts')->get();
+                $this->log("📋 Все капы в БД: " . json_encode($allCaps->toArray()));
             } else {
+                $this->log("✅ Капа найдена в БД с ID: {$foundCap->id}");
+                
                 // Проверяем значения полей
                 foreach ($expectedCap as $field => $expectedValue) {
                     if ($field === 'geo') continue; // Уже проверено выше
@@ -151,6 +220,8 @@ class DynamicCapTestEngine
                     if ($field === 'cap_amounts' && is_array($actualValue)) {
                         $actualValue = $actualValue[0] ?? null;
                     }
+                    
+                    $this->log("🔍 Проверка поля {$field}: ожидалось '{$expectedValue}', получено '{$actualValue}'");
                     
                     // Специальная обработка для числовых полей
                     if ($field === 'cap_amounts') {
@@ -165,6 +236,8 @@ class DynamicCapTestEngine
                 }
             }
         }
+        
+        $this->log($errors ? "❌ Найдены ошибки валидации: " . json_encode($errors) : "✅ Валидация прошла успешно");
         
         return $errors;
     }
@@ -255,13 +328,18 @@ class DynamicCapTestEngine
     public function testSingleCapCreation(array $capData): array
     {
         $this->log("🔍 Тестирование создания одной капы...");
+        $this->log("📊 Входные данные: " . json_encode($capData));
         
         $messageText = $this->generator->generateSingleCapMessage($capData);
+        $this->log("📝 Сгенерированное сообщение:");
+        $this->log($messageText);
+        
         $message = $this->createTestMessage($messageText);
         
         $analysisResult = $this->analyzeMessage($message);
         
         if (!$analysisResult['success']) {
+            $this->log("❌ Анализ завершился неудачно");
             return [
                 'success' => false,
                 'error' => "Ошибка анализа: " . $analysisResult['error'],
@@ -278,14 +356,22 @@ class DynamicCapTestEngine
             ]
         ];
         
+        $this->log("🎯 Ожидаемые капы для валидации: " . json_encode($expectedCaps));
+        
         $errors = $this->validateCapCreation($expectedCaps, $analysisResult['result']);
         
-        return [
+        $result = [
             'success' => empty($errors),
             'errors' => $errors,
             'message' => $messageText,
-            'analysis_result' => $analysisResult['result']
+            'analysis_result' => $analysisResult['result'],
+            'caps_created_in_db' => $analysisResult['caps_created'] ?? 0,
+            'caps_history_created' => $analysisResult['caps_history_created'] ?? 0
         ];
+        
+        $this->log($result['success'] ? "✅ Тест прошел успешно" : "❌ Тест завершился неудачно");
+        
+        return $result;
     }
 
     /**
