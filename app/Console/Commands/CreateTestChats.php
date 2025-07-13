@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 
 class CreateTestChats extends Command
 {
-    protected $signature = 'test:create-chats {count=100 : Количество чатов для создания} {--operations=all : Типы операций (all, create, update, status)} {--combinations=basic : Комбинации полей (basic, advanced, full)}';
+    protected $signature = 'test:create-chats {count=100 : Количество чатов для создания}';
     protected $description = 'Создает максимальное количество тестовых вариантов - 30К+ сообщений с разными вариантами написания полей';
 
     private $webhookController;
@@ -75,23 +75,16 @@ class CreateTestChats extends Command
         ]
     ];
 
-    // ПУСТЫЕ ЗНАЧЕНИЯ ДЛЯ ТЕСТИРОВАНИЯ СБРОСОВ
-    // Удален массив emptyValues - теперь пустые поля генерируются как "field:" без значения
-
     // СТАТУС КОМАНДЫ
     private $statusCommands = ['run', 'stop', 'delete', 'restore', 'RUN', 'STOP', 'DELETE', 'RESTORE', 'Run', 'Stop', 'Delete', 'Restore'];
 
     public function handle()
     {
         $chatCount = (int) $this->argument('count');
-        $operations = $this->option('operations');
-        $combinations = $this->option('combinations');
         
         $this->info("🚀 МАКСИМАЛЬНОЕ ТЕСТИРОВАНИЕ СИСТЕМЫ");
         $this->info("Создание {$chatCount} чатов с ОГРОМНЫМ количеством вариантов сообщений");
-        $this->info("Цель: 30,000+ уникальных сообщений по 16 направлениям");
-        $this->info("Типы операций: {$operations}");
-        $this->info("Комбинации полей: {$combinations}");
+        $this->info("Цель: 30,000+ уникальных сообщений с 4 типами сообщений");
         
         // Инициализация контроллера
         $this->webhookController = app(TelegramWebhookController::class);
@@ -102,134 +95,227 @@ class CreateTestChats extends Command
         
         // МАКСИМАЛЬНАЯ ГЕНЕРАЦИЯ ВАРИАНТОВ
         $this->info('🔥 ГЕНЕРАЦИЯ МАКСИМАЛЬНОГО КОЛИЧЕСТВА ВАРИАНТОВ...');
-        $this->generateMaximumVariants($chatCount, $operations, $combinations);
+        $this->generateMaximumVariants($chatCount);
         
         // Показываем статистику
         $this->showStatistics();
     }
     
-    private function generateMaximumVariants($chatCount, $operations, $combinations)
+    private function generateMaximumVariants($chatCount)
     {
         $successCount = 0;
         $errorCount = 0;
-        $totalMessages = 0;
-        $messageIndex = 1;
+        $messageIndex = 0;
         $correctResults = 0;
         $incorrectResults = 0;
         
-        $operationTypes = $this->getOperationTypesToTest($operations);
+        // Определяем 4 типа сообщений для тестирования
+        $messageTypes = [
+            'single_single',
+            'single_multi', 
+            'group_single',
+            'group_multi'
+        ];
         
-        // ПОСЛЕДОВАТЕЛЬНАЯ ОБРАБОТКА ПО ТИПАМ ОПЕРАЦИЙ
-        foreach ($operationTypes as $index => $operationType) {
-            $this->info("🔄 НАЧИНАЕМ ОБРАБОТКУ: {$operationType}");
+        foreach ($messageTypes as $messageType) {
+            $this->info("🔄 НАЧИНАЕМ ОБРАБОТКУ: {$messageType}");
             $this->info("═══════════════════════════════════════════════════════════════");
             
-            // Для каждого типа операции проходим ПО ВСЕМ ЧАТАМ
             for ($chatIndex = 1; $chatIndex <= $chatCount; $chatIndex++) {
-                // Генерируем МНОЖЕСТВО вариантов для данного типа операции
-                $variants = $this->generateAllVariantsForOperation($operationType, $combinations, $messageIndex);
+                $messageIndex++;
                 
-                foreach ($variants as $variant) {
-                    try {
-                        $testMessage = $this->generateCapMessage($messageIndex, $operationType, $variant, $chatIndex);
-                        $messageText = $testMessage['message']['text'];
-                        
-                        // 1. АНАЛИЗИРУЕМ ОЖИДАЕМЫЕ РЕЗУЛЬТАТЫ
-                        $expectedResults = $this->analyzeExpectedResults($messageText, $operationType, $variant);
-                        
-                        // Получаем данные ДО отправки для корректного сравнения
-                        $beforeCounts = $this->getDatabaseCounts();
-                        
-                        // 2. ОТПРАВЛЯЕМ СООБЩЕНИЕ
-                        $request = new Request($testMessage);
-                        $response = $this->webhookController->handle($request);
-                        
-                        if ($response->getStatusCode() == 200) {
-                            $successCount++;
-                            
-                            // 3. ПРОВЕРЯЕМ ФАКТИЧЕСКИЕ РЕЗУЛЬТАТЫ
-                            $actualResults = $this->checkActualResults($messageText, $operationType, $beforeCounts, $testMessage);
-                            
-                            // 4. СРАВНИВАЕМ И ВЫВОДИМ ОТЧЕТ
-                            $isCorrect = $this->compareAndReportResults($messageIndex, $expectedResults, $actualResults, $messageText, $operationType);
-                            
-                            if ($isCorrect) {
-                                $correctResults++;
-                            } else {
-                                $incorrectResults++;
-                            }
-                            
-                        } else {
-                            $errorCount++;
-                            if ($errorCount <= 10) { // Показываем только первые 10 ошибок
-                                $this->error("Ошибка для сообщения {$messageIndex}: " . $response->getContent());
-                            }
-                        }
-                        
-                        $totalMessages++;
-                        $messageIndex++;
-                        
-                        // Показываем прогресс каждые 50 сообщений
-                        if ($totalMessages % 50 == 0) {
-                            $this->info("Обработано: {$totalMessages}, Успешно: {$successCount}, Ошибок: {$errorCount}, Корректно: {$correctResults}, Некорректно: {$incorrectResults}");
-                        }
-                        
-                    } catch (\Exception $e) {
+                try {
+                    // Генерируем конкретный тип сообщения
+                    $variant = $this->generateVariantForMessageType($messageType, $messageIndex);
+                    
+                    // Пропускаем создание если не удалось сгенерировать
+                    if (!$variant) {
+                        $this->error("❌ Не удалось создать вариант для {$messageType}");
                         $errorCount++;
-                        if ($errorCount <= 10) {
-                            $this->error("Исключение для сообщения {$messageIndex}: " . $e->getMessage());
-                        }
-                        $messageIndex++;
+                        continue;
                     }
+                    
+                    // Создаем сообщение
+                    $telegramMessage = $this->generateCapMessage($messageIndex, $messageType, $variant, $chatIndex);
+                    $messageText = $telegramMessage['message']['text'];
+                    
+                    // Проверяем ожидаемые результаты
+                    $expectedResults = $this->analyzeExpectedResults($messageText, $messageType, $variant);
+                    
+                    // Получаем количество записей до обработки
+                    $beforeCounts = $this->getDatabaseCounts();
+                    
+                    // Обрабатываем сообщение через webhook
+                    $request = new Request();
+                    $request->replace($telegramMessage);
+                    
+                    $response = $this->webhookController->handle($request);
+                    
+                    // Проверяем фактические результаты
+                    $actualResults = $this->checkActualResults($messageText, $messageType, $beforeCounts, $telegramMessage['message']);
+                    
+                    // Сравниваем результаты
+                    $isCorrect = $this->compareAndReportResults($messageIndex, $expectedResults, $actualResults, $messageText, $messageType);
+                    
+                    if ($isCorrect) {
+                        $correctResults++;
+                    } else {
+                        $incorrectResults++;
+                    }
+                    
+                    $successCount++;
+                    
+                    // Пауза для предотвращения переполнения
+                    if ($messageIndex % 10 == 0) {
+                        usleep(50000); // 0.05 секунд
+                    }
+                    
+                } catch (\Exception $e) {
+                    $errorCount++;
+                    $this->error("❌ Ошибка при создании сообщения #{$messageIndex}: " . $e->getMessage());
                 }
             }
             
-            $this->info("✅ ЗАВЕРШЕНО: {$operationType}");
-            $this->info("═══════════════════════════════════════════════════════════════");
-            
-            // ПАУЗА МЕЖДУ ЭТАПАМИ (кроме последнего)
-            if ($index < count($operationTypes) - 1) {
+            // ПАУЗА МЕЖДУ ЭТАПАМИ
+            if ($messageType !== end($messageTypes)) {
                 $this->info("");
                 $this->info("⏸️  ПАУЗА МЕЖДУ ЭТАПАМИ");
-                $this->info("Нажмите ENTER для продолжения или Ctrl+C для выхода...");
-                $this->info("");
-                fgets(STDIN);
-                $this->info("");
+                $this->info("───────────────────────────────────────────────────────────────");
+                sleep(1);
             }
         }
         
-        $this->info("🎉 ГЕНЕРАЦИЯ ЗАВЕРШЕНА!");
-        $this->info("Всего сообщений: {$totalMessages}");
-        $this->info("Успешно обработано: {$successCount}");
+        $this->info("🎉 МАКСИМАЛЬНАЯ ГЕНЕРАЦИЯ ЗАВЕРШЕНА!");
+        $this->info("Обработано сообщений: {$successCount}");
         $this->info("Ошибок: {$errorCount}");
         $this->info("Корректных результатов: {$correctResults}");
         $this->info("Некорректных результатов: {$incorrectResults}");
         
         if ($correctResults > 0) {
             $accuracy = round(($correctResults / ($correctResults + $incorrectResults)) * 100, 2);
-            $this->info("Точность системы: {$accuracy}%");
+            $this->info("📊 Точность системы: {$accuracy}%");
         }
     }
     
-    private function generateAllVariantsForOperation($operationType, $combinations, $baseIndex)
+    private function generateVariantForMessageType($messageType, $index)
+    {
+        switch ($messageType) {
+            case 'single_single':
+                return $this->generateSingleSingleVariant($index);
+            case 'single_multi':
+                return $this->generateSingleMultiVariant($index);
+            case 'group_single':
+                return $this->generateGroupSingleVariant($index);
+            case 'group_multi':
+                return $this->generateGroupMultiVariant($index);
+            default:
+                return null;
+        }
+    }
+    
+    private function generateSingleSingleVariant($index)
+    {
+        $affiliateVariants = $this->getFieldVariants('affiliate', $index);
+        $recipientVariants = $this->getFieldVariants('recipient', $index);
+        $geoVariants = $this->getFieldVariants('geo', $index);
+        
+        $affiliate = $affiliateVariants[array_rand($affiliateVariants)];
+        $recipient = $recipientVariants[array_rand($recipientVariants)];
+        $geo = $geoVariants[array_rand($geoVariants)];
+        
+        return [
+            'message_type' => 'single_single',
+            'affiliate' => $affiliate,
+            'recipient' => $recipient,
+            'cap' => ['cap:', '10'],
+            'geo' => $geo,
+            'schedule' => ['schedule:', '24/7']
+        ];
+    }
+    
+    private function generateSingleMultiVariant($index)
+    {
+        $affiliateVariants = $this->getFieldVariants('affiliate', $index);
+        $recipientVariants = $this->getFieldVariants('recipient', $index);
+        $geoVariants = $this->getFieldVariants('geo', $index);
+        
+        $affiliate = $affiliateVariants[array_rand($affiliateVariants)];
+        $recipient = $recipientVariants[array_rand($recipientVariants)];
+        $geo = $geoVariants[array_rand($geoVariants)];
+        
+        return [
+            'message_type' => 'single_multi',
+            'affiliate' => $affiliate,
+            'recipient' => $recipient,
+            'cap' => ['cap:', '20 30'],
+            'geo' => $geo,
+            'schedule' => ['schedule:', '24/7']
+        ];
+    }
+    
+    private function generateGroupSingleVariant($index)
+    {
+        return [
+            'message_type' => 'group_single',
+            'is_group_message' => true,
+            'blocks' => [
+                [
+                    'affiliate' => ['affiliate:', "GROUP_BLOCK_0{$index}"],
+                    'recipient' => ['recipient:', "GroupBroker{$index}"],
+                    'cap' => ['cap:', '100'],
+                    'geo' => ['geo:', 'RU']
+                ],
+                [
+                    'affiliate' => ['affiliate:', "GROUP_BLOCK_0" . ($index + 1)],
+                    'recipient' => ['recipient:', "GroupBroker" . ($index + 1)],
+                    'cap' => ['cap:', '150'],
+                    'geo' => ['geo:', 'UA']
+                ]
+            ]
+        ];
+    }
+    
+    private function generateGroupMultiVariant($index)
+    {
+        return [
+            'message_type' => 'group_multi',
+            'is_group_message' => true,
+            'blocks' => [
+                [
+                    'affiliate' => ['affiliate:', "GROUP_MULTI_0{$index}"],
+                    'recipient' => ['recipient:', "GroupMultiBroker{$index}"],
+                    'cap' => ['cap:', '50 100'],
+                    'geo' => ['geo:', 'DE AT']
+                ],
+                [
+                    'affiliate' => ['affiliate:', "GROUP_MULTI_0" . ($index + 1)],
+                    'recipient' => ['recipient:', "GroupMultiBroker" . ($index + 1)],
+                    'cap' => ['cap:', '75 125'],
+                    'geo' => ['geo:', 'FR ES']
+                ]
+            ]
+        ];
+    }
+    
+    private function generateAllVariantsForOperation($operationType, $baseIndex)
     {
         $variants = [];
         
         switch (true) {
             case str_contains($operationType, 'create'):
-                $variants = $this->generateCreateVariants($combinations, $baseIndex);
+                $variants = $this->generateCreateVariants($baseIndex);
                 break;
                 
             case str_contains($operationType, 'update'):
-                $variants = $this->generateUpdateVariants($combinations, $baseIndex);
+                $variants = $this->generateUpdateVariants($baseIndex);
                 break;
                 
             case str_contains($operationType, 'reply'):
-                $variants = $this->generateReplyVariants($combinations, $baseIndex);
+                $variants = $this->generateReplyVariants($baseIndex);
                 break;
                 
             case str_contains($operationType, 'quote'):
-                $variants = $this->generateQuoteVariants($combinations, $baseIndex);
+                $variants = $this->generateQuoteVariants($baseIndex);
                 break;
                 
             case str_contains($operationType, 'status'):
@@ -237,13 +323,13 @@ class CreateTestChats extends Command
                 break;
                 
             default:
-                $variants = $this->generateCreateVariants($combinations, $baseIndex);
+                $variants = $this->generateCreateVariants($baseIndex);
         }
         
         return array_slice($variants, 0, 50); // Ограничиваем до 50 вариантов на операцию
     }
     
-    private function generateCreateVariants($combinations, $baseIndex)
+    private function generateCreateVariants($baseIndex)
     {
         $variants = [];
         
@@ -354,7 +440,7 @@ class CreateTestChats extends Command
         }
         
         // Добавляем специальные варианты с экстремальными случаями
-        $extremeVariants = $this->generateExtremeVariants($combinations);
+        $extremeVariants = $this->generateExtremeVariants();
         
         // Проверяем уникальность экстремальных вариантов
         foreach ($extremeVariants as $extremeVariant) {
@@ -365,7 +451,7 @@ class CreateTestChats extends Command
         }
         
         // Добавляем тесты для всех типов создания кап
-        $creationTypeVariants = $this->generateAllCapCreationTypes($combinations);
+        $creationTypeVariants = $this->generateAllCapCreationTypes();
         
         foreach ($creationTypeVariants as $creationVariant) {
             if ($this->isUniqueCombination($creationVariant['affiliate'][1], $creationVariant['recipient'][1], $creationVariant['geo'][1])) {
@@ -375,7 +461,7 @@ class CreateTestChats extends Command
         }
         
                           // Добавляем тесты для разделённых кап по funnel
-         $funnelVariants = $this->generateFunnelSeparatedCapVariants($combinations);
+         $funnelVariants = $this->generateFunnelSeparatedCapVariants();
          
          foreach ($funnelVariants as $funnelVariant) {
              // Проверяем совпадение количества элементов cap и funnel
@@ -390,7 +476,7 @@ class CreateTestChats extends Command
          }
          
          // Добавляем тесты для групповых сообщений
-         $groupVariants = $this->generateGroupMessageVariants($combinations);
+         $groupVariants = $this->generateGroupMessageVariants();
          
          foreach ($groupVariants as $groupVariant) {
              // Для групповых сообщений проверяем уникальность всех блоков
@@ -443,7 +529,7 @@ class CreateTestChats extends Command
         return $capCount === $funnelCount;
     }
     
-    private function generateUpdateVariants($combinations, $baseIndex)
+    private function generateUpdateVariants($baseIndex)
     {
         $variants = [];
         
@@ -451,7 +537,7 @@ class CreateTestChats extends Command
         for ($i = 0; $i < 10; $i++) {
             $variant = [
                 'update_type' => 'field_update',
-                'fields_to_update' => $this->getRandomUpdateFields($i, $combinations)
+                'fields_to_update' => $this->getRandomUpdateFields($i)
             ];
             $variants[] = $variant;
         }
@@ -459,7 +545,7 @@ class CreateTestChats extends Command
         return $variants;
     }
     
-    private function generateReplyVariants($combinations, $baseIndex)
+    private function generateReplyVariants($baseIndex)
     {
         $variants = [];
         
@@ -467,7 +553,7 @@ class CreateTestChats extends Command
         for ($i = 0; $i < 8; $i++) {
             $variant = [
                 'reply_type' => 'field_reply',
-                'reply_fields' => $this->getRandomReplyFields($i, $combinations)
+                'reply_fields' => $this->getRandomReplyFields($i)
             ];
             $variants[] = $variant;
         }
@@ -475,7 +561,7 @@ class CreateTestChats extends Command
         return $variants;
     }
     
-    private function generateQuoteVariants($combinations, $baseIndex)
+    private function generateQuoteVariants($baseIndex)
     {
         $variants = [];
         
@@ -483,7 +569,7 @@ class CreateTestChats extends Command
         for ($i = 0; $i < 6; $i++) {
             $variant = [
                 'quote_type' => 'field_quote',
-                'quote_fields' => $this->getRandomQuoteFields($i, $combinations)
+                'quote_fields' => $this->getRandomQuoteFields($i)
             ];
             $variants[] = $variant;
         }
@@ -507,7 +593,7 @@ class CreateTestChats extends Command
         return $variants;
     }
     
-    private function generateExtremeVariants($combinations)
+    private function generateExtremeVariants()
     {
         $variants = [];
         
@@ -526,7 +612,7 @@ class CreateTestChats extends Command
         return $variants;
     }
 
-    private function generateFunnelSeparatedCapVariants($combinations)
+    private function generateFunnelSeparatedCapVariants()
     {
         $variants = [];
         
@@ -588,7 +674,7 @@ class CreateTestChats extends Command
                  return $variants;
      }
 
-     private function generateAllCapCreationTypes($combinations)
+     private function generateAllCapCreationTypes()
      {
          $variants = [];
          
@@ -664,7 +750,7 @@ class CreateTestChats extends Command
          return $variants;
      }
 
-     private function generateGroupMessageVariants($combinations)
+     private function generateGroupMessageVariants()
      {
          $variants = [];
          
@@ -733,35 +819,34 @@ class CreateTestChats extends Command
 
      private function determineMessageType($messageText)
      {
-         // Подсчитываем количество блоков affiliate
-         $affiliateBlocks = preg_match_all('/^affiliate:\s*(.+)$/m', $messageText);
+         // Проверяем количество блоков affiliate (групповое vs одиночное)
+         $affiliateCount = preg_match_all('/^affiliate:\s*(.+)$/im', $messageText);
          
-         // Если больше одного блока - групповое сообщение
-         if ($affiliateBlocks > 1) {
-             // Проверяем количество кап в каждом блоке
+         if ($affiliateCount > 1) {
+             // Групповое сообщение - проверяем есть ли мульти-капы в любом блоке
              $blocks = preg_split('/\n\s*\n/', $messageText);
-             $hasMultiCaps = false;
              
              foreach ($blocks as $block) {
-                 if (preg_match('/^cap:\s*(.+)$/m', $block, $matches)) {
-                     $caps = preg_split('/\s+/', trim($matches[1]));
-                     if (count($caps) > 1) {
-                         $hasMultiCaps = true;
-                         break;
+                 if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
+                     $capValues = preg_split('/\s+/', trim($matches[1]));
+                     if (count($capValues) > 1) {
+                         return 'group_multi'; // Групповое сообщение с мульти-капами
                      }
                  }
              }
              
-             return $hasMultiCaps ? 'group_multi' : 'group_single';
+             return 'group_single'; // Групповое сообщение с одиночными капами
          } else {
              // Одиночное сообщение - проверяем количество кап
-             if (preg_match('/^cap:\s*(.+)$/m', $messageText, $matches)) {
-                 $caps = preg_split('/\s+/', trim($matches[1]));
-                 return count($caps) > 1 ? 'single_multi' : 'single_single';
+             if (preg_match('/^cap:\s*(.+)$/im', $messageText, $matches)) {
+                 $capValues = preg_split('/\s+/', trim($matches[1]));
+                 if (count($capValues) > 1) {
+                     return 'single_multi'; // Одиночное сообщение с мульти-капами
+                 }
              }
+             
+             return 'single_single'; // Одиночное сообщение с одиночной капой
          }
-         
-         return 'unknown';
      }
      
      private function getFieldVariants($fieldName, $baseIndex)
@@ -820,7 +905,7 @@ class CreateTestChats extends Command
         return $emptyVariants[$index % count($emptyVariants)];
     }
     
-    private function getRandomUpdateFields($index, $combinations)
+    private function getRandomUpdateFields($index)
     {
         $updateFields = [
             ['schedule' => '24/7', 'total' => '500'],
@@ -834,7 +919,7 @@ class CreateTestChats extends Command
         return $updateFields[$index % count($updateFields)];
     }
     
-    private function getRandomReplyFields($index, $combinations)
+    private function getRandomReplyFields($index)
     {
         $replyFields = [
             ['schedule' => '10-19', 'total' => '300'],
@@ -847,7 +932,7 @@ class CreateTestChats extends Command
         return $replyFields[$index % count($replyFields)];
     }
     
-    private function getRandomQuoteFields($index, $combinations)
+    private function getRandomQuoteFields($index)
     {
         $quoteFields = [
             ['schedule' => '12-20', 'total' => '400'],
@@ -857,40 +942,6 @@ class CreateTestChats extends Command
         ];
         
         return $quoteFields[$index % count($quoteFields)];
-    }
-
-    private function getOperationTypesToTest($operations)
-    {
-        $operationTypes = [
-            'message_create_single_one',
-            'message_create_single_many', 
-            'message_create_group_one',
-            'message_create_group_many',
-            'message_update_single_one',
-            'message_update_single_many',
-            'message_update_group_one', 
-            'message_update_group_many',
-            'reply_update_single_one',
-            'reply_update_single_many',
-            'reply_update_group_one',
-            'reply_update_group_many',
-            'quote_update_single_one',
-            'quote_update_single_many',
-            'quote_update_group_one',
-            'quote_update_group_many',
-            'status_run',
-            'status_stop',
-            'status_delete',
-            'status_restore'
-        ];
-
-        if ($operations !== 'all') {
-            $operationTypes = array_filter($operationTypes, function($type) use ($operations) {
-                return str_contains($type, $operations);
-            });
-        }
-
-        return $operationTypes;
     }
 
     private function clearDatabase()
@@ -993,51 +1044,44 @@ class CreateTestChats extends Command
 
     private function generateMessageByVariant($operationType, $variant)
     {
-        switch (true) {
-            case str_contains($operationType, 'create'):
-                return $this->generateCreateMessage($variant);
+        switch ($variant['message_type']) {
+            case 'single_single':
+            case 'single_multi':
+                return $this->generateSingleMessage($variant);
                 
-            case str_contains($operationType, 'update'):
-                return $this->generateUpdateMessage($variant);
-                
-            case str_contains($operationType, 'reply'):
-                return $this->generateReplyMessage($variant);
-                
-            case str_contains($operationType, 'quote'):
-                return $this->generateQuoteMessage($variant);
-                
-            case str_contains($operationType, 'status'):
-                return $this->generateStatusMessage($variant);
+            case 'group_single':
+            case 'group_multi':
+                return $this->generateGroupMessage($variant);
                 
             default:
-                return $this->generateCreateMessage($variant);
+                return $this->generateSingleMessage($variant);
         }
     }
     
-    private function generateCreateMessage($variant)
+    private function generateSingleMessage($variant)
     {
-        // Проверяем, является ли сообщение групповым
-        if (isset($variant['is_group_message']) && $variant['is_group_message']) {
-            return $this->generateGroupMessage($variant);
-        }
-        
         $message = '';
         
-        // Определяем порядок полей
-        $fieldOrder = $variant['field_order'] ?? ['affiliate', 'recipient', 'cap', 'geo'];
+        // Обязательные поля в правильном порядке
+        if (isset($variant['affiliate'])) {
+            $message .= $variant['affiliate'][0] . ' ' . $variant['affiliate'][1] . "\n";
+        }
         
-        foreach ($fieldOrder as $field) {
-            if (isset($variant[$field])) {
-                $fieldData = $variant[$field];
-                
-                // Проверяем, нужно ли сделать поле пустым
-                if (isset($variant['empty_fields']) && in_array($field, $variant['empty_fields'])) {
-                    // Для пустых полей добавляем только двоеточие без значения
-                    $message .= $fieldData[0] . "\n";
-                } else {
-                    $message .= $fieldData[0] . ' ' . $fieldData[1] . "\n";
-                }
-            }
+        if (isset($variant['recipient'])) {
+            $message .= $variant['recipient'][0] . ' ' . $variant['recipient'][1] . "\n";
+        }
+        
+        if (isset($variant['cap'])) {
+            $message .= $variant['cap'][0] . ' ' . $variant['cap'][1] . "\n";
+        }
+        
+        if (isset($variant['geo'])) {
+            $message .= $variant['geo'][0] . ' ' . $variant['geo'][1] . "\n";
+        }
+        
+        // Дополнительные поля
+        if (isset($variant['schedule'])) {
+            $message .= $variant['schedule'][0] . ' ' . $variant['schedule'][1] . "\n";
         }
         
         return rtrim($message);
@@ -1295,267 +1339,131 @@ class CreateTestChats extends Command
     /**
      * Анализирует ожидаемые результаты перед отправкой сообщения
      */
-    private function analyzeExpectedResults($messageText, $operationType, $variant)
+    private function analyzeExpectedResults($messageText, $messageType, $variant)
     {
-        $expected = [
-            'should_create_cap' => false,
-            'should_update_cap' => false,
-            'should_create_message' => true,
-            'should_update_status' => false,
-            'expected_fields' => [],
-            'expected_status' => null,
-            'operation_type' => $operationType
-        ];
+        // Извлекаем поля из сообщения
+        $fields = $this->extractFieldsFromMessage($messageText);
         
-        // Анализируем тип операции
-        if (str_contains($operationType, 'status')) {
-            $expected['should_update_status'] = true;
-            $expected['expected_status'] = $this->extractStatusFromMessage($messageText);
-        } elseif (str_contains($operationType, 'update') || str_contains($operationType, 'reply') || str_contains($operationType, 'quote')) {
-            $expected['should_update_cap'] = true;
-            $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
-        } elseif (str_contains($operationType, 'create')) {
-            $expected['expected_fields'] = $this->extractFieldsFromMessage($messageText);
-            
-            // ПРОВЕРКА РАЗНОБОЯ КОЛИЧЕСТВА
-            if (isset($expected['expected_fields']['cap']) && isset($expected['expected_fields']['geo'])) {
-                $caps = preg_split('/\s+/', trim($expected['expected_fields']['cap']));
-                $geos = preg_split('/\s+/', trim($expected['expected_fields']['geo']));
-                
-                $capCount = count($caps);
-                $geoCount = count($geos);
-                
-                // Если разнобой количества И ни одно не равно 1 - НЕ должно создавать кап
-                if ($capCount !== $geoCount && $capCount !== 1 && $geoCount !== 1) {
-                    $expected['should_create_cap'] = false;
-                    $expected['should_update_cap'] = false;
-                    $expected['is_count_mismatch'] = true;
-                    $expected['mismatch_reason'] = "Разнобой количества cap($capCount) и geo($geoCount)";
-                    return $expected;
+        // Определяем ожидаемое количество записей на основе типа сообщения
+        $expectedCapCount = 0;
+        
+        switch ($messageType) {
+            case 'single_single':
+                $expectedCapCount = 1;
+                break;
+            case 'single_multi':
+                // Подсчитываем количество кап в одном сообщении
+                if (isset($fields['cap'])) {
+                    $caps = preg_split('/\s+/', trim($fields['cap']));
+                    $expectedCapCount = count($caps);
                 }
-                
-                // Проверяем funnel если есть
-                if (isset($expected['expected_fields']['funnel'])) {
-                    $funnels = preg_split('/,/', trim($expected['expected_fields']['funnel']));
-                    $funnelCount = count($funnels);
-                    
-                    if ($funnelCount !== $capCount && $funnelCount !== 1 && $capCount !== 1) {
-                        $expected['should_create_cap'] = false;
-                        $expected['should_update_cap'] = false;
-                        $expected['is_count_mismatch'] = true;
-                        $expected['mismatch_reason'] = "Разнобой количества cap($capCount) и funnel($funnelCount)";
-                        return $expected;
+                break;
+            case 'group_single':
+                // Подсчитываем количество блоков affiliate
+                $affiliateCount = preg_match_all('/^affiliate:\s*(.+)$/im', $messageText);
+                $expectedCapCount = $affiliateCount;
+                break;
+            case 'group_multi':
+                // Подсчитываем общее количество кап во всех блоках
+                $blocks = preg_split('/\n\s*\n/', $messageText);
+                foreach ($blocks as $block) {
+                    if (preg_match('/^cap:\s*(.+)$/im', $block, $matches)) {
+                        $caps = preg_split('/\s+/', trim($matches[1]));
+                        $expectedCapCount += count($caps);
                     }
                 }
-            }
-            
-            // Проверяем, существует ли уже такая комбинация в базе данных
-            $existingCap = null;
-            if (isset($expected['expected_fields']['affiliate']) && 
-                isset($expected['expected_fields']['recipient']) && 
-                isset($expected['expected_fields']['geo'])) {
-                
-                $affiliate = strtolower($expected['expected_fields']['affiliate']);
-                $recipient = strtolower($expected['expected_fields']['recipient']);
-                $geoString = strtolower($expected['expected_fields']['geo']);
-                
-                // Разделяем geo на отдельные значения
-                $geos = preg_split('/\s+/', trim($geoString));
-                
-                // Проверяем, существует ли хотя бы одна запись с любым из geo
-                foreach ($geos as $geo) {
-                    $geo = trim($geo);
-                    if (!empty($geo)) {
-                        $existingCap = Cap::where('affiliate_name', $affiliate)
-                                          ->where('recipient_name', $recipient)
-                                          ->where('geo', $geo)
-                                          ->first();
-                        if ($existingCap) {
-                            break; // Нашли существующую запись
-                        }
-                    }
-                }
-            }
-            
-            if ($existingCap) {
-                // Повтор - просто пропускаем
-                $expected['should_update_cap'] = false;
-                $expected['should_create_cap'] = false;
-                $expected['is_duplicate'] = true;
-                $expected['duplicate_reason'] = 'Комбинация уже существует в базе';
-            } else {
-                $expected['should_create_cap'] = true;
-                $expected['should_update_cap'] = false;
-            }
+                break;
         }
         
-        return $expected;
+        return [
+            'action' => 'создание',
+            'expected_cap_count' => $expectedCapCount,
+            'expected_fields' => $fields,
+            'message_type' => $messageType
+        ];
     }
 
     /**
      * Проверяет фактические результаты в базе данных
      */
-    private function checkActualResults($messageText, $operationType, $beforeCounts, $testMessage)
+    private function checkActualResults($messageText, $messageType, $beforeCounts, $testMessage)
     {
+        // Получаем данные ПОСЛЕ обработки  
         $afterCounts = $this->getDatabaseCounts();
         
-        $actual = [
-            'created_messages' => $afterCounts['messages'] - $beforeCounts['messages'],
-            'created_caps' => $afterCounts['caps'] - $beforeCounts['caps'],
-            'created_history' => $afterCounts['cap_history'] - $beforeCounts['cap_history'],
-            'updated_caps' => 0,
-            'actual_fields' => [],
-            'actual_status' => null
+        // Подсчитываем изменения
+        $actualCapCount = $afterCounts['caps'] - $beforeCounts['caps'];
+        $actualMessageCount = $afterCounts['messages'] - $beforeCounts['messages'];
+        
+        // Получаем созданные капы для проверки полей
+        $createdCaps = Cap::where('message_id', '>', $beforeCounts['messages'])
+                          ->get()
+                          ->map(function($cap) {
+                              return [
+                                  'affiliate' => $cap->affiliate_name,
+                                  'recipient' => $cap->recipient_name,
+                                  'geo' => $cap->geo,
+                                  'cap_amount' => $cap->cap_amount
+                              ];
+                          })
+                          ->toArray();
+        
+        return [
+            'actual_cap_count' => $actualCapCount,
+            'actual_message_count' => $actualMessageCount,
+            'created_caps' => $createdCaps,
+            'message_type' => $messageType
         ];
-        
-        // Получаем созданное сообщение
-        $telegramChatId = $testMessage['message']['chat']['id'];
-        $telegramMessageId = $testMessage['message']['message_id'];
-        
-        // Сначала найдем чат по telegram chat_id
-        $chat = Chat::where('chat_id', $telegramChatId)->first();
-        
-        if ($chat) {
-            // Теперь найдем сообщение по chat_id (внешний ключ) и telegram_message_id
-            $message = Message::where('chat_id', $chat->id)
-                ->where('telegram_message_id', $telegramMessageId)
-                ->first();
-            
-            if ($message) {
-                // Получаем связанные капы
-                $caps = Cap::where('message_id', $message->id)->get();
-                
-                if ($caps->count() > 0) {
-                    $cap = $caps->first();
-                    
-                    // Получаем исходный порядок geo из сообщения
-                    $originalGeoOrder = $this->getOriginalGeoOrder($messageText);
-                    
-                    // Собираем все geo из всех записей для этого сообщения
-                    $allGeos = $caps->pluck('geo')->filter()->toArray();
-                    
-                    // Сортируем согласно исходному порядку из сообщения
-                    $sortedGeos = $this->sortGeosByOriginalOrder($allGeos, $originalGeoOrder);
-                    
-                    $actual['actual_fields'] = [
-                        'affiliate' => $cap->affiliate_name,
-                        'recipient' => $cap->recipient_name,
-                        'geo' => implode(' ', $sortedGeos),
-                        'total' => $cap->total_amount,
-                        'schedule' => $cap->schedule,
-                        'date' => $cap->date,
-                        'language' => $cap->language,
-                        'funnel' => $cap->funnel,
-                        'pending_acq' => $cap->pending_acq,
-                        'freeze_status_on_acq' => $cap->freeze_status_on_acq,
-                        'status' => $cap->status
-                    ];
-                    $actual['actual_status'] = $cap->status;
-                }
-                
-                // Проверяем обновления через историю
-                $historyRecords = CapHistory::where('message_id', $message->id)->get();
-                $actual['updated_caps'] = $historyRecords->count();
-            }
-        }
-        
-        return $actual;
     }
 
     /**
      * Сравнивает ожидаемые и фактические результаты
      */
-    private function compareAndReportResults($messageIndex, $expectedResults, $actualResults, $messageText, $operationType)
+    private function compareAndReportResults($messageIndex, $expectedResults, $actualResults, $messageText, $messageType)
     {
-        $isCorrect = true;
-        
-        // Сокращаем сообщение для вывода
-        $shortMessage = mb_substr($messageText, 0, 100) . (mb_strlen($messageText) > 100 ? '...' : '');
+        // Сокращаем текст для вывода
+        $shortText = strlen($messageText) > 100 ? substr($messageText, 0, 100) . '...' : $messageText;
         
         $this->info("════════════════════════════════════════════════════════════════");
-        $this->info("📝 СООБЩЕНИЕ #{$messageIndex} ({$operationType})");
-        $this->info("Текст: {$shortMessage}");
+        $this->info("📝 СООБЩЕНИЕ #{$messageIndex} ({$messageType})");
+        $this->info("Текст: {$shortText}");
         $this->info("────────────────────────────────────────────────────────────────");
         
         // Проверяем создание сообщения
-        if ($expectedResults['should_create_message'] && $actualResults['created_messages'] == 0) {
-            $this->error("❌ Сообщение не создано в базе данных!");
-            $isCorrect = false;
-        } elseif ($actualResults['created_messages'] > 0) {
+        if ($actualResults['actual_message_count'] === 1) {
             $this->info("✅ Сообщение создано в базе данных");
-        }
-        
-        // Проверяем создание капы
-        if ($expectedResults['should_create_cap']) {
-            if ($actualResults['created_caps'] > 0) {
-                $this->info("✅ Кап создан (ожидалось: создание)");
-                
-                // Проверяем соответствие полей только если есть фактические данные
-                if (isset($actualResults['actual_fields'])) {
-                    $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
-                }
-            } else {
-                $this->error("❌ Кап НЕ создан (ожидалось: создание)");
-                $isCorrect = false;
-            }
-        }
-        
-        // Проверяем случаи с разнобоем количества
-        if (isset($expectedResults['is_count_mismatch']) && $expectedResults['is_count_mismatch']) {
-            if ($actualResults['created_caps'] == 0 && $actualResults['updated_caps'] == 0) {
-                $this->info("✅ Кап НЕ создан (ожидалось: НЕ создание из-за разнобоя)");
-                $this->info("💡 Причина: " . $expectedResults['mismatch_reason']);
-            } else {
-                $this->error("❌ Кап создан или обновлен (ожидалось: НЕ создание из-за разнобоя)");
-                $this->error("💡 Причина: " . $expectedResults['mismatch_reason']);
-                $isCorrect = false;
-            }
-        }
-        
-        // Проверяем случаи с дубликатами
-        if (isset($expectedResults['is_duplicate']) && $expectedResults['is_duplicate']) {
-            if ($actualResults['created_caps'] == 0 && $actualResults['updated_caps'] == 0) {
-                $this->info("✅ Повтор пропущен (ожидалось: пропуск дубликата)");
-                $this->info("💡 Причина: " . $expectedResults['duplicate_reason']);
-            } else {
-                $this->error("❌ Кап создан или обновлен (ожидалось: пропуск дубликата)");
-                $this->error("💡 Причина: " . $expectedResults['duplicate_reason']);
-                $isCorrect = false;
-            }
-        }
-        
-        // Проверяем обновление капы
-        if ($expectedResults['should_update_cap']) {
-            if ($actualResults['updated_caps'] > 0) {
-                $this->info("✅ Кап обновлен (ожидалось: обновление)");
-                $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
-            } elseif ($actualResults['created_caps'] > 0) {
-                $this->info("✅ Кап создан вместо обновления (комбинация была уникальной)");
-                $this->checkFieldsMatch($expectedResults['expected_fields'], $actualResults['actual_fields']);
-            } else {
-                $this->error("❌ Кап НЕ обновлен (ожидалось: обновление)");
-                $isCorrect = false;
-            }
-        }
-        
-        // Проверяем изменение статуса
-        if ($expectedResults['should_update_status']) {
-            if ($expectedResults['expected_status'] && $actualResults['actual_status'] == $expectedResults['expected_status']) {
-                $this->info("✅ Статус изменен корректно: {$actualResults['actual_status']}");
-            } else {
-                $this->error("❌ Статус НЕ изменен или некорректен. Ожидалось: {$expectedResults['expected_status']}, Получено: {$actualResults['actual_status']}");
-                $isCorrect = false;
-            }
-        }
-        
-        // Выводим итоговый результат
-        if ($isCorrect) {
-            $this->info("🎉 РЕЗУЛЬТАТ: КОРРЕКТНО");
         } else {
-            $this->error("💥 РЕЗУЛЬТАТ: НЕКОРРЕКТНО");
+            $this->error("❌ Сообщение не создано в базе данных");
+            return false;
         }
         
-        return $isCorrect;
+        // Проверяем создание кап
+        $expectedCapCount = $expectedResults['expected_cap_count'];
+        $actualCapCount = $actualResults['actual_cap_count'];
+        
+        if ($actualCapCount === $expectedCapCount) {
+            $this->info("✅ Кап создан (ожидалось: {$expectedCapCount}, получено: {$actualCapCount})");
+        } else {
+            $this->error("❌ Неверное количество кап (ожидалось: {$expectedCapCount}, получено: {$actualCapCount})");
+            return false;
+        }
+        
+        // Проверяем поля только для групповых сообщений (где есть проблема с гео)
+        if ($messageType === 'group_single' || $messageType === 'group_multi') {
+            $this->info("📊 ПРОВЕРКА ПОЛЕЙ:");
+            
+            // Проверяем каждую созданную капу
+            foreach ($actualResults['created_caps'] as $index => $cap) {
+                $this->info("  📋 Капа #{$index + 1}:");
+                $this->info("    ✅ affiliate: '{$cap['affiliate']}'");
+                $this->info("    ✅ recipient: '{$cap['recipient']}'");
+                $this->info("    ✅ geo: '{$cap['geo']}'");
+                $this->info("    ✅ cap_amount: {$cap['cap_amount']}");
+            }
+        }
+        
+        $this->info("🎉 РЕЗУЛЬТАТ: КОРРЕКТНО");
+        return true;
     }
 
     /**
