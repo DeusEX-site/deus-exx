@@ -163,7 +163,9 @@ class TelegramWebhookController extends Controller
         
         // Анализируем определенный текст
         try {
-            $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $textToAnalyze);
+            // ПРИВОДИМ ТЕКСТ К НИЖНЕМУ РЕГИСТРУ перед анализом кап
+            $lowercaseText = strtolower($textToAnalyze);
+            $this->capAnalysisService->analyzeAndSaveCapMessage($message->id, $lowercaseText);
         } catch (\Exception $e) {
             Log::warning('Cap analysis failed for message', [
                 'message_id' => $message->id,

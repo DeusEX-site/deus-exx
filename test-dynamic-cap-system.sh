@@ -122,71 +122,13 @@ print_info "Этап 1: Создание чатов через базовые с
 print_info "Этап 2: Отправка ВСЕХ типов операций в существующие чаты"
 print_info "Система автоматически создает чаты и находит капы"
 
-echo
-print_info "Сколько тестовых чатов создать? (по умолчанию: 50)"
-print_info "В каждый чат будут отправлены ВСЕ типы операций!"
-print_info "Например: 50 чатов × 16 операций = 800+ сообщений"
-read -r chat_count
+chat_count=50
+operations="all"
+combinations="full"
 
-# Если пользователь не ввел число, используем 50
-if [[ ! "$chat_count" =~ ^[0-9]+$ ]]; then
-    chat_count=50
-fi
-
-echo
-print_info "Выберите типы операций для тестирования:"
-echo "  1. Все 16 типов (по умолчанию)"
-echo "  2. Только создание кап"
-echo "  3. Только обновление кап"
-echo "  4. Только команды статуса"
-echo ""
-print_info "Введите номер (1-4) или нажмите Enter для всех типов:"
-read -r operation_type
-
-case "$operation_type" in
-    "2")
-        operations="create"
-        print_info "Режим: Только создание кап (отправляется в каждый чат)"
-        ;;
-    "3")
-        operations="update"
-        print_info "Режим: Только обновление кап (отправляется в каждый чат)"
-        ;;
-    "4")
-        operations="status"
-        print_info "Режим: Только команды статуса (отправляется в каждый чат)"
-        ;;
-    *)
-        operations="all"
-        print_info "Режим: Все 16 типов операций + команды статуса (отправляется в каждый чат)"
-        ;;
-esac
-
-echo
-print_info "Выберите сложность полей:"
-echo "  1. Базовые поля (по умолчанию)"
-echo "  2. Расширенные поля"
-echo "  3. Все поля"
-echo ""
-print_info "Введите номер (1-3) или нажмите Enter для базовых полей:"
-read -r field_complexity
-
-case "$field_complexity" in
-    "2")
-        combinations="advanced"
-        print_info "Поля: Расширенные (schedule, language, total)"
-        ;;
-    "3")
-        combinations="full"
-        print_info "Поля: Все (schedule, date, language, funnel, total, pending_acq, freeze_status_on_acq)"
-        ;;
-    *)
-        combinations="basic"
-        print_info "Поля: Базовые (affiliate, recipient, cap, geo, schedule)"
-        ;;
-esac
-
-print_info "Создание $chat_count тестовых чатов с типами операций: $operations, полями: $combinations"
+print_info "Создание $chat_count тестовых чатов с ВСЕМИ типами операций и ВСЕМИ полями"
+print_info "Режим: Все 16 типов операций + команды статуса (отправляется в каждый чат)"
+print_info "Поля: Все (schedule, date, language, funnel, total, pending_acq, freeze_status_on_acq)"
 print_info "Внимание: будет отправлено гораздо больше сообщений, чем чатов!"
 
 # Record start time
@@ -247,122 +189,77 @@ print_separator
 print_info "Запуск тестов для проверки данных в базе..."
 print_info "Тесты НЕ создают данные, только проверяют существующие!"
 
-# Test modes
-echo
-print_info "Выберите режим тестирования:"
-echo "  1. Быстрая проверка основных функций"
-echo "  2. Полная проверка всех компонентов"
-echo "  3. Только статистика данных"
-echo ""
-print_info "Введите номер (1-3) или нажмите Enter для быстрой проверки:"
-read -r test_mode
-
-case "$test_mode" in
-    "2")
-        print_info "Режим: Полная проверка всех компонентов"
-        TEST_TYPE="full"
-        ;;
-    "3")
-        print_info "Режим: Только статистика данных"
-        TEST_TYPE="stats"
-        ;;
-    *)
-        print_info "Режим: Быстрая проверка основных функций"
-        TEST_TYPE="quick"
-        ;;
-esac
+TEST_TYPE="full"
+print_info "Режим: Полная проверка всех компонентов"
 
 echo
 print_separator
 print_header "⚡ ВЫПОЛНЕНИЕ ПРОВЕРОК"
 print_separator
 
-case "$TEST_TYPE" in
-    "full")
-        print_info "Выполнение полной проверки..."
-        
-        # Test 1: Check Chat model and relationships
-        print_info "1. Проверка модели Chat и связей..."
-        php artisan tinker --execute="
-            \$chats = App\\Models\\Chat::with('messages')->get();
-            echo 'Чатов с сообщениями: ' . \$chats->filter(function(\$chat) { return \$chat->messages->count() > 0; })->count();
-        "
-        
-        # Test 2: Check Message model and relationships
-        print_info "2. Проверка модели Message и связей..."
-        php artisan tinker --execute="
-            \$messages = App\\Models\\Message::with('chat', 'caps')->get();
-            echo 'Сообщений со связями: ' . \$messages->count();
-        "
-        
-        # Test 3: Check Cap analysis results
-        print_info "3. Проверка результатов анализа кап..."
-        php artisan tinker --execute="
-            \$caps = App\\Models\\Cap::with('message', 'history')->get();
-            echo 'Кап со связями: ' . \$caps->count();
-            if (\$caps->count() > 0) {
-                \$firstCap = \$caps->first();
-                \$geos = is_array(\$firstCap->geos) ? implode(', ', \$firstCap->geos) : \$firstCap->geos;
-                echo PHP_EOL . 'Пример капы: ' . \$geos . ' - ' . \$firstCap->total;
-            }
-        "
-        
-        # Test 4: Check CapHistory functionality
-        print_info "4. Проверка функциональности CapHistory..."
-        php artisan tinker --execute="
-            \$history = App\\Models\\CapHistory::with('cap')->get();
-            echo 'Записей в истории: ' . \$history->count();
-        "
-        
-        # Test 5: Check CapAnalysisService integration
-        print_info "5. Проверка интеграции CapAnalysisService..."
-        php artisan tinker --execute="
-            \$service = new App\\Services\\CapAnalysisService();
-            echo 'CapAnalysisService создан успешно';
-        "
-        ;;
-        
-    "stats")
-        print_info "Показ детальной статистики..."
-        
-        php artisan tinker --execute="
-            echo '=== СТАТИСТИКА ЧАТОВ ===' . PHP_EOL;
-            \$chats = App\\Models\\Chat::selectRaw('type, COUNT(*) as count')->groupBy('type')->get();
-            foreach (\$chats as \$chat) {
-                echo \$chat->type . ': ' . \$chat->count . PHP_EOL;
-            }
-            
-            echo PHP_EOL . '=== СТАТИСТИКА СООБЩЕНИЙ ===' . PHP_EOL;
-            \$messages = App\\Models\\Message::selectRaw('message_type, COUNT(*) as count')->groupBy('message_type')->get();
-            foreach (\$messages as \$message) {
-                echo (\$message->message_type ?? 'text') . ': ' . \$message->count . PHP_EOL;
-            }
-            
-            echo PHP_EOL . '=== СТАТИСТИКА КАП ===' . PHP_EOL;
-            \$caps = App\\Models\\Cap::selectRaw('geos, COUNT(*) as count')->groupBy('geos')->limit(10)->get();
-            foreach (\$caps as \$cap) {
-                echo \$cap->geos . ': ' . \$cap->count . PHP_EOL;
-            }
-        "
-        ;;
-        
-    *)
-        print_info "Выполнение быстрых проверок..."
-        
-        # Quick tests
-        print_info "1. Проверка создания чатов..."
-        php artisan tinker --execute="echo 'OK: ' . App\\Models\\Chat::count() . ' чатов';"
-        
-        print_info "2. Проверка создания сообщений..."
-        php artisan tinker --execute="echo 'OK: ' . App\\Models\\Message::count() . ' сообщений';"
-        
-        print_info "3. Проверка анализа кап..."
-        php artisan tinker --execute="echo 'OK: ' . App\\Models\\Cap::count() . ' кап найдено';"
-        
-        print_info "4. Проверка истории кап..."
-        php artisan tinker --execute="echo 'OK: ' . App\\Models\\CapHistory::count() . ' записей в истории';"
-        ;;
-esac
+print_info "Выполнение полной проверки..."
+
+# Test 1: Check Chat model and relationships
+print_info "1. Проверка модели Chat и связей..."
+php artisan tinker --execute="
+    \$chats = App\\Models\\Chat::with('messages')->get();
+    echo 'Чатов с сообщениями: ' . \$chats->filter(function(\$chat) { return \$chat->messages->count() > 0; })->count();
+"
+
+# Test 2: Check Message model and relationships
+print_info "2. Проверка модели Message и связей..."
+php artisan tinker --execute="
+    \$messages = App\\Models\\Message::with('chat', 'caps')->get();
+    echo 'Сообщений со связями: ' . \$messages->count();
+"
+
+# Test 3: Check Cap analysis results
+print_info "3. Проверка результатов анализа кап..."
+php artisan tinker --execute="
+    \$caps = App\\Models\\Cap::with('message', 'history')->get();
+    echo 'Кап со связями: ' . \$caps->count();
+    if (\$caps->count() > 0) {
+        \$firstCap = \$caps->first();
+        \$geos = is_array(\$firstCap->geos) ? implode(', ', \$firstCap->geos) : \$firstCap->geos;
+        echo PHP_EOL . 'Пример капы: ' . \$geos . ' - ' . \$firstCap->total;
+    }
+"
+
+# Test 4: Check CapHistory functionality
+print_info "4. Проверка функциональности CapHistory..."
+php artisan tinker --execute="
+    \$history = App\\Models\\CapHistory::with('cap')->get();
+    echo 'Записей в истории: ' . \$history->count();
+"
+
+# Test 5: Check CapAnalysisService integration
+print_info "5. Проверка интеграции CapAnalysisService..."
+php artisan tinker --execute="
+    \$service = new App\\Services\\CapAnalysisService();
+    echo 'CapAnalysisService создан успешно';
+"
+
+# Test 6: Show detailed statistics
+print_info "6. Детальная статистика..."
+php artisan tinker --execute="
+    echo '=== СТАТИСТИКА ЧАТОВ ===' . PHP_EOL;
+    \$chats = App\\Models\\Chat::selectRaw('type, COUNT(*) as count')->groupBy('type')->get();
+    foreach (\$chats as \$chat) {
+        echo \$chat->type . ': ' . \$chat->count . PHP_EOL;
+    }
+    
+    echo PHP_EOL . '=== СТАТИСТИКА СООБЩЕНИЙ ===' . PHP_EOL;
+    \$messages = App\\Models\\Message::selectRaw('message_type, COUNT(*) as count')->groupBy('message_type')->get();
+    foreach (\$messages as \$message) {
+        echo (\$message->message_type ?? 'text') . ': ' . \$message->count . PHP_EOL;
+    }
+    
+    echo PHP_EOL . '=== СТАТИСТИКА КАП ===' . PHP_EOL;
+    \$caps = App\\Models\\Cap::selectRaw('geos, COUNT(*) as count')->groupBy('geos')->limit(10)->get();
+    foreach (\$caps as \$cap) {
+        echo \$cap->geos . ': ' . \$cap->count . PHP_EOL;
+    }
+"
 
 # Record end time
 end_time=$(date +%s)
@@ -386,6 +283,4 @@ print_success "✅ Тесты проверили только базу данн�
 echo
 print_separator
 print_info "Готово! Система протестирована через встроенную логику."
-print_info "Генератор отправляет сообщения → система создает чаты → находит капы"
-print_info "Нажмите Enter для завершения..."
-read -r 
+print_info "Генератор отправляет сообщения → система создает чаты → находит капы" 

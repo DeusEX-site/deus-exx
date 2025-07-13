@@ -62,7 +62,7 @@ class CreateTestChats extends Command
         for ($i = 1; $i <= $chatCount; $i++) {
             try {
                 // Создаем базовые сообщения для создания чатов
-                $testMessage = $this->generateCapMessage($i, 'message_create_single_one', $combinations);
+                $testMessage = $this->generateCapMessage($i, 'message_create_single_one', $combinations, $i);
                 
                 // Отправляем через webhook контроллер
                 $request = new Request($testMessage);
@@ -109,8 +109,9 @@ class CreateTestChats extends Command
             // Отправляем этот тип операции в каждый чат
             for ($chatIndex = 1; $chatIndex <= $chatCount; $chatIndex++) {
                 try {
+                    // ИСПРАВЛЕНО: Используем уникальный messageIndex, но постоянный chatIndex
                     $messageIndex = ($chatIndex * 1000) + array_search($operationType, $operationTypes);
-                    $testMessage = $this->generateCapMessage($messageIndex, $operationType, $combinations);
+                    $testMessage = $this->generateCapMessage($messageIndex, $operationType, $combinations, $chatIndex);
                     
                     // Отправляем через webhook контроллер
                     $request = new Request($testMessage);
@@ -177,9 +178,10 @@ class CreateTestChats extends Command
 
 
 
-    private function generateCapMessage($index, $operationType, $combinations)
+    private function generateCapMessage($index, $operationType, $combinations, $chatIndex = null)
     {
-        $chatId = 1000 + $index;
+        // ИСПРАВЛЕНО: Используем chatIndex для постоянного chat_id, а index для уникального message_id
+        $chatId = 1000 + ($chatIndex ?? $index);
         $messageId = 10000 + $index;
         $userId = 2000 + $index;
         

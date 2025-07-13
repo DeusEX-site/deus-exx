@@ -102,7 +102,7 @@ class DynamicCapTestGenerator
         $message = '';
         
         foreach ($fields as $field => $value) {
-            $message .= $this->formatFieldName($field) . ': ' . $value . "\n";
+            $message .= ucfirst($field) . ': ' . $value . "\n";
         }
         
         return trim($message);
@@ -118,11 +118,11 @@ class DynamicCapTestGenerator
         // Базовые поля
         foreach ($baseFields as $field => $value) {
             if ($field === 'cap') {
-                $message .= $this->formatFieldName($field) . ': ' . implode(' ', $capValues) . "\n";
+                $message .= ucfirst($field) . ': ' . implode(' ', $capValues) . "\n";
             } elseif ($field === 'geo' || $field === 'funnel') {
-                $message .= $this->formatFieldName($field) . ': ' . implode(' ', $geoOrFunnelValues) . "\n";
+                $message .= ucfirst($field) . ': ' . implode(' ', $geoOrFunnelValues) . "\n";
             } else {
-                $message .= $this->formatFieldName($field) . ': ' . $value . "\n";
+                $message .= ucfirst($field) . ': ' . $value . "\n";
             }
         }
         
@@ -142,7 +142,7 @@ class DynamicCapTestGenerator
             }
             
             foreach ($block as $field => $value) {
-                $message .= $this->formatFieldName($field) . ': ' . $value . "\n";
+                $message .= ucfirst($field) . ': ' . $value . "\n";
             }
         }
         
@@ -158,12 +158,12 @@ class DynamicCapTestGenerator
         
         // Сначала идентификаторы для поиска капы
         foreach ($identifierFields as $field => $value) {
-            $message .= $this->formatFieldName($field) . ': ' . $value . "\n";
+            $message .= ucfirst($field) . ': ' . $value . "\n";
         }
         
         // Потом обновляемые поля
         foreach ($updateFields as $field => $value) {
-            $message .= $this->formatFieldName($field) . ': ' . $value . "\n";
+            $message .= ucfirst($field) . ': ' . $value . "\n";
         }
         
         return trim($message);
@@ -178,12 +178,12 @@ class DynamicCapTestGenerator
         
         // Сначала идентификаторы для поиска капы
         foreach ($identifierFields as $field => $value) {
-            $message .= $this->formatFieldName($field) . ': ' . $value . "\n";
+            $message .= ucfirst($field) . ': ' . $value . "\n";
         }
         
         // Потом поля для сброса (пустые значения)
         foreach ($resetFields as $field) {
-            $message .= $this->formatFieldName($field) . ': ' . "\n";
+            $message .= ucfirst($field) . ': ' . "\n";
         }
         
         return trim($message);
@@ -198,7 +198,7 @@ class DynamicCapTestGenerator
         
         // Сначала идентификаторы для поиска капы
         foreach ($identifierFields as $field => $value) {
-            $message .= $this->formatFieldName($field) . ': ' . $value . "\n";
+            $message .= ucfirst($field) . ': ' . $value . "\n";
         }
         
         // Потом команда статуса
@@ -366,26 +366,5 @@ class DynamicCapTestGenerator
     public function normalizeText(string $text): string
     {
         return mb_strtolower(trim($text));
-    }
-
-    /**
-     * Форматирует имя поля для использования в сообщениях
-     * Конвертирует подчеркивания в пробелы и применяет правильную капитализацию
-     */
-    private function formatFieldName(string $field): string
-    {
-        // Специальные случаи для полей с подчеркиваниями
-        $specialCases = [
-            'pending_acq' => 'Pending ACQ',
-            'freeze_status_on_acq' => 'Freeze status on ACQ',
-        ];
-        
-        // Если есть специальный случай, используем его
-        if (isset($specialCases[$field])) {
-            return $specialCases[$field];
-        }
-        
-        // Для остальных полей: заменяем подчеркивания на пробелы и капитализируем
-        return ucfirst(str_replace('_', ' ', $field));
     }
 } 
