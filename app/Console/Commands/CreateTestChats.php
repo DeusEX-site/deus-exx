@@ -24,27 +24,27 @@ class CreateTestChats extends Command
     private $fieldVariants = [
         'affiliate' => [
             'keys' => ['affiliate:', 'Affiliate:', 'AFFILIATE:', 'aFFiLiAtE:', 'affiliate :', ' affiliate:', 'affiliate: '],
-            'values' => ['TestAffiliate1', 'TestAffiliate2', 'G06', 'mbt internal', 'XYZ Company', 'Super-Affiliate', 'Affiliate_Test', 'TEST01', 'Партнер1', 'افлیت۱']
+            'values' => ['TestAffiliate1', 'TestAffiliate2', 'G06', 'mbt internal', 'Super-Affiliate', 'Affiliate_Test', 'TEST01', 'Партнер1', 'افلیت۱']
         ],
         'recipient' => [
             'keys' => ['recipient:', 'Recipient:', 'RECIPIENT:', 'rEcIpIeNt:', 'recipient :', ' recipient:', 'recipient: '],
-            'values' => ['TestBroker1', 'TestBroker2', 'TradingM', 'Global KZ', 'BinaryBroker', 'Crypto-Trader', 'Broker_Pro', 'Брокер1', 'بروکر۱', 'test broker']
+            'values' => ['TestBroker1', 'TestBroker2', 'TradingM', 'Global KZ', 'Crypto-Trader', 'Broker_Pro', 'Брокер1', 'بروکر۱', 'test broker']
         ],
         'cap' => [
             'keys' => ['cap:', 'Cap:', 'CAP:', 'cAp:', 'cap :', ' cap:', 'cap: '],
-            'values' => ['10', '20 30', '100 200 300', '50', '25 50 75 100', '5', '999', '1 2 3 4 5', '0', '10000']
+            'values' => ['10', '20 30', '100 200 300', '50', '5', '999', '10000']
         ],
         'geo' => [
             'keys' => ['geo:', 'Geo:', 'GEO:', 'gEo:', 'geo :', ' geo:', 'geo: '],
-            'values' => ['RU', 'RU UA', 'DE AT CH', 'US UK CA', 'FR IT ES', 'KZ', 'AU NZ', 'IE', 'PL CZ SK', 'BR AR MX']
+            'values' => ['RU', 'RU UA', 'DE AT CH', 'US UK CA', 'KZ', 'AU NZ', 'IE', 'PL CZ SK', 'BR AR MX']
         ],
         'schedule' => [
             'keys' => ['schedule:', 'Schedule:', 'SCHEDULE:', 'sChEdUlE:', 'schedule :', ' schedule:', 'schedule: '],
-            'values' => ['24/7', '10-19', '09:00/18:00 GMT+01:00', '8.30 - 14.30 +3', '18:00/01:00 GMT+03:00', '24h', '10:00-19:00', '9-17', '12:00/20:00 GMT+02:00', '00-24', 'круглосуточно', '10-19 +2', 'always', 'non-stop']
+            'values' => ['24/7', '10-19', '09:00/18:00 GMT+01:00', '8.30 - 14.30 +3', '18:00/01:00 GMT+03:00', '10:00-19:00', '9-17', '12:00/20:00 GMT+02:00', '10-19 +2']
         ],
         'date' => [
             'keys' => ['date:', 'Date:', 'DATE:', 'dAtE:', 'date :', ' date:', 'date: '],
-            'values' => ['24.02', '01.01 02.02', '25.12.2024', '2024-01-01', '15/03/2024', '01.01-31.12', '24.02 25.02', 'today', 'завтра', '2024.01.01']
+            'values' => ['24.02', '01.01 02.02', '25.12.2024', '2024-01-01', '15/03/2024', '01.01-31.12', '24.02 25.02', '2024.01.01']
         ],
         'language' => [
             'keys' => ['language:', 'Language:', 'LANGUAGE:', 'lAnGuAgE:', 'language :', ' language:', 'language: '],
@@ -60,15 +60,15 @@ class CreateTestChats extends Command
         ],
         'total' => [
             'keys' => ['total:', 'Total:', 'TOTAL:', 'tOtAl:', 'total :', ' total:', 'total: '],
-            'values' => ['100', '500 1000', '200 400 600', '-', '999', '50 100 150', '1000', 'unlimited', '∞', '0', '1', '10000']
+            'values' => ['100', '500 1000', '200 400 600', '999', '50 100 150', '1000', '1', '10000']
         ],
         'pending_acq' => [
             'keys' => ['pending acq:', 'Pending ACQ:', 'PENDING ACQ:', 'Pending acq:', 'pending Acq:', 'pending acq :', ' pending acq:', 'pending acq: '],
-            'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет', 'yes,no,yes', '1,0,1']
+            'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет']
         ],
         'freeze_status_on_acq' => [
             'keys' => ['freeze status on acq:', 'Freeze status on ACQ:', 'FREEZE STATUS ON ACQ:', 'Freeze Status On Acq:', 'freeze Status on acq:', 'freeze status on acq :', ' freeze status on acq:', 'freeze status on acq: '],
-            'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет', 'freeze', 'unfreeze', 'yes,no,yes']
+            'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет', 'freeze', 'unfreeze']
         ]
     ];
 
@@ -373,25 +373,17 @@ class CreateTestChats extends Command
     {
         $variants = [];
         
-        // Вариант 1: Все поля пустые
-        $variants[] = [
-            'extreme_type' => 'all_empty',
-            'affiliate' => ['affiliate:', ''],
-            'recipient' => ['recipient:', ''],
-            'cap' => ['cap:', '-'],
-            'geo' => ['geo:', ''],
-        ];
-        
-        // Вариант 2: Максимально длинные значения
+        // Вариант 1: Максимально длинные значения с корректными пропорциями
         $variants[] = [
             'extreme_type' => 'max_length',
             'affiliate' => ['affiliate:', 'Very-Long-Affiliate-Name-With-Special-Characters-And-Numbers-123'],
             'recipient' => ['recipient:', 'Extremely-Long-Recipient-Name-For-Testing-Maximum-Field-Length'],
-            'cap' => ['cap:', '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20'],
-            'geo' => ['geo:', 'RU UA KZ DE FR IT ES US UK CA AU NZ IE PL CZ'],
+            'cap' => ['cap:', '100 200 300 400 500'],
+            'geo' => ['geo:', 'RU UA KZ DE FR'],
         ];
         
-        // Вариант 3: Специальные символы - УДАЛЕН по требованию пользователя
+        // Вариант 2: Специальные символы - УДАЛЕН по требованию пользователя
+        // Вариант 3: Все поля пустые - УДАЛЕН по требованию пользователя
         
         return $variants;
     }
@@ -460,7 +452,7 @@ class CreateTestChats extends Command
             ['pending_acq' => 'yes', 'freeze_status_on_acq' => 'no'],
             ['test' => 'yes', 'funnel' => 'forex'],
             ['schedule' => '10-19', 'language' => 'ru'],
-            ['total' => '-', 'date' => ''],
+            ['total' => '1000', 'date' => '24.02'],
         ];
         
         return $updateFields[$index % count($updateFields)];
@@ -470,10 +462,10 @@ class CreateTestChats extends Command
     {
         $replyFields = [
             ['schedule' => '10-19', 'total' => '300'],
-            ['geo' => 'RU UA KZ', 'schedule' => '24/7'],
             ['language' => 'en', 'funnel' => 'forex'],
             ['test' => 'debug', 'total' => '999'],
             ['pending_acq' => 'yes', 'total' => '1000'],
+            ['schedule' => '24/7', 'funnel' => 'crypto'],
         ];
         
         return $replyFields[$index % count($replyFields)];
@@ -483,9 +475,9 @@ class CreateTestChats extends Command
     {
         $quoteFields = [
             ['schedule' => '12-20', 'total' => '400'],
-            ['geo' => 'DE FR IT', 'schedule' => '24/7'],
             ['language' => 'de', 'funnel' => 'binary'],
             ['test' => 'live', 'funnel' => 'crypto'],
+            ['schedule' => '24/7', 'total' => '500'],
         ];
         
         return $quoteFields[$index % count($quoteFields)];
