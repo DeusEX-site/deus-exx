@@ -1454,7 +1454,7 @@ class CreateTestChats extends Command
             
             // Проверяем каждую созданную капу
             foreach ($actualResults['created_caps'] as $index => $cap) {
-                $this->info("  📋 Капа #{$index + 1}:");
+                $this->info("  📋 Капа #" . ($index + 1) . ":");
                 $this->info("    ✅ affiliate: '{$cap['affiliate']}'");
                 $this->info("    ✅ recipient: '{$cap['recipient']}'");
                 $this->info("    ✅ geo: '{$cap['geo']}'");
