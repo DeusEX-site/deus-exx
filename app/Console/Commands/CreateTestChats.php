@@ -577,11 +577,36 @@ class CreateTestChats extends Command
 
     private function clearDatabase()
     {
-        // Очищаем все тестовые данные
-        Message::truncate();
-        Chat::truncate();
-        Cap::truncate();
-        CapHistory::truncate();
+        try {
+            // Отключаем проверку внешних ключей
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            
+            // Очищаем все тестовые данные в правильном порядке
+            // Сначала удаляем зависимые таблицы
+            CapHistory::truncate();
+            Cap::truncate();
+            Message::truncate();
+            Chat::truncate();
+            
+            // Включаем проверку внешних ключей обратно
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            
+        } catch (\Exception $e) {
+            // Если TRUNCATE не работает, используем DELETE
+            $this->warn('TRUNCATE не удался, используем DELETE...');
+            
+            // Удаляем в правильном порядке
+            CapHistory::query()->delete();
+            Cap::query()->delete();
+            Message::query()->delete();
+            Chat::query()->delete();
+            
+            // Сбрасываем AUTO_INCREMENT
+            DB::statement('ALTER TABLE cap_history AUTO_INCREMENT = 1');
+            DB::statement('ALTER TABLE caps AUTO_INCREMENT = 1');
+            DB::statement('ALTER TABLE messages AUTO_INCREMENT = 1');
+            DB::statement('ALTER TABLE chats AUTO_INCREMENT = 1');
+        }
         
         // Сбрасываем отслеживание использованных комбинаций
         $this->usedCombinations = [];
