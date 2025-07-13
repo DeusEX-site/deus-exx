@@ -195,6 +195,10 @@ class CreateTestChats extends Command
             $accuracy = round(($correctResults / ($correctResults + $incorrectResults)) * 100, 2);
             $this->info("📊 Точность системы: {$accuracy}%");
         }
+        
+        // Ожидание нажатия Enter
+        $this->info("");
+        $this->ask("Нажмите Enter для завершения...");
     }
     
     private function generateVariantForMessageType($messageType, $index)
