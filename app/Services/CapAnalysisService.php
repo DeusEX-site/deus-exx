@@ -56,8 +56,9 @@ class CapAnalysisService
                 // Поскольку теперь одна капа = одно гео, берем первое гео из массива
                 $geo = $capData['geos'][0] ?? null;
                 
-                if (!$geo) {
-                    continue; // Пропускаем если нет гео
+                // Дополнительная валидация - проверяем все обязательные поля
+                if (!$geo || !$capData['affiliate_name'] || !$capData['recipient_name'] || !$capData['cap_amount']) {
+                    continue; // Пропускаем если нет обязательных полей
                 }
                 
                 $existingCap = null;
@@ -149,7 +150,9 @@ class CapAnalysisService
         $updateData = [];
         
         // CAP amount - всегда обновляем если указан и не пустой (это обязательное поле)
-        if (isset($newCapData['cap_amount']) && $newCapData['cap_amount'] > 0 && $existingCap->cap_amounts[0] != $newCapData['cap_amount']) {
+        if (isset($newCapData['cap_amount']) && $newCapData['cap_amount'] > 0 && 
+            is_array($existingCap->cap_amounts) && !empty($existingCap->cap_amounts) && 
+            $existingCap->cap_amounts[0] != $newCapData['cap_amount']) {
             $updateData['cap_amounts'] = [$newCapData['cap_amount']];
         }
         
@@ -404,7 +407,9 @@ class CapAnalysisService
                     default => 'обновлена'
                 };
 
-                $messages[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$cap->geos[0]}, {$cap->cap_amounts[0]}) {$action}";
+                                    $geoStr = is_array($cap->geos) && !empty($cap->geos) ? $cap->geos[0] : 'Unknown';
+                    $capStr = is_array($cap->cap_amounts) && !empty($cap->cap_amounts) ? $cap->cap_amounts[0] : 'Unknown';
+                    $messages[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$geoStr}, {$capStr}) {$action}";
             }
             
             return [
@@ -468,7 +473,8 @@ class CapAnalysisService
                 'cap_entries_count' => 0,
                 'updated_entries_count' => 1,
                 'status_changed' => 1,
-                    'message' => "Капа {$cap->affiliate_name} → {$cap->recipient_name} ({$geo}, {$cap->cap_amounts[0]}) {$action}"
+                    'message' => "Капа {$cap->affiliate_name} → {$cap->recipient_name} ({$geo}, " . 
+                           (is_array($cap->cap_amounts) && !empty($cap->cap_amounts) ? $cap->cap_amounts[0] : 'Unknown') . ") {$action}"
                 ];
             } else {
                 // Если Geo не указан - обновляем все капы в сообщении
@@ -507,7 +513,9 @@ class CapAnalysisService
                         default => 'обновлена'
                     };
 
-                    $messages[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$cap->geos[0]}, {$cap->cap_amounts[0]}) {$action}";
+                    $geoStr = is_array($cap->geos) && !empty($cap->geos) ? $cap->geos[0] : 'Unknown';
+                    $capStr = is_array($cap->cap_amounts) && !empty($cap->cap_amounts) ? $cap->cap_amounts[0] : 'Unknown';
+                    $messages[] = "{$cap->affiliate_name} → {$cap->recipient_name} ({$geoStr}, {$capStr}) {$action}";
                 }
 
                 return [
@@ -643,13 +651,27 @@ class CapAnalysisService
     private function isStandardCapMessage($messageText)
     {
         // Ищем обязательные поля: Affiliate, Recipient, Cap, Geo
-        // Изменено: (.+) -> (.*) чтобы поддерживать пустые поля
-        $hasAffiliate = preg_match('/^affiliate:\s*(.*)$/mi', $messageText);
-        $hasRecipient = preg_match('/^recipient:\s*(.*)$/mi', $messageText);
-        $hasCap = preg_match('/^cap:\s*(.*)$/mi', $messageText);
-        $hasGeo = preg_match('/^geo:\s*(.*)$/mi', $messageText);
+        // ВАЖНО: Проверяем не только наличие полей, но и что они имеют непустые значения
+        $hasAffiliate = preg_match('/^affiliate:\s*(.*)$/mi', $messageText, $affiliateMatch);
+        $hasRecipient = preg_match('/^recipient:\s*(.*)$/mi', $messageText, $recipientMatch);
+        $hasCap = preg_match('/^cap:\s*(.*)$/mi', $messageText, $capMatch);
+        $hasGeo = preg_match('/^geo:\s*(.*)$/mi', $messageText, $geoMatch);
         
-        return $hasAffiliate && $hasRecipient && $hasCap && $hasGeo;
+        // Проверяем, что поля найдены И имеют непустые значения
+        if (!$hasAffiliate || !$hasRecipient || !$hasCap || !$hasGeo) {
+            return false;
+        }
+        
+        // Проверяем, что значения не пустые
+        $affiliateValue = trim($affiliateMatch[1]);
+        $recipientValue = trim($recipientMatch[1]);
+        $capValue = trim($capMatch[1]);
+        $geoValue = trim($geoMatch[1]);
+        
+        return !$this->isEmpty($affiliateValue) && 
+               !$this->isEmpty($recipientValue) && 
+               !$this->isEmpty($capValue) && 
+               !$this->isEmpty($geoValue);
     }
 
     /**
@@ -881,21 +903,14 @@ class CapAnalysisService
             }
         }
 
-        // Если cap и geo оба пустые, создаем одну пустую комбинацию
-        if (empty($caps) && empty($geos)) {
-            $caps = [null];
-            $geos = [null];
+        // Проверяем, что и cap, и geo имеют значения
+        if (empty($caps) || empty($geos)) {
+            return null; // Отклоняем сообщения с пустыми cap или geo
         }
-        // Если только один из них пустой, выравниваем количество
-        elseif (empty($caps) && !empty($geos)) {
-            $caps = array_fill(0, count($geos), null);
-        }
-        elseif (!empty($caps) && empty($geos)) {
-            $geos = array_fill(0, count($caps), null);
-        }
-        // Проверяем, что количество совпадает
-        elseif (count($caps) !== count($geos)) {
-            return null;
+        
+        // Проверяем, что количество cap совпадает с количеством geo
+        if (count($caps) !== count($geos)) {
+            return null; // Отклоняем сообщения с несовпадающими количествами
         }
 
         // Парсим необязательные списки
@@ -1745,7 +1760,8 @@ class CapAnalysisService
                 // Капа для этого гео не найдена - создаем новую на основе исходной капы
                 $newCapData = [
                     'message_id' => $originalCap->message_id, // Привязываем к исходному сообщению
-                    'cap_amounts' => [isset($caps[$i]) ? $caps[$i] : $originalCap->cap_amounts[0]],
+                    'cap_amounts' => [isset($caps[$i]) ? $caps[$i] : 
+                                     (is_array($originalCap->cap_amounts) && !empty($originalCap->cap_amounts) ? $originalCap->cap_amounts[0] : 0)],
                     'total_amount' => isset($totals[$i]) ? $totals[$i] : $originalCap->total_amount,
                     'affiliate_name' => $originalCap->affiliate_name,
                     'recipient_name' => $originalCap->recipient_name,
@@ -1794,7 +1810,8 @@ class CapAnalysisService
             
             // Создаем данные для обновления
             $updateCapData = [
-                'cap_amount' => isset($caps[$i]) ? $caps[$i] : $existingCap->cap_amounts[0],
+                'cap_amount' => isset($caps[$i]) ? $caps[$i] : 
+                               (is_array($existingCap->cap_amounts) && !empty($existingCap->cap_amounts) ? $existingCap->cap_amounts[0] : 0),
                 'total_amount' => isset($totals[$i]) ? $totals[$i] : $existingCap->total_amount,
                 'language' => isset($languages[$i]) ? $languages[$i] : $existingCap->language,
                 'funnel' => isset($funnels[$i]) ? $funnels[$i] : $existingCap->funnel,

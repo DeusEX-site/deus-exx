@@ -72,6 +72,11 @@ class Cap extends Model
      */
     public static function findDuplicate($affiliateName, $recipientName, $geo)
     {
+        // Проверяем, что все значения непустые
+        if (!$affiliateName || !$recipientName || !$geo) {
+            return null; // Не ищем дубликаты для пустых значений
+        }
+        
         return self::where('affiliate_name', $affiliateName)
                    ->where('recipient_name', $recipientName)
                    ->whereJsonContains('geos', $geo)
