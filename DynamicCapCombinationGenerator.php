@@ -402,8 +402,17 @@ class DynamicCapCombinationGenerator
      */
     private function getCombinations(array $array, int $size): array
     {
+        // Проверка на пустой массив
+        if (empty($array)) {
+            return $size === 0 ? [[]] : [];
+        }
+        
         if ($size == 0) {
             return [[]];
+        }
+        
+        if ($size > count($array)) {
+            return [];
         }
         
         if ($size == count($array)) {
@@ -418,7 +427,9 @@ class DynamicCapCombinationGenerator
             $subCombinations = $this->getCombinations($remaining, $size - 1);
             
             foreach ($subCombinations as $subCombination) {
-                $combinations[] = array_merge([$current], $subCombination);
+                if (is_array($subCombination)) {
+                    $combinations[] = array_merge([$current], $subCombination);
+                }
             }
         }
         
