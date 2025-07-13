@@ -12,20 +12,20 @@ class Cap extends Model
     protected $fillable = [
         'message_id',
         'original_message_id',
-        'cap_amounts',
+        'cap_amount',
         'total_amount',
         'schedule',
         'date',
         'is_24_7',
         'affiliate_name',
         'recipient_name',
-        'geos',
+        'geo',
         'work_hours',
         'start_time',
         'end_time',
         'timezone',
         'language',
-        'funnels',
+        'funnel',
         'test',
         'pending_acq',
         'freeze_status_on_acq',
@@ -35,9 +35,7 @@ class Cap extends Model
     ];
 
     protected $casts = [
-        'cap_amounts' => 'array',
-        'geos' => 'array',
-        'funnels' => 'array',
+        'cap_amount' => 'integer',
         'is_24_7' => 'boolean',
         'total_amount' => 'integer',
         'pending_acq' => 'boolean',
@@ -81,7 +79,7 @@ class Cap extends Model
         
         return self::where('affiliate_name', $affiliateName)
                    ->where('recipient_name', $recipientName)
-                   ->whereJsonContains('geos', $geo)
+                   ->where('geo', $geo)
                    ->whereIn('status', ['RUN', 'STOP']) // DELETE не участвует в поиске дубликатов
                    ->first();
     }
