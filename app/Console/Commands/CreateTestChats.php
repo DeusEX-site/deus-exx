@@ -316,14 +316,6 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
-        $scheduleVariants = $this->getFieldVariants('schedule', $index);
-        $totalVariants = $this->getFieldVariants('total', $index);
-        $dateVariants = $this->getFieldVariants('date', $index);
-        $languageVariants = $this->getFieldVariants('language', $index);
-        $funnelVariants = $this->getFieldVariants('funnel', $index);
-        $testVariants = $this->getFieldVariants('test', $index);
-        $pendingVariants = $this->getFieldVariants('pending_acq', $index);
-        $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
         // Получаем совместимые cap-geo пары для group_single
         $capGeoPair1 = $this->getCompatibleCapGeoPair('group_single', $index);
@@ -335,40 +327,53 @@ class CreateTestChats extends Command
         $affiliate2 = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient2 = $recipientVariants[array_rand($recipientVariants)];
         
-        $schedule = $scheduleVariants[array_rand($scheduleVariants)];
-        $total = $totalVariants[array_rand($totalVariants)];
-        $date = $dateVariants[array_rand($dateVariants)];
-        $language = $languageVariants[array_rand($languageVariants)];
-        $funnel = $funnelVariants[array_rand($funnelVariants)];
-        $test = $testVariants[array_rand($testVariants)];
-        $pending = $pendingVariants[array_rand($pendingVariants)];
-        $freeze = $freezeVariants[array_rand($freezeVariants)];
+        // Создаем блоки с базовыми полями
+        $blocks = [
+            [
+                'affiliate' => $affiliate1,
+                'recipient' => $recipient1,
+                'cap' => $capGeoPair1['cap'],
+                'geo' => $capGeoPair1['geo']
+            ],
+            [
+                'affiliate' => $affiliate2,
+                'recipient' => $recipient2,
+                'cap' => $capGeoPair2['cap'],
+                'geo' => $capGeoPair2['geo']
+            ]
+        ];
+        
+        // Добавляем дополнительные поля в каждый блок
+        $additionalFields = ['schedule', 'date', 'language', 'funnel', 'test', 'total', 'pending_acq', 'freeze_status_on_acq'];
+        
+        foreach ($blocks as $blockIndex => &$block) {
+            // ГАРАНТИРОВАННО добавляем 3-4 дополнительных поля в каждый блок
+            $fieldsForBlock = $additionalFields;
+            shuffle($fieldsForBlock);
+            $guaranteedCount = rand(3, 4);
+            
+            for ($i = 0; $i < $guaranteedCount; $i++) {
+                $fieldName = $fieldsForBlock[$i];
+                $fieldVariants = $this->getFieldVariants($fieldName, $index + $blockIndex);
+                $fieldIndex = ($index + $blockIndex) % count($fieldVariants);
+                $block[$fieldName] = $fieldVariants[$fieldIndex];
+            }
+            
+            // Остальные поля добавляем с вероятностью 30%
+            for ($i = $guaranteedCount; $i < count($fieldsForBlock); $i++) {
+                if (rand(1, 10) <= 3) { // 30% вероятность
+                    $fieldName = $fieldsForBlock[$i];
+                    $fieldVariants = $this->getFieldVariants($fieldName, $index + $blockIndex);
+                    $fieldIndex = ($index + $blockIndex) % count($fieldVariants);
+                    $block[$fieldName] = $fieldVariants[$fieldIndex];
+                }
+            }
+        }
         
         return [
             'message_type' => 'group_single',
             'is_group_message' => true,
-            'blocks' => [
-                [
-                    'affiliate' => $affiliate1,
-                    'recipient' => $recipient1,
-                    'cap' => $capGeoPair1['cap'],
-                    'geo' => $capGeoPair1['geo']
-                ],
-                [
-                    'affiliate' => $affiliate2,
-                    'recipient' => $recipient2,
-                    'cap' => $capGeoPair2['cap'],
-                    'geo' => $capGeoPair2['geo']
-                ]
-            ],
-            'schedule' => $schedule,
-            'total' => $total,
-            'date' => $date,
-            'language' => $language,
-            'funnel' => $funnel,
-            'test' => $test,
-            'pending_acq' => $pending,
-            'freeze_status_on_acq' => $freeze
+            'blocks' => $blocks
         ];
     }
     
@@ -376,14 +381,6 @@ class CreateTestChats extends Command
     {
         $affiliateVariants = $this->getFieldVariants('affiliate', $index);
         $recipientVariants = $this->getFieldVariants('recipient', $index);
-        $scheduleVariants = $this->getFieldVariants('schedule', $index);
-        $totalVariants = $this->getFieldVariants('total', $index);
-        $dateVariants = $this->getFieldVariants('date', $index);
-        $languageVariants = $this->getFieldVariants('language', $index);
-        $funnelVariants = $this->getFieldVariants('funnel', $index);
-        $testVariants = $this->getFieldVariants('test', $index);
-        $pendingVariants = $this->getFieldVariants('pending_acq', $index);
-        $freezeVariants = $this->getFieldVariants('freeze_status_on_acq', $index);
         
         // Получаем совместимые cap-geo пары для group_multi
         $capGeoPair1 = $this->getCompatibleCapGeoPair('group_multi', $index);
@@ -395,40 +392,53 @@ class CreateTestChats extends Command
         $affiliate2 = $affiliateVariants[array_rand($affiliateVariants)];
         $recipient2 = $recipientVariants[array_rand($recipientVariants)];
         
-        $schedule = $scheduleVariants[array_rand($scheduleVariants)];
-        $total = $totalVariants[array_rand($totalVariants)];
-        $date = $dateVariants[array_rand($dateVariants)];
-        $language = $languageVariants[array_rand($languageVariants)];
-        $funnel = $funnelVariants[array_rand($funnelVariants)];
-        $test = $testVariants[array_rand($testVariants)];
-        $pending = $pendingVariants[array_rand($pendingVariants)];
-        $freeze = $freezeVariants[array_rand($freezeVariants)];
+        // Создаем блоки с базовыми полями
+        $blocks = [
+            [
+                'affiliate' => $affiliate1,
+                'recipient' => $recipient1,
+                'cap' => $capGeoPair1['cap'],
+                'geo' => $capGeoPair1['geo']
+            ],
+            [
+                'affiliate' => $affiliate2,
+                'recipient' => $recipient2,
+                'cap' => $capGeoPair2['cap'],
+                'geo' => $capGeoPair2['geo']
+            ]
+        ];
+        
+        // Добавляем дополнительные поля в каждый блок
+        $additionalFields = ['schedule', 'date', 'language', 'funnel', 'test', 'total', 'pending_acq', 'freeze_status_on_acq'];
+        
+        foreach ($blocks as $blockIndex => &$block) {
+            // ГАРАНТИРОВАННО добавляем 3-4 дополнительных поля в каждый блок
+            $fieldsForBlock = $additionalFields;
+            shuffle($fieldsForBlock);
+            $guaranteedCount = rand(3, 4);
+            
+            for ($i = 0; $i < $guaranteedCount; $i++) {
+                $fieldName = $fieldsForBlock[$i];
+                $fieldVariants = $this->getFieldVariants($fieldName, $index + $blockIndex);
+                $fieldIndex = ($index + $blockIndex) % count($fieldVariants);
+                $block[$fieldName] = $fieldVariants[$fieldIndex];
+            }
+            
+            // Остальные поля добавляем с вероятностью 30%
+            for ($i = $guaranteedCount; $i < count($fieldsForBlock); $i++) {
+                if (rand(1, 10) <= 3) { // 30% вероятность
+                    $fieldName = $fieldsForBlock[$i];
+                    $fieldVariants = $this->getFieldVariants($fieldName, $index + $blockIndex);
+                    $fieldIndex = ($index + $blockIndex) % count($fieldVariants);
+                    $block[$fieldName] = $fieldVariants[$fieldIndex];
+                }
+            }
+        }
         
         return [
             'message_type' => 'group_multi',
             'is_group_message' => true,
-            'blocks' => [
-                [
-                    'affiliate' => $affiliate1,
-                    'recipient' => $recipient1,
-                    'cap' => $capGeoPair1['cap'],
-                    'geo' => $capGeoPair1['geo']
-                ],
-                [
-                    'affiliate' => $affiliate2,
-                    'recipient' => $recipient2,
-                    'cap' => $capGeoPair2['cap'],
-                    'geo' => $capGeoPair2['geo']
-                ]
-            ],
-            'schedule' => $schedule,
-            'total' => $total,
-            'date' => $date,
-            'language' => $language,
-            'funnel' => $funnel,
-            'test' => $test,
-            'pending_acq' => $pending,
-            'freeze_status_on_acq' => $freeze
+            'blocks' => $blocks
         ];
     }
     
