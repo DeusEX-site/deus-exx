@@ -1189,11 +1189,12 @@ class CapAnalysisService
         $freezeStatus = isset($freezeStatuses[0]) ? $freezeStatuses[0] : false;
         $date = isset($dates[0]) ? $dates[0] : null;
 
-        // Парсим время из расписания
-        $scheduleData = $this->parseScheduleTime($schedule);
-
         // Создаем отдельную запись для каждой комбинации
         for ($i = 0; $i < $count; $i++) {
+            // Парсим расписание для каждой записи отдельно
+            $currentSchedule = isset($schedules[$i]) ? $schedules[$i] : $schedule;
+            $scheduleData = $this->parseScheduleTime($currentSchedule);
+            
             $combination = [
                 'affiliate_name' => $affiliate,
                 'recipient_name' => $recipient,
@@ -1209,7 +1210,7 @@ class CapAnalysisService
                 'start_time' => $scheduleData['start_time'],
                 'end_time' => $scheduleData['end_time'],
                 'timezone' => $scheduleData['timezone'],
-                'date' => $date,
+                'date' => isset($dates[$i]) ? $dates[$i] : $date, // Исправлено: берем соответствующую дату или значение по умолчанию
                 'pending_acq' => $pendingAcq,
                 'freeze_status_on_acq' => $freezeStatus
             ];

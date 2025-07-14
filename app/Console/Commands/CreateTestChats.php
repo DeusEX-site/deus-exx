@@ -43,11 +43,11 @@ class CreateTestChats extends Command
         ],
         'schedule' => [
             'keys' => ['schedule:', 'Schedule:', 'SCHEDULE:', 'sChEdUlE:'],
-            'values' => ['24/7', '10-19', '09:00/18:00 GMT+01:00', '8.30 - 14.30 +3', '18:00/01:00 GMT+03:00', '10:00-19:00', '9-17', '12:00/20:00 GMT+02:00', '10-19 +2']
+            'values' => ['24/7', '10-19', '09:00/18:00 GMT+01:00', '8.30 - 14.30 +3', '18:00/01:00 GMT+03:00', '10:00-19:00', '9-17', '12:00/20:00 GMT+02:00', '10-19 +2', '09:00/18:00 10:00/18:00 GMT+01:00', '8.30 - 14.30 9.30 - 12.30 +3', '10:00-19:00 11:00-20:00 12:00-13:00', '10-19 11-20 +2']
         ],
         'date' => [
             'keys' => ['date:', 'Date:', 'DATE:', 'dAtE:'],
-            'values' => ['24.02', '01.01 02.02', '25.12.2024', '2024-01-01', '15/03/2024', '01.01-31.12', '24.02 25.02', '2024.01.01']
+            'values' => ['24.02', '01.01 02.02', '25.12.2024', '24.02 25.02']
         ],
         'language' => [
             'keys' => ['language:', 'Language:', 'LANGUAGE:', 'lAnGuAgE:'],
@@ -59,7 +59,7 @@ class CreateTestChats extends Command
         ],
         'test' => [
             'keys' => ['test:', 'Test:', 'TEST:', 'tEsT:'],
-            'values' => ['yes', 'no', 'true', 'false', 'active', 'inactive', 'on', 'off', 'enabled', 'disabled', 'debug', 'live', 'staging', 'production']
+            'values' => ['yes', 'no', 'geo', 'any']
         ],
         'total' => [
             'keys' => ['total:', 'Total:', 'TOTAL:', 'tOtAl:'],
@@ -67,11 +67,11 @@ class CreateTestChats extends Command
         ],
         'pending_acq' => [
             'keys' => ['pending acq:', 'Pending ACQ:', 'PENDING ACQ:', 'Pending acq:', 'pending Acq:'],
-            'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет']
+            'values' => ['yes', 'no']
         ],
         'freeze_status_on_acq' => [
             'keys' => ['freeze status on acq:', 'Freeze status on ACQ:', 'FREEZE STATUS ON ACQ:', 'Freeze Status On Acq:', 'freeze Status on acq:'],
-            'values' => ['yes', 'no', 'true', 'false', 'yes no', 'true false', '1', '0', 'да', 'нет', 'freeze', 'unfreeze']
+            'values' => ['yes', 'no']
         ]
     ];
 
